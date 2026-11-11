@@ -448,6 +448,13 @@ func TestNativeModules(t *testing.T) {
 	if res.StatusCode != http.StatusCreated {
 		t.Fatalf("create station status = %d payload=%v", res.StatusCode, payload)
 	}
+	stationID := int64(payload["data"].(map[string]any)["station"].(map[string]any)["id"].(float64))
+	for _, path := range []string{"/api/v1/stations/export", "/api/v1/stations/template", fmt.Sprintf("/api/v1/stations/%d/export", stationID)} {
+		res, _ := app.request(http.MethodGet, path, nil, "", nil)
+		if res.StatusCode != http.StatusOK || !strings.Contains(res.Header.Get("Content-Type"), "spreadsheetml") {
+			t.Fatalf("%s export failed: %d %q", path, res.StatusCode, res.Header.Get("Content-Type"))
+		}
+	}
 
 	res, payload = app.request(http.MethodPost, "/api/v1/nokia/sites", map[string]any{
 		"site_id": "NKTESTE01", "oc": "OC-TESTE-01", "regional": "TSP",

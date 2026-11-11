@@ -166,6 +166,7 @@ func (s *Server) Router() http.Handler {
 				stations.Get("/template", s.stationsTemplate)
 				stations.Post("/import", s.stationsImport)
 				stations.Get("/{id}", s.stationsShow)
+				stations.Get("/{id}/export", s.stationExportOne)
 				stations.Put("/{id}", s.stationsUpdate)
 				stations.Delete("/{id}", s.stationsDelete)
 				stations.Post("/{id}/attachments", s.stationsUploadAttachment)

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Add, Download, Edit, TrashCan, Upload } from '@carbon/icons-react';
 import {
   Button,
@@ -43,6 +44,7 @@ const EMPTY = {
 export function StationsPage() {
   const { user } = useAuth();
   const toast = useToast();
+  const navigate = useNavigate();
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -150,7 +152,8 @@ export function StationsPage() {
         actions={
           <>
             <Button kind="ghost" renderIcon={Download} onClick={() => window.open('/api/v1/stations/export', '_blank')}>Exportar</Button>
-            <Button kind="ghost" renderIcon={Upload} onClick={() => { const input = document.createElement('input'); input.type = 'file'; input.accept = '.csv'; input.onchange = async () => { if (!input.files?.[0]) return; const formData = new FormData(); formData.append('file', input.files[0]); try { const response = await api.upload<{ message: string }>('/stations/import', formData); toast.success(response.message); await load(); } catch (error) { toast.error('Falha na importação', errorMessage(error)); } }; input.click(); }}>Importar</Button>
+            <Button kind="ghost" renderIcon={Download} onClick={() => window.open('/api/v1/stations/template', '_blank')}>Modelo XLSX</Button>
+            <Button kind="ghost" renderIcon={Upload} onClick={() => { const input = document.createElement('input'); input.type = 'file'; input.accept = '.csv,.xlsx'; input.onchange = async () => { if (!input.files?.[0]) return; const formData = new FormData(); formData.append('file', input.files[0]); try { const response = await api.upload<{ message: string }>('/stations/import', formData); toast.success(response.message); await load(); } catch (error) { toast.error('Falha na importação', errorMessage(error)); } }; input.click(); }}>Importar</Button>
             <Button renderIcon={Add} onClick={openCreate}>Nova estação</Button>
           </>
         }
@@ -188,7 +191,7 @@ export function StationsPage() {
               <tbody>
                 {items.map((item) => (
                   <tr key={item.id}>
-                    <td><button type="button" className="link-button" onClick={() => void openDetail(item)}>{item.site_id}</button><span className="cell-secondary">{item.station_id ? `ESTAÇÃO ${item.station_id}` : '—'}</span></td>
+                    <td><button type="button" className="link-button" onClick={() => navigate(`/stations/${item.id}`)}>{item.site_id}</button><span className="cell-secondary">{item.station_id ? `ESTAÇÃO ${item.station_id}` : '—'}</span></td>
                     <td>{item.tecnologia ?? 'Sem tecnologia'}<span className="cell-secondary">{item.tipo_de_elemento ?? '—'}</span></td>
                     <td className="hide-sm">{[item.logradouro, item.numero, item.bairro, item.municipio].filter(Boolean).join(', ') || '—'}<span className="cell-secondary">{item.regional ?? 'Sem regional'}</span></td>
                     <td>{item.status ? <Tag type={['ativo', 'ativa', 'aquisitado'].includes(item.status.toLowerCase()) ? 'green' : 'gray'} size="sm">{item.status}</Tag> : '—'}</td>

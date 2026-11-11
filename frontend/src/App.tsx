@@ -16,6 +16,7 @@ import { TasksPage } from './pages/modules/TasksPage';
 import { AgendaPage } from './pages/modules/AgendaPage';
 import { FollowUpsPage } from './pages/modules/FollowUpsPage';
 import { StationsPage } from './pages/modules/StationsPage';
+import { StationDetailPage } from './pages/modules/StationDetailPage';
 import { NokiaPage } from './pages/modules/NokiaPage';
 import { NokiaDetailPage } from './pages/modules/NokiaDetailPage';
 import { NotFoundPage, ForbiddenPage } from './pages/StatusPages';
@@ -69,6 +70,7 @@ export default function App() {
         <Route path="/tasks" element={<TasksPage />} />
         <Route path="/follow-ups" element={<FollowUpsPage />} />
         <Route path="/stations" element={<StationsPage />} />
+        <Route path="/stations/:id" element={<StationDetailPage />} />
         <Route path="/nokia" element={<NokiaPage />} />
         <Route path="/nokia/:id" element={<NokiaDetailPage />} />
         <Route element={<AdminRoute />}>
