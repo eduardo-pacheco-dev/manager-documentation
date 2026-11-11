@@ -2514,6 +2514,26 @@ p {
   margin-top: 0.75rem;
 }
 
+.nokia-approvals-label {
+  margin: 1rem 0 0.4rem;
+}
+
+.nokia-date-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.nokia-date-stage {
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--cds-border-subtle-01);
+}
+
+.nokia-date-stage:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
 .nokia-detail-aside {
   position: sticky;
   top: 4.5rem;

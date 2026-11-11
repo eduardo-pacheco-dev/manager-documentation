@@ -65,11 +65,20 @@ const FAM_LABEL: Record<string, string> = {
   checklist_fam_instalacao: 'FAM Instalação',
   checklist_fam_panoramica: 'FAM Panorâmica',
 };
-const DATE_FIELDS = [
-  ['mos_plan_at', 'MOS Plan'], ['mos_real_at', 'MOS Real'], ['instalacao_plan_at', 'Instalação Plan'],
-  ['instalacao_real_at', 'Instalação Real'], ['integracao_plan_at', 'Integração Plan'], ['integracao_real_at', 'Integração Real'],
-  ['rfa_plan_at', 'RFA Plan'], ['rfa_real_at', 'RFA Real'], ['fam_entrega_approved_at', 'FAM Entrega Aprovado'],
-  ['fam_instalacao_approved_at', 'FAM Instalação Aprovado'], ['fam_panoramica_approved_at', 'FAM Panorâmica Aprovado'],
+const DATE_STAGES = [
+  { label: 'MOS', plan: 'mos_plan_at', real: 'mos_real_at' },
+  { label: 'Instalação', plan: 'instalacao_plan_at', real: 'instalacao_real_at' },
+  { label: 'Integração', plan: 'integracao_plan_at', real: 'integracao_real_at' },
+  { label: 'RFA', plan: 'rfa_plan_at', real: 'rfa_real_at' },
+];
+const APPROVAL_DATES = [
+  ['fam_entrega_approved_at', 'FAM Entrega'],
+  ['fam_instalacao_approved_at', 'FAM Instalação'],
+  ['fam_panoramica_approved_at', 'FAM Panorâmica'],
+];
+const ALL_DATE_FIELDS = [
+  ...DATE_STAGES.flatMap((stage) => [stage.plan, stage.real]),
+  ...APPROVAL_DATES.map(([field]) => field),
 ];
 const ATTACHMENT_CATEGORIES = [
   { value: 'tssr', label: 'TSSR' },
@@ -425,7 +434,7 @@ export function NokiaDetailPage() {
                 size="sm"
                 renderIcon={Edit}
                 onClick={() => {
-                  setDates(Object.fromEntries(DATE_FIELDS.map(([field]) => [field, String((site as unknown as Record<string, string>)[field] ?? '')])));
+                  setDates(Object.fromEntries(ALL_DATE_FIELDS.map((field) => [field, String((site as unknown as Record<string, string>)[field] ?? '')])));
                   setDatesOpen(true);
                 }}
               >
@@ -434,9 +443,24 @@ export function NokiaDetailPage() {
             </div>
             <div className="table-scroll">
               <table className="data-table data-table--compact">
-                <thead><tr><th>Etapa</th><th>Data</th></tr></thead>
+                <thead><tr><th>Etapa</th><th>Data Plan</th><th>Data Real</th></tr></thead>
                 <tbody>
-                  {DATE_FIELDS.map(([field, label]) => (
+                  {DATE_STAGES.map((stage) => (
+                    <tr key={stage.label}>
+                      <td>{stage.label}</td>
+                      <td>{dateBR((site as unknown as Record<string, string>)[stage.plan])}</td>
+                      <td>{dateBR((site as unknown as Record<string, string>)[stage.real])}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="field-label nokia-approvals-label">Aprovações FAM</p>
+            <div className="table-scroll">
+              <table className="data-table data-table--compact">
+                <thead><tr><th>FAM</th><th>Data de aprovação</th></tr></thead>
+                <tbody>
+                  {APPROVAL_DATES.map(([field, label]) => (
                     <tr key={field}><td>{label}</td><td>{dateBR((site as unknown as Record<string, string>)[field])}</td></tr>
                   ))}
                 </tbody>
@@ -634,10 +658,24 @@ export function NokiaDetailPage() {
       </Modal>
 
       <Modal open={datesOpen} modalHeading="Datas do site" primaryButtonText="Salvar" secondaryButtonText="Cancelar" onRequestSubmit={() => void saveDates()} onRequestClose={() => setDatesOpen(false)} size="md">
-        <div className="form-grid">
-          {DATE_FIELDS.map(([field, label]) => (
-            <TextInput key={field} id={`detail-date-${field}`} type="date" labelText={label} value={dates[field] ?? ''} onChange={(event) => setDates({ ...dates, [field]: event.target.value })} />
+        <div className="nokia-date-editor">
+          {DATE_STAGES.map((stage) => (
+            <div key={stage.label} className="nokia-date-stage">
+              <p className="field-label">{stage.label}</p>
+              <div className="form-row">
+                <TextInput id={`detail-date-${stage.plan}`} type="date" labelText="Data Plan" value={dates[stage.plan] ?? ''} onChange={(event) => setDates({ ...dates, [stage.plan]: event.target.value })} />
+                <TextInput id={`detail-date-${stage.real}`} type="date" labelText="Data Real" value={dates[stage.real] ?? ''} onChange={(event) => setDates({ ...dates, [stage.real]: event.target.value })} />
+              </div>
+            </div>
           ))}
+          <div className="nokia-date-stage">
+            <p className="field-label">Aprovações FAM</p>
+            <div className="form-grid">
+              {APPROVAL_DATES.map(([field, label]) => (
+                <TextInput key={field} id={`detail-date-${field}`} type="date" labelText={label} value={dates[field] ?? ''} onChange={(event) => setDates({ ...dates, [field]: event.target.value })} />
+              ))}
+            </div>
+          </div>
         </div>
       </Modal>
 
