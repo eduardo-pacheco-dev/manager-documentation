@@ -195,6 +195,7 @@ func (s *Server) demandsCreate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnprocessableEntity, "Não foi possível criar a demanda.", nil)
 		return
 	}
+	s.ensureDemandShortLinks(demand)
 	s.notifyDemandParticipants(currentUser(r).ID, demand, "Nova demanda atribuída a você",
 		demand.Title+" · Prazo "+derefString(demand.DueAt), "info")
 	s.presentDemand(&demand)
@@ -535,6 +536,17 @@ func (s *Server) demandsExport(w http.ResponseWriter, r *http.Request) {
 	writer.Flush()
 }
 
+func (s *Server) ensureDemandShortLinks(demand modules.Demand) {
+	if demand.UploadToken != nil {
+		_, _ = s.Modules.CreateDemandShortLink(demand.ID, demand.RequesterID, "upload",
+			"Upload — "+demand.Title, "/u/"+*demand.UploadToken)
+	}
+	if demand.DownloadToken != nil {
+		_, _ = s.Modules.CreateDemandShortLink(demand.ID, demand.RequesterID, "download",
+			"Download — "+demand.Title, "/d/"+*demand.DownloadToken)
+	}
+}
+
 func (s *Server) presentDemand(demand *modules.Demand) {
 	demand.Overdue = demand.DueAt != nil && demand.Status != "concluida" && demand.Status != "cancelada" &&
 		*demand.DueAt < time.Now().Format("2006-01-02")
@@ -544,6 +556,12 @@ func (s *Server) presentDemand(demand *modules.Demand) {
 	}
 	if demand.DownloadToken != nil {
 		demand.DownloadURL = baseURL + "/d/" + *demand.DownloadToken
+	}
+	if link, err := s.Modules.FindShortLinkForDemand(demand.ID, "upload"); err == nil {
+		demand.UploadURL = s.shortLinkURL(link.Code)
+	}
+	if link, err := s.Modules.FindShortLinkForDemand(demand.ID, "download"); err == nil {
+		demand.DownloadURL = s.shortLinkURL(link.Code)
 	}
 	for i := range demand.Attachments {
 		demand.Attachments[i].DownloadURL = fmt.Sprintf("/api/v1/demands/%d/attachments/%d", demand.ID, demand.Attachments[i].ID)

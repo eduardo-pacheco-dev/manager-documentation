@@ -39,6 +39,7 @@ interface ShortLink {
   click_count: number; unique_clicks: number; last_click_at: string | null;
   created_at: string; updated_at: string; creator_name: string | null;
   expired: boolean; short_url: string; file_count: number;
+  demand_id: number | null; demand_kind: string | null;
 }
 interface ShortLinkFile {
   id: number; short_link_id: number; original_name: string; disk: string;
@@ -354,6 +355,11 @@ export function LinksPage() {
                         /s/{link.code}
                       </button>
                       <span className="cell-secondary">{link.title || 'Sem título'}</span>
+                      {link.demand_kind && (
+                        <span className="cell-secondary">
+                          {link.demand_kind === 'upload' ? 'Upload de demanda' : 'Download de demanda'}
+                        </span>
+                      )}
                       {link.file_count > 0 && <span className="cell-secondary">{link.file_count} arquivo(s)</span>}
                     </td>
                     <td className="hide-md link-target">

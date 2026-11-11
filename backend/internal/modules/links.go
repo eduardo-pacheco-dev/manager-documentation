@@ -25,6 +25,8 @@ type ShortLink struct {
 	ClickCount   int64      `db:"click_count" json:"click_count"`
 	CreatedAt    time.Time  `db:"created_at" json:"created_at"`
 	UpdatedAt    time.Time  `db:"updated_at" json:"updated_at"`
+	DemandID     *int64     `db:"demand_id" json:"demand_id"`
+	DemandKind   *string    `db:"demand_kind" json:"demand_kind"`
 	CreatorName  *string    `db:"creator_name" json:"creator_name"`
 	UniqueClicks int64      `db:"unique_clicks" json:"unique_clicks"`
 	LastClickAt  *time.Time `db:"last_click_at" json:"last_click_at"`
@@ -252,6 +254,77 @@ func (s *Store) CreateShortLink(userID int64, input ShortLinkInput) (ShortLink, 
 	}
 	id, _ := result.LastInsertId()
 	return s.FindShortLink(id)
+}
+
+func (s *Store) FindShortLinkForDemand(demandID int64, kind string) (ShortLink, error) {
+	var item ShortLink
+	err := s.DB.Get(&item, shortLinkSelect+` WHERE l.demand_id = ? AND l.demand_kind = ?`, demandID, kind)
+	if errors.Is(err, sql.ErrNoRows) {
+		return item, ErrNotFound
+	}
+	return item, err
+}
+
+// CreateDemandShortLink creates the managed short link used to share a demand
+// upload/download page. It is idempotent per demand and kind.
+func (s *Store) CreateDemandShortLink(demandID, userID int64, kind, title, targetURL string) (ShortLink, error) {
+	if existing, err := s.FindShortLinkForDemand(demandID, kind); err == nil {
+		return existing, nil
+	}
+	timestamp := now()
+	for attempt := 0; attempt < 10; attempt++ {
+		code, err := generateShortCode(8)
+		if err != nil {
+			return ShortLink{}, err
+		}
+		result, err := s.DB.Exec(`INSERT INTO short_links
+			(user_id, code, target_url, title, is_active, expires_at, click_count, demand_id, demand_kind, created_at, updated_at)
+			VALUES (?, ?, ?, ?, 1, NULL, 0, ?, ?, ?, ?)`,
+			userID, code, targetURL, title, demandID, kind, timestamp, timestamp)
+		if err != nil {
+			if strings.Contains(strings.ToLower(err.Error()), "duplicate") {
+				if existing, findErr := s.FindShortLinkForDemand(demandID, kind); findErr == nil {
+					return existing, nil
+				}
+				continue
+			}
+			return ShortLink{}, err
+		}
+		id, _ := result.LastInsertId()
+		return s.FindShortLink(id)
+	}
+	return ShortLink{}, fmt.Errorf("não foi possível gerar um código único")
+}
+
+// SyncDemandShortLinks ensures every demand has its upload and download short
+// links. It is safe to run on every startup.
+func (s *Store) SyncDemandShortLinks() error {
+	type demandLinkRow struct {
+		ID            int64   `db:"id"`
+		UserID        int64   `db:"user_id"`
+		Title         string  `db:"title"`
+		UploadToken   *string `db:"upload_token"`
+		DownloadToken *string `db:"download_token"`
+	}
+	rows := []demandLinkRow{}
+	if err := s.DB.Select(&rows, `SELECT id, requester_id AS user_id, title, upload_token, download_token FROM demands`); err != nil {
+		return err
+	}
+	for _, row := range rows {
+		if row.UploadToken != nil {
+			if _, err := s.CreateDemandShortLink(row.ID, row.UserID, "upload",
+				"Upload — "+row.Title, "/u/"+*row.UploadToken); err != nil {
+				return err
+			}
+		}
+		if row.DownloadToken != nil {
+			if _, err := s.CreateDemandShortLink(row.ID, row.UserID, "download",
+				"Download — "+row.Title, "/d/"+*row.DownloadToken); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (s *Store) UpdateShortLink(id int64, input ShortLinkInput) (ShortLink, error) {

@@ -815,6 +815,12 @@ var migrations = [][]string{
 		`CREATE UNIQUE INDEX uq_demands_upload_token ON demands(upload_token)`,
 		`CREATE UNIQUE INDEX uq_demands_download_token ON demands(download_token)`,
 	},
+	{
+		`ALTER TABLE short_links ADD COLUMN demand_id BIGINT NULL`,
+		`ALTER TABLE short_links ADD COLUMN demand_kind VARCHAR(16) NULL`,
+		`CREATE UNIQUE INDEX uq_short_links_demand_kind ON short_links(demand_id, demand_kind)`,
+		`ALTER TABLE short_links ADD CONSTRAINT fk_short_links_demand FOREIGN KEY (demand_id) REFERENCES demands(id) ON DELETE CASCADE`,
+	},
 }
 
 // CleanupSessions removes expired sessions and tokens. It is safe to call at

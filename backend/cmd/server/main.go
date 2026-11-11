@@ -69,6 +69,9 @@ func main() {
 	if err := moduleStore.SyncAllNokiaSitesToStations(); err != nil {
 		log.Printf("nokia/stations sync: %v", err)
 	}
+	if err := moduleStore.SyncDemandShortLinks(); err != nil {
+		log.Printf("demand links sync: %v", err)
+	}
 
 	cipher, err := crypto.New(cfg.AppKey)
 	if err != nil {

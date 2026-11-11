@@ -736,6 +736,10 @@ func TestDemands(t *testing.T) {
 		demand["station_site_id"] != "DEMANDA001" {
 		t.Fatalf("unexpected demand: %v", demand)
 	}
+	res, payload = app.request(http.MethodGet, "/api/v1/links?search=Upload", nil, "", nil)
+	if res.StatusCode != http.StatusOK || int(payload["meta"].(map[string]any)["total"].(float64)) < 1 {
+		t.Fatalf("demand short links missing from module: %d %v", res.StatusCode, payload)
+	}
 
 	res, payload = app.request(http.MethodGet, "/api/v1/demands?scope=mine", nil, "", nil)
 	if res.StatusCode != http.StatusOK || int(payload["meta"].(map[string]any)["total"].(float64)) != 1 {
@@ -804,10 +808,11 @@ func TestDemands(t *testing.T) {
 	}
 	uploadPath := strings.TrimPrefix(demand["upload_url"].(string), "http://example.test")
 	downloadPath := strings.TrimPrefix(demand["download_url"].(string), "http://example.test")
-	uploadPage, err := publicClient.Get(app.server.URL + uploadPath)
+	uploadPage, err := app.client.Get(app.server.URL + uploadPath)
 	if err != nil {
 		t.Fatalf("demand public upload page: %v", err)
 	}
+	finalUploadPath := uploadPage.Request.URL.Path
 	uploadPageBody, _ := io.ReadAll(uploadPage.Body)
 	uploadPage.Body.Close()
 	if uploadPage.StatusCode != http.StatusOK || !strings.Contains(string(uploadPageBody), "Enviar arquivos") {
@@ -820,7 +825,7 @@ func TestDemands(t *testing.T) {
 	publicPart, _ := publicWriter.CreateFormFile("files", "evidencia-publica.txt")
 	_, _ = publicPart.Write([]byte("arquivo enviado pelo link publico"))
 	_ = publicWriter.Close()
-	publicReq, _ := http.NewRequest(http.MethodPost, app.server.URL+uploadPath, &publicUpload)
+	publicReq, _ := http.NewRequest(http.MethodPost, app.server.URL+finalUploadPath, &publicUpload)
 	publicReq.Header.Set("Content-Type", publicWriter.FormDataContentType())
 	publicRes, err := publicClient.Do(publicReq)
 	if err != nil || publicRes.StatusCode != http.StatusSeeOther {
@@ -828,10 +833,11 @@ func TestDemands(t *testing.T) {
 	}
 	_ = publicRes.Body.Close()
 
-	downloadPage, err := publicClient.Get(app.server.URL + downloadPath)
+	downloadPage, err := app.client.Get(app.server.URL + downloadPath)
 	if err != nil {
 		t.Fatalf("demand public download page: %v", err)
 	}
+	finalDownloadPath := downloadPage.Request.URL.Path
 	downloadPageBody, _ := io.ReadAll(downloadPage.Body)
 	downloadPage.Body.Close()
 	if downloadPage.StatusCode != http.StatusOK || !strings.Contains(string(downloadPageBody), "evidencia-publica.txt") {
@@ -853,7 +859,7 @@ func TestDemands(t *testing.T) {
 	if publicFileID == 0 {
 		t.Fatalf("public attachment missing: %v", attachments)
 	}
-	publicDownload, err := app.client.Get(app.server.URL + fmt.Sprintf("%s/files/%d", downloadPath, publicFileID))
+	publicDownload, err := app.client.Get(app.server.URL + fmt.Sprintf("%s/files/%d", finalDownloadPath, publicFileID))
 	if err != nil {
 		t.Fatalf("demand public file download: %v", err)
 	}

@@ -19,6 +19,9 @@ func ModuleData(m *modules.Store, admin models.User) error {
 	if err := seedStations(m); err != nil {
 		return err
 	}
+	if err := seedDemands(m, admin); err != nil {
+		return err
+	}
 	if err := seedNokia(m); err != nil {
 		return err
 	}
@@ -141,6 +144,84 @@ func seedNokia(m *modules.Store) error {
 	}
 	if second.ID > 0 && len(tasks) > 1 {
 		_ = m.ToggleNokiaTask(second.ID, tasks[1].ID)
+	}
+	return nil
+}
+
+func seedDemands(m *modules.Store, admin models.User) error {
+	var count int
+	if err := m.DB.Get(&count, `SELECT COUNT(*) FROM demands WHERE title = ?`, "Instalação de equipamento 5G"); err != nil || count > 0 {
+		return err
+	}
+	collaborators, _ := m.DemandCollaborators()
+	assigneeID := admin.ID
+	for _, collaborator := range collaborators {
+		if collaborator.ID != admin.ID {
+			assigneeID = collaborator.ID
+			break
+		}
+	}
+	stations, _ := m.SearchDemandStations("", 2)
+	var firstStationID, secondStationID *int64
+	if len(stations) > 0 {
+		firstStationID = &stations[0].ID
+	}
+	if len(stations) > 1 {
+		secondStationID = &stations[1].ID
+	}
+
+	today := time.Now()
+	inputs := []modules.DemandInput{
+		{
+			AssigneeID: assigneeID, Title: "Instalação de equipamento 5G",
+			Description: "Instalar e integrar os equipamentos do site, registrar evidências fotográficas e atualizar o as-built.",
+			ClientName:  "TIM Brasil", ClientEmail: "cliente.tim@example.com",
+			StationID: firstStationID, Operadora: "TIM", DemandType: "Instalação",
+			OCTIM: "OC-TIM-2026-001", ClientOS: "OS-CLIENTE-7788", KeyNumber: "CHV-SP-001",
+			ActivityScope: "Instalação de RRU, validação de energia, integração e documentação fotográfica.",
+			Priority:      "alta", DueAt: today.AddDate(0, 0, 3).Format("2006-01-02"), Status: "em_andamento",
+		},
+		{
+			AssigneeID: admin.ID, Title: "Vistoria técnica de site",
+			Description: "Realizar vistoria preventiva e registrar as condições da infraestrutura.",
+			ClientName:  "Vivo", ClientEmail: "cliente.vivo@example.com",
+			StationID: secondStationID, Operadora: "Vivo", DemandType: "Vistoria",
+			OCTIM: "OC-TIM-2026-002", ClientOS: "OS-CLIENTE-9911", KeyNumber: "CHV-SP-002",
+			ActivityScope: "Inspeção de torre, abrigo, energia e aterramento.",
+			Priority:      "media", DueAt: today.AddDate(0, 0, 7).Format("2006-01-02"), Status: "aberta",
+		},
+		{
+			AssigneeID: assigneeID, Title: "Enviar evidências de conclusão",
+			Description: "Consolidar fotos, relatórios e medições para aceite do cliente.",
+			ClientName:  "TIM Brasil", ClientEmail: "cliente.tim@example.com",
+			Operadora: "TIM", DemandType: "Documentação",
+			OCTIM: "OC-TIM-2026-003", ClientOS: "OS-CLIENTE-3344", KeyNumber: "CHV-SP-003",
+			ActivityScope: "Organizar evidências e enviar o pacote final de documentação.",
+			Priority:      "baixa", DueAt: today.AddDate(0, 0, 10).Format("2006-01-02"), Status: "aguardando",
+		},
+		{
+			AssigneeID: admin.ID, Title: "Revisão de documentação as-built",
+			Description: "Revisar a documentação as-built entregue pela equipe de campo.",
+			ClientName:  "TIM Brasil", ClientEmail: "cliente.tim@example.com",
+			Operadora: "TIM", DemandType: "Revisão",
+			OCTIM: "OC-TIM-2026-004", ClientOS: "OS-CLIENTE-5566", KeyNumber: "CHV-SP-004",
+			ActivityScope: "Validar plantas, fotos e relatórios antes da conclusão.",
+			Priority:      "media", DueAt: today.AddDate(0, 0, -2).Format("2006-01-02"), Status: "concluida",
+		},
+	}
+	var firstDemand modules.Demand
+	for index, input := range inputs {
+		demand, err := m.CreateDemand(admin.ID, input)
+		if err != nil {
+			return err
+		}
+		if index == 0 {
+			firstDemand = demand
+		}
+	}
+	if firstDemand.ID > 0 {
+		_, _ = m.AddDemandUpdate(firstDemand.ID, admin.ID, "Demanda recebida e equipe de campo acionada.")
+		_, _ = m.AddDemandUpdate(firstDemand.ID, assigneeID, "Materiais conferidos e instalação iniciada no site.")
 	}
 	return nil
 }
