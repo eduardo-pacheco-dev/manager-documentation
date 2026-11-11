@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Add, ArrowDown, ArrowUp, Download, Edit, Settings, TrashCan, Upload, Warning } from '@carbon/icons-react';
 import {
   Button,
@@ -86,6 +87,7 @@ const EMPTY_FORM = {
 export function NokiaPage() {
   const { user } = useAuth();
   const toast = useToast();
+  const navigate = useNavigate();
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -309,7 +311,7 @@ export function NokiaPage() {
                   const total = 3 + site.tasks.length;
                   return (
                     <tr key={site.id}>
-                      <td><button type="button" className="link-button" onClick={() => void openDetail(site)}>{site.site_id}</button><span className="cell-secondary">{site.end_id ?? '—'}</span></td>
+                      <td><button type="button" className="link-button" onClick={() => navigate(`/nokia/${site.id}`)}>{site.site_id}</button><span className="cell-secondary">{site.end_id ?? '—'}</span></td>
                       <td>{site.oc ?? '—'}</td>
                       <td className="hide-sm">{site.rom_name ?? 'Sem ROM'}</td>
                       <td className="hide-sm">{site.regional ?? '—'}</td>

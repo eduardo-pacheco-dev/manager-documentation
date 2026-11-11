@@ -2355,6 +2355,238 @@ p {
   margin-top: 0.75rem;
 }
 
+.nokia-progress-hero {
+  display: grid;
+  grid-template-columns: minmax(12rem, 18rem) minmax(14rem, 1fr);
+  gap: 1.25rem;
+  align-items: center;
+  padding: 1.25rem;
+  border: 1px solid var(--cds-border-subtle-01);
+  background: var(--cds-layer-01);
+}
+
+.nokia-progress-hero strong {
+  font-size: 1.1rem;
+}
+
+.nokia-progress-hero__meta {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.75rem;
+  border-top: 1px solid var(--cds-border-subtle-01);
+  padding-top: 1rem;
+}
+
+.nokia-progress-hero__meta > div,
+.nokia-detail-aside__card dl > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.nokia-progress-hero__meta span,
+.nokia-detail-aside__card dt {
+  color: var(--cds-text-helper);
+  font-size: 0.7rem;
+}
+
+.nokia-progress-hero__meta strong,
+.nokia-detail-aside__card dd {
+  font-size: 0.82rem;
+  font-weight: 500;
+  margin: 0;
+}
+
+.nokia-detail-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20rem;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.nokia-detail-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.nokia-detail-section {
+  padding: 1.25rem;
+  border: 1px solid var(--cds-border-subtle-01);
+  background: var(--cds-layer-01);
+}
+
+.nokia-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.nokia-section-header h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.nokia-section-header p {
+  margin: 0.2rem 0 0;
+  color: var(--cds-text-secondary);
+  font-size: 0.8rem;
+}
+
+.nokia-checklist-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--cds-border-subtle-01);
+}
+
+.nokia-checklist-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0.9rem;
+  border-bottom: 1px solid var(--cds-border-subtle-01);
+  flex-wrap: wrap;
+}
+
+.nokia-checklist-row:last-child {
+  border-bottom: 0;
+}
+
+.nokia-checklist-row > div {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.nokia-checklist-row .cds--select {
+  min-width: 12rem;
+}
+
+.nokia-task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.nokia-rejection-list,
+.nokia-comment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.nokia-rejection-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  padding: 0.75rem 0.9rem;
+  background: var(--cds-layer-accent-01);
+  border-left: 3px solid var(--cds-support-error);
+}
+
+.nokia-rejection-row p {
+  margin: 0.35rem 0;
+  font-size: 0.84rem;
+}
+
+.nokia-rejection-row span {
+  color: var(--cds-text-secondary);
+  font-size: 0.75rem;
+}
+
+.nokia-upload-row {
+  margin-bottom: 0.75rem;
+}
+
+.nokia-upload-row .cds--file {
+  min-width: 18rem;
+}
+
+.nokia-attachment-group {
+  margin-top: 0.75rem;
+}
+
+.nokia-detail-aside {
+  position: sticky;
+  top: 4.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.nokia-detail-aside__card {
+  padding: 1.1rem;
+  border: 1px solid var(--cds-border-subtle-01);
+  background: var(--cds-layer-01);
+}
+
+.nokia-detail-aside__card h2 {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--cds-text-helper);
+}
+
+.nokia-detail-aside__card dl {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin: 0;
+}
+
+.nokia-aside-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.nokia-aside-actions .cds--btn {
+  justify-content: flex-start;
+  inline-size: 100%;
+  max-inline-size: none;
+}
+
+@media (max-width: 1055px) {
+  .nokia-detail-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .nokia-detail-aside {
+    position: static;
+  }
+
+  .nokia-progress-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .nokia-progress-hero__meta {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 671px) {
+  .nokia-progress-hero__meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .nokia-detail-section {
+    padding: 1rem;
+  }
+
+  .nokia-rejection-row {
+    flex-direction: column;
+  }
+}
+
 @media (max-width: 671px) {
   .nokia-widget-columns {
     grid-template-columns: 1fr;
