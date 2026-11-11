@@ -1,0 +1,13 @@
+{
+  "name": "documentation-center",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Atalhos de desenvolvimento para o monorepo Documentation Center",
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "typecheck": "npm --prefix frontend run typecheck",
+    "install:frontend": "npm --prefix frontend install",
+    "backend": "air -c .air.toml"
+  }
+}

@@ -130,7 +130,21 @@ npm install
 npm run dev
 ```
 
+Ou, a partir da raiz do repositório (atalho para o frontend):
+
+```bash
+npm run dev
+```
+
 Acesse `http://localhost:5173`. O Vite encaminha `/api` e `/uploads` para o backend em `:8080`.
+
+Outros atalhos na raiz:
+
+```bash
+npm run backend    # Air com hot reload
+npm run build      # build do frontend
+npm run typecheck  # TypeScript
+```
 
 ### Build de produção
 
