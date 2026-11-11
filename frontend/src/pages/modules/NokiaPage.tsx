@@ -319,6 +319,7 @@ export function NokiaPage() {
         ) : undefined}
         actions={
           <>
+            <Button renderIcon={Add} onClick={openCreate}>Novo site</Button>
             <OverflowMenu
               aria-label="Ações de importação e exportação"
               iconDescription="Mais ações"
@@ -344,7 +345,6 @@ export function NokiaPage() {
                 onClick={importSites}
               />
             </OverflowMenu>
-            <Button renderIcon={Add} onClick={openCreate}>Novo site</Button>
           </>
         }
       />
