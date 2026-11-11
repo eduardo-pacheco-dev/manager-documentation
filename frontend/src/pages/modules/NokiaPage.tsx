@@ -62,6 +62,8 @@ const ATTACHMENT_CATEGORIES = [
   { value: 'tssr', label: 'TSSR' },
   { value: 'doc-d', label: 'DOC-D' },
   { value: 'dwg', label: 'DWG' },
+  { value: 'invoice', label: 'Nota Fiscal' },
+  { value: 'other', label: 'Outros' },
 ];
 
 function dateBR(value: string | null | undefined): string {

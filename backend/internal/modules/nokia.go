@@ -49,6 +49,7 @@ type NokiaSiteAttachment struct {
 	Size         int64     `db:"size" json:"size"`
 	MimeType     *string   `db:"mime_type" json:"mime_type"`
 	CreatedAt    time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt    time.Time `db:"updated_at" json:"updated_at"`
 	URL          string    `db:"-" json:"url"`
 }
 
@@ -58,6 +59,7 @@ type NokiaSiteComment struct {
 	UserID      *int64    `db:"user_id" json:"user_id"`
 	Body        string    `db:"body" json:"body"`
 	CreatedAt   time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt   time.Time `db:"updated_at" json:"updated_at"`
 	AuthorName  *string   `db:"author_name" json:"author_name"`
 }
 
@@ -71,6 +73,7 @@ type NokiaRejection struct {
 	StartedAt           time.Time  `db:"started_at" json:"started_at"`
 	ResolvedAt          *time.Time `db:"resolved_at" json:"resolved_at"`
 	CreatedAt           time.Time  `db:"created_at" json:"created_at"`
+	UpdatedAt           time.Time  `db:"updated_at" json:"updated_at"`
 }
 
 type NokiaSite struct {
@@ -249,10 +252,16 @@ func (s *Store) FindNokiaSite(id int64) (NokiaSite, error) {
 	site.Attachments = []NokiaSiteAttachment{}
 	site.Comments = []NokiaSiteComment{}
 	site.Rejections = []NokiaRejection{}
-	_ = s.DB.Select(&site.Attachments, `SELECT * FROM nokia_site_attachments WHERE nokia_site_id = ? ORDER BY created_at DESC`, id)
-	_ = s.DB.Select(&site.Comments, `SELECT c.*, TRIM(u.name || ' ' || COALESCE(u.surname, '')) AS author_name
-		FROM nokia_site_comments c LEFT JOIN users u ON u.id = c.user_id WHERE c.nokia_site_id = ? ORDER BY c.created_at DESC`, id)
-	_ = s.DB.Select(&site.Rejections, `SELECT * FROM nokia_site_rejections WHERE nokia_site_id = ? ORDER BY started_at DESC, id DESC`, id)
+	if err := s.DB.Select(&site.Attachments, `SELECT * FROM nokia_site_attachments WHERE nokia_site_id = ? ORDER BY created_at DESC`, id); err != nil {
+		return site, err
+	}
+	if err := s.DB.Select(&site.Comments, `SELECT c.*, TRIM(u.name || ' ' || COALESCE(u.surname, '')) AS author_name
+		FROM nokia_site_comments c LEFT JOIN users u ON u.id = c.user_id WHERE c.nokia_site_id = ? ORDER BY c.created_at DESC`, id); err != nil {
+		return site, err
+	}
+	if err := s.DB.Select(&site.Rejections, `SELECT * FROM nokia_site_rejections WHERE nokia_site_id = ? ORDER BY started_at DESC, id DESC`, id); err != nil {
+		return site, err
+	}
 	return site, nil
 }
 

@@ -5,6 +5,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -60,6 +61,7 @@ func (s *Server) nokiaShow(w http.ResponseWriter, r *http.Request) {
 	id, _ := parseID(r, "id")
 	site, err := s.Modules.FindNokiaSite(id)
 	if err != nil {
+		log.Printf("nokia show %d: %v", id, err)
 		writeError(w, http.StatusNotFound, "Site não encontrado.", nil)
 		return
 	}
@@ -247,7 +249,7 @@ func (s *Server) nokiaUploadAttachment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	category := r.FormValue("category")
-	if category != "tssr" && category != "doc-d" && category != "dwg" {
+	if !map[string]bool{"tssr": true, "doc-d": true, "dwg": true, "invoice": true, "other": true}[category] {
 		writeValidation(w, validationErrors{"category": "Categoria inválida."})
 		return
 	}
