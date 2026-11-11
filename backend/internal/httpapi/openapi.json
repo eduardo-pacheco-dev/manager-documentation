@@ -1,0 +1,264 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Documentation Center API",
+    "version": "1.0.0",
+    "description": "API do Documentation Center (Go + React + IBM Carbon). Autentique com sessão de navegador ou token Bearer."
+  },
+  "servers": [{ "url": "/api/v1" }],
+  "tags": [
+    { "name": "Auth", "description": "Cadastro, login e sessão" },
+    { "name": "Users", "description": "Gestão de usuários (admin)" },
+    { "name": "Dev docs", "description": "Wiki de desenvolvimento (admin)" },
+    { "name": "Dashboard", "description": "Widgets do painel" },
+    { "name": "Settings", "description": "Preferências e configurações" },
+    { "name": "Notifications", "description": "Central de notificações" },
+    { "name": "Uploads", "description": "Envio de imagens" }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer" }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "message": { "type": "string" },
+          "errors": { "type": "object", "additionalProperties": { "type": "string" } }
+        }
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string" },
+          "surname": { "type": ["string", "null"] },
+          "full_name": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "is_admin": { "type": "boolean" },
+          "is_active": { "type": "boolean" },
+          "theme": { "type": "string", "enum": ["system", "light", "dark"] },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "DevDoc": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "title": { "type": "string" },
+          "slug": { "type": "string" },
+          "category": { "type": "string" },
+          "summary": { "type": ["string", "null"] },
+          "content": { "type": "string" },
+          "is_published": { "type": "boolean" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Notification": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "body": { "type": "string" },
+          "url": { "type": ["string", "null"] },
+          "level": { "type": "string", "enum": ["info", "success", "warning", "danger"] },
+          "read_at": { "type": ["string", "null"], "format": "date-time" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/auth/signup": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Cria uma conta",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "email", "password", "password_confirmation"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string", "minLength": 8 },
+                  "password_confirmation": { "type": "string" },
+                  "device_name": { "type": "string", "description": "Quando informado, retorna um token Bearer." }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Conta criada" },
+          "422": { "description": "Validação", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Autentica e cria sessão",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string" },
+                  "device_name": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Autenticado" },
+          "401": { "description": "Credenciais inválidas" },
+          "429": { "description": "Muitas tentativas" }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": { "tags": ["Auth"], "summary": "Encerra a sessão ou revoga o token atual", "responses": { "200": { "description": "Sessão encerrada" } } }
+    },
+    "/auth/me": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "Retorna o usuário autenticado",
+        "responses": { "200": { "description": "Usuário atual" }, "401": { "description": "Não autenticado" } }
+      }
+    },
+    "/profile": {
+      "get": { "tags": ["Settings"], "summary": "Perfil do usuário", "responses": { "200": { "description": "Perfil" } } },
+      "put": { "tags": ["Settings"], "summary": "Atualiza nome e e-mail", "responses": { "200": { "description": "Perfil atualizado" }, "422": { "description": "Validação" } } }
+    },
+    "/users": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Lista usuários com busca, filtros e paginação",
+        "parameters": [
+          { "name": "search", "in": "query", "schema": { "type": "string" } },
+          { "name": "profile", "in": "query", "schema": { "type": "string", "enum": ["admin", "user"] } },
+          { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["active", "inactive"] } },
+          { "name": "sort", "in": "query", "schema": { "type": "string", "enum": ["name", "email", "is_admin", "created_at"] } },
+          { "name": "direction", "in": "query", "schema": { "type": "string", "enum": ["asc", "desc"] } },
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer", "enum": [10, 25, 50] } }
+        ],
+        "responses": { "200": { "description": "Lista paginada" }, "403": { "description": "Acesso restrito" } }
+      },
+      "post": { "tags": ["Users"], "summary": "Cria usuário (admin)", "responses": { "201": { "description": "Usuário criado" }, "422": { "description": "Validação" } } }
+    },
+    "/users/{id}": {
+      "put": { "tags": ["Users"], "summary": "Atualiza usuário (admin)", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Atualizado" } } },
+      "delete": { "tags": ["Users"], "summary": "Exclui usuário (admin)", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Excluído" } } }
+    },
+    "/users/{id}/toggle": {
+      "patch": { "tags": ["Users"], "summary": "Ativa ou desativa usuário (admin)", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Status alterado" } } }
+    },
+    "/dev-docs": {
+      "get": {
+        "tags": ["Dev docs"],
+        "summary": "Lista documentos da wiki",
+        "parameters": [
+          { "name": "search", "in": "query", "schema": { "type": "string" } },
+          { "name": "category", "in": "query", "schema": { "type": "string" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Lista paginada com navegação" } }
+      },
+      "post": { "tags": ["Dev docs"], "summary": "Cria documento", "responses": { "201": { "description": "Criado" }, "422": { "description": "Validação" } } }
+    },
+    "/dev-docs/{id}": {
+      "get": { "tags": ["Dev docs"], "summary": "Retorna documento com Markdown renderizado", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Documento" }, "404": { "description": "Não encontrado" } } },
+      "put": { "tags": ["Dev docs"], "summary": "Atualiza documento", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Atualizado" } } },
+      "delete": { "tags": ["Dev docs"], "summary": "Exclui documento", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Excluído" } } }
+    },
+    "/dashboard": {
+      "get": { "tags": ["Dashboard"], "summary": "Widgets disponíveis, ordem, larguras e ocultos", "responses": { "200": { "description": "Dashboard" } } }
+    },
+    "/dashboard/widgets/order": {
+      "put": { "tags": ["Dashboard"], "summary": "Salva a ordem dos widgets", "responses": { "200": { "description": "Ordem salva" } } }
+    },
+    "/dashboard/widgets/{id}": {
+      "put": { "tags": ["Dashboard"], "summary": "Oculta ou mostra um widget", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Widget atualizado" } } }
+    },
+    "/dashboard/widgets/{id}/layout": {
+      "put": { "tags": ["Dashboard"], "summary": "Redimensiona um widget (1 a 3 colunas)", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Largura salva" } } }
+    },
+    "/settings": {
+      "get": { "tags": ["Settings"], "summary": "Configurações do usuário, módulos, fuso e armazenamento", "responses": { "200": { "description": "Configurações" } } }
+    },
+    "/settings/theme": {
+      "put": { "tags": ["Settings"], "summary": "Salva o tema (system, light, dark)", "responses": { "200": { "description": "Tema salvo" } } }
+    },
+    "/settings/modules": {
+      "put": { "tags": ["Settings"], "summary": "Salva módulos habilitados, ordem e seção", "responses": { "200": { "description": "Módulos salvos" } } }
+    },
+    "/settings/notifications": {
+      "put": { "tags": ["Settings"], "summary": "Salva preferência de e-mail", "responses": { "200": { "description": "Preferência salva" } } }
+    },
+    "/settings/system": {
+      "put": { "tags": ["Settings"], "summary": "Salva o fuso horário do sistema (admin)", "responses": { "200": { "description": "Fuso salvo" } } }
+    },
+    "/settings/storage": {
+      "put": { "tags": ["Settings"], "summary": "Salva o provedor de upload (admin)", "responses": { "200": { "description": "Armazenamento salvo" } } }
+    },
+    "/settings/password": {
+      "put": { "tags": ["Settings"], "summary": "Altera a senha", "responses": { "200": { "description": "Senha alterada" }, "422": { "description": "Validação" } } }
+    },
+    "/settings/account": {
+      "delete": { "tags": ["Settings"], "summary": "Exclui a própria conta", "responses": { "200": { "description": "Conta excluída" } } }
+    },
+    "/notifications": {
+      "get": {
+        "tags": ["Notifications"],
+        "summary": "Lista notificações do usuário",
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Notificações" } }
+      },
+      "delete": { "tags": ["Notifications"], "summary": "Remove todas as notificações", "responses": { "200": { "description": "Notificações removidas" } } }
+    },
+    "/notifications/read-all": {
+      "patch": { "tags": ["Notifications"], "summary": "Marca todas como lidas", "responses": { "200": { "description": "Atualizadas" } } }
+    },
+    "/notifications/{id}/read": {
+      "patch": { "tags": ["Notifications"], "summary": "Marca uma notificação como lida", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Atualizada" } } }
+    },
+    "/notifications/{id}": {
+      "delete": { "tags": ["Notifications"], "summary": "Remove uma notificação", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Removida" } } }
+    },
+    "/uploads": {
+      "post": {
+        "tags": ["Uploads"],
+        "summary": "Envia uma imagem",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["file"],
+                "properties": { "file": { "type": "string", "format": "binary" } }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Imagem armazenada" }, "422": { "description": "Arquivo inválido" } }
+      }
+    }
+  }
+}

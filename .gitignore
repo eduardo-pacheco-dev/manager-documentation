@@ -1,0 +1,31 @@
+# Dependencies and build artifacts
+node_modules/
+frontend/dist/
+backend/data/
+backend/documentation-center
+backend/documentation-center.exe
+*.exe
+*.test
+*.out
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Logs and coverage
+*.log
+coverage/
+coverage.out
+backend/data/*.db
+backend/data/*.db-*
+implementation/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+*.tsbuildinfo

@@ -1,0 +1,23 @@
+services:
+  documentation-center:
+    build: .
+    image: documentation-center:latest
+    container_name: documentation-center
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      APP_ENV: production
+      PUBLIC_URL: http://localhost:8080
+      SECURE_COOKIES: "false"
+      APP_KEY: change-this-key-in-production
+      SEED_ADMIN_NAME: Administrador
+      SEED_ADMIN_EMAIL: admin@example.com
+      SEED_ADMIN_PASSWORD: change-this-password
+      SEED_DEMO_DATA: "true"
+      APP_TIMEZONE: America/Sao_Paulo
+    volumes:
+      - documentation-data:/data
+
+volumes:
+  documentation-data:

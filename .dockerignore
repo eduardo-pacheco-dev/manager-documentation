@@ -1,0 +1,11 @@
+node_modules
+frontend/dist
+backend/data
+.git
+.github
+README.md
+*.log
+.env
+.env.*
+backend/.env
+backend/data

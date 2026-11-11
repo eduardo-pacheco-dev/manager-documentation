@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Documentation Center">
+  <rect width="32" height="32" fill="#161616"/>
+  <rect x="5" y="5" width="22" height="22" fill="none" stroke="#4589ff" stroke-width="1.5"/>
+  <text x="16" y="21" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" font-weight="600" fill="#f4f4f4">DC</text>
+</svg>
