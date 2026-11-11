@@ -32,6 +32,8 @@ var allowedDocumentTypes = map[string]bool{
 	".ppt": true, ".pptx": true, ".zip": true, ".rar": true, ".txt": true,
 	".csv": true, ".png": true, ".jpg": true, ".jpeg": true, ".webp": true,
 	".kml": true, ".kmz": true, ".dwg": true, ".dxf": true, ".ics": true,
+	".7z": true, ".gz": true, ".tar": true, ".json": true, ".xml": true,
+	".md": true, ".odt": true, ".ods": true, ".odp": true, ".epub": true,
 }
 
 type Service struct {
@@ -63,6 +65,17 @@ func (s *Service) MaxUploadMB() int64 {
 		return s.config.UploadMaxMB
 	}
 	return settings.EffectiveMaxUploadMB(s.config.UploadMaxMB)
+}
+
+// Provider returns the effective storage provider ("local", "aws" or
+// "cloudflare"). It is used by modules that need to know whether a stored file
+// is served by the application or by a remote bucket.
+func (s *Service) Provider() string {
+	settings, err := s.store.GetStorageSettings()
+	if err != nil || !settings.Configured(settings.Provider) {
+		return "local"
+	}
+	return settings.Provider
 }
 
 func (s *Service) Save(ctx context.Context, file multipart.File, header *multipart.FileHeader) (Result, error) {

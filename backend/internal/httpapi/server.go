@@ -62,6 +62,7 @@ func (s *Server) Router() http.Handler {
 	r.Get("/healthz", s.health)
 	r.Get("/up", s.health)
 	r.Get("/s/{code}", s.shortLinkRedirect)
+	r.Get("/s/{code}/files/{fileId}", s.shortLinkFileDownload)
 	r.Get("/api/documentation", s.openAPIDocs)
 	r.Get("/docs", s.openAPISpec)
 	r.Handle("/uploads/*", s.uploadFileServer())
@@ -190,6 +191,9 @@ func (s *Server) Router() http.Handler {
 				links.Delete("/{id}", s.linksDelete)
 				links.Patch("/{id}/toggle", s.linksToggle)
 				links.Get("/{id}/qr", s.linksQRCode)
+				links.Get("/{id}/files", s.linksFiles)
+				links.Post("/{id}/files", s.linksUploadFiles)
+				links.Delete("/{id}/files/{fileId}", s.linksDeleteFile)
 			})
 
 			auth.Route("/nokia", func(nokia chi.Router) {

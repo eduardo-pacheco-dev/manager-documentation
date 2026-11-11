@@ -720,6 +720,25 @@ var migrations = [][]string{
 			CONSTRAINT fk_short_link_clicks_link FOREIGN KEY (short_link_id) REFERENCES short_links(id) ON DELETE CASCADE
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 	},
+	{
+		`CREATE TABLE short_link_files (
+			id BIGINT NOT NULL AUTO_INCREMENT,
+			short_link_id BIGINT NOT NULL,
+			uploaded_by BIGINT,
+			original_name VARCHAR(512) NOT NULL,
+			path VARCHAR(1024) NOT NULL,
+			url VARCHAR(2048) NOT NULL,
+			disk VARCHAR(32) NOT NULL DEFAULT 'local',
+			mime_type VARCHAR(255),
+			size BIGINT NOT NULL DEFAULT 0,
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL,
+			PRIMARY KEY (id),
+			KEY idx_short_link_files_link (short_link_id),
+			CONSTRAINT fk_short_link_files_link FOREIGN KEY (short_link_id) REFERENCES short_links(id) ON DELETE CASCADE,
+			CONSTRAINT fk_short_link_files_user FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE SET NULL
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+	},
 }
 
 // CleanupSessions removes expired sessions and tokens. It is safe to call at

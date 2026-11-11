@@ -28,8 +28,25 @@ type ShortLink struct {
 	CreatorName  *string    `db:"creator_name" json:"creator_name"`
 	UniqueClicks int64      `db:"unique_clicks" json:"unique_clicks"`
 	LastClickAt  *time.Time `db:"last_click_at" json:"last_click_at"`
+	FileCount    int        `db:"file_count" json:"file_count"`
 	Expired      bool       `db:"-" json:"expired"`
 	ShortURL     string     `db:"-" json:"short_url"`
+}
+
+type ShortLinkFile struct {
+	ID           int64     `db:"id" json:"id"`
+	ShortLinkID  int64     `db:"short_link_id" json:"short_link_id"`
+	UploadedBy   *int64    `db:"uploaded_by" json:"uploaded_by"`
+	OriginalName string    `db:"original_name" json:"original_name"`
+	Path         string    `db:"path" json:"-"`
+	URL          string    `db:"url" json:"-"`
+	Disk         string    `db:"disk" json:"disk"`
+	MimeType     *string   `db:"mime_type" json:"mime_type"`
+	Size         int64     `db:"size" json:"size"`
+	CreatedAt    time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt    time.Time `db:"updated_at" json:"updated_at"`
+	UploaderName *string   `db:"uploader_name" json:"uploader_name"`
+	DownloadURL  string    `db:"-" json:"download_url"`
 }
 
 type ShortLinkClick struct {
@@ -129,7 +146,8 @@ func (s *Store) ListShortLinks(filter ShortLinkFilter) ([]ShortLink, int, ShortL
 	query := `SELECT l.*, TRIM(CONCAT(u.name, ' ', COALESCE(u.surname, ''))) AS creator_name,
 			(SELECT COUNT(DISTINCT c.visitor_hash) FROM short_link_clicks c
 				WHERE c.short_link_id = l.id AND c.visitor_hash IS NOT NULL AND c.visitor_hash <> '') AS unique_clicks,
-			(SELECT MAX(c.clicked_at) FROM short_link_clicks c WHERE c.short_link_id = l.id) AS last_click_at` +
+			(SELECT MAX(c.clicked_at) FROM short_link_clicks c WHERE c.short_link_id = l.id) AS last_click_at,
+			(SELECT COUNT(*) FROM short_link_files f WHERE f.short_link_id = l.id) AS file_count` +
 		base + ` ORDER BY l.created_at DESC, l.id DESC LIMIT ? OFFSET ?`
 	items := []ShortLink{}
 	queryArgs := append(append([]any{}, args...), filter.PerPage, (filter.Page-1)*filter.PerPage)
@@ -168,7 +186,8 @@ func (s *Store) ShortLinkStats() (ShortLinkStats, error) {
 const shortLinkSelect = `SELECT l.*, TRIM(CONCAT(u.name, ' ', COALESCE(u.surname, ''))) AS creator_name,
 	(SELECT COUNT(DISTINCT c.visitor_hash) FROM short_link_clicks c
 		WHERE c.short_link_id = l.id AND c.visitor_hash IS NOT NULL AND c.visitor_hash <> '') AS unique_clicks,
-	(SELECT MAX(c.clicked_at) FROM short_link_clicks c WHERE c.short_link_id = l.id) AS last_click_at
+	(SELECT MAX(c.clicked_at) FROM short_link_clicks c WHERE c.short_link_id = l.id) AS last_click_at,
+	(SELECT COUNT(*) FROM short_link_files f WHERE f.short_link_id = l.id) AS file_count
 	FROM short_links l JOIN users u ON u.id = l.user_id`
 
 func (s *Store) FindShortLink(id int64) (ShortLink, error) {
@@ -267,9 +286,50 @@ func (s *Store) ToggleShortLink(id int64) (ShortLink, error) {
 	return s.FindShortLink(id)
 }
 
-func (s *Store) DeleteShortLink(id int64) error {
+func (s *Store) DeleteShortLink(id int64) ([]string, error) {
+	paths := []string{}
+	_ = s.DB.Select(&paths, `SELECT path FROM short_link_files WHERE short_link_id = ?`, id)
 	_, err := s.DB.Exec(`DELETE FROM short_links WHERE id = ?`, id)
-	return err
+	return paths, err
+}
+
+func (s *Store) ShortLinkFiles(linkID int64) ([]ShortLinkFile, error) {
+	items := []ShortLinkFile{}
+	err := s.DB.Select(&items, `SELECT f.*, TRIM(CONCAT(u.name, ' ', COALESCE(u.surname, ''))) AS uploader_name
+		FROM short_link_files f LEFT JOIN users u ON u.id = f.uploaded_by
+		WHERE f.short_link_id = ? ORDER BY f.created_at ASC, f.id ASC`, linkID)
+	return items, err
+}
+
+func (s *Store) FindShortLinkFile(linkID, fileID int64) (ShortLinkFile, error) {
+	var item ShortLinkFile
+	err := s.DB.Get(&item, `SELECT * FROM short_link_files WHERE id = ? AND short_link_id = ?`, fileID, linkID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return item, ErrNotFound
+	}
+	return item, err
+}
+
+func (s *Store) CreateShortLinkFile(linkID, userID int64, originalName, path, url, disk, mimeType string, size int64) (ShortLinkFile, error) {
+	timestamp := now()
+	result, err := s.DB.Exec(`INSERT INTO short_link_files
+		(short_link_id, uploaded_by, original_name, path, url, disk, mime_type, size, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		linkID, userID, originalName, path, url, disk, nullString(mimeType), size, timestamp, timestamp)
+	if err != nil {
+		return ShortLinkFile{}, err
+	}
+	id, _ := result.LastInsertId()
+	return s.FindShortLinkFile(linkID, id)
+}
+
+func (s *Store) DeleteShortLinkFile(linkID, fileID int64) (ShortLinkFile, error) {
+	file, err := s.FindShortLinkFile(linkID, fileID)
+	if err != nil {
+		return file, err
+	}
+	_, err = s.DB.Exec(`DELETE FROM short_link_files WHERE id = ? AND short_link_id = ?`, fileID, linkID)
+	return file, err
 }
 
 func (s *Store) RecordShortLinkClick(id int64, visitorHash, referrer, userAgent string) error {

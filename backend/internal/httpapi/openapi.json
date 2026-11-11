@@ -244,6 +244,13 @@
     "/links/{id}/qr": {
       "get": { "tags": ["Links curtos"], "summary": "Gera o QR Code PNG do link curto", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Imagem PNG" } } }
     },
+    "/links/{id}/files": {
+      "get": { "tags": ["Links curtos"], "summary": "Lista os arquivos anexados ao link", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Arquivos" } } },
+      "post": { "tags": ["Links curtos"], "summary": "Anexa arquivos ao link (multipart, 50 MB cada)", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "201": { "description": "Arquivos anexados" }, "422": { "description": "Validação" } } }
+    },
+    "/links/{id}/files/{fileId}": {
+      "delete": { "tags": ["Links curtos"], "summary": "Remove um arquivo do link", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "fileId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Arquivo removido" } } }
+    },
     "/settings": {
       "get": { "tags": ["Settings"], "summary": "Configurações do usuário, módulos, fuso e armazenamento", "responses": { "200": { "description": "Configurações" } } }
     },

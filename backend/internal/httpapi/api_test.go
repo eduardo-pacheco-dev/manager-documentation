@@ -643,6 +643,47 @@ func TestShortLinks(t *testing.T) {
 		t.Fatalf("short link qr status = %d content-type=%q", res.StatusCode, res.Header.Get("Content-Type"))
 	}
 
+	var uploadBuffer bytes.Buffer
+	uploadWriter := multipart.NewWriter(&uploadBuffer)
+	uploadPart, _ := uploadWriter.CreateFormFile("files", "documento.txt")
+	_, _ = uploadPart.Write([]byte("conteudo do arquivo"))
+	_ = uploadWriter.Close()
+	uploadReq, _ := http.NewRequest(http.MethodPost, app.server.URL+fmt.Sprintf("/api/v1/links/%d/files", linkID), &uploadBuffer)
+	uploadReq.Header.Set("Content-Type", uploadWriter.FormDataContentType())
+	uploadReq.Header.Set("X-CSRF-Token", app.csrf)
+	uploadRes, err := app.client.Do(uploadReq)
+	if err != nil || uploadRes.StatusCode != http.StatusCreated {
+		raw, _ := io.ReadAll(uploadRes.Body)
+		t.Fatalf("short link file upload failed: %v %d %s", err, uploadRes.StatusCode, raw)
+	}
+	_ = uploadRes.Body.Close()
+
+	res, payload = app.request(http.MethodGet, fmt.Sprintf("/api/v1/links/%d", linkID), nil, "", nil)
+	files := payload["data"].(map[string]any)["files"].([]any)
+	if len(files) != 1 {
+		t.Fatalf("short link files missing: %v", payload)
+	}
+	file := files[0].(map[string]any)
+	fileID := int64(file["id"].(float64))
+	landing, err := noRedirect.Get(app.server.URL + "/s/teste-link")
+	if err != nil {
+		t.Fatalf("short link landing request: %v", err)
+	}
+	landingBody, _ := io.ReadAll(landing.Body)
+	landing.Body.Close()
+	if landing.StatusCode != http.StatusOK || !strings.Contains(string(landingBody), "documento.txt") {
+		t.Fatalf("short link landing status = %d body=%s", landing.StatusCode, landingBody)
+	}
+	download, err := noRedirect.Get(app.server.URL + fmt.Sprintf("/s/teste-link/files/%d", fileID))
+	if err != nil {
+		t.Fatalf("short link file download: %v", err)
+	}
+	downloadBody, _ := io.ReadAll(download.Body)
+	download.Body.Close()
+	if download.StatusCode != http.StatusOK || !strings.Contains(download.Header.Get("Content-Disposition"), "attachment") || string(downloadBody) != "conteudo do arquivo" {
+		t.Fatalf("short link file download status = %d disposition=%q body=%q", download.StatusCode, download.Header.Get("Content-Disposition"), downloadBody)
+	}
+
 	res, payload = app.request(http.MethodPatch, fmt.Sprintf("/api/v1/links/%d/toggle", linkID), nil, app.csrf, nil)
 	if res.StatusCode != http.StatusOK || payload["data"].(map[string]any)["link"].(map[string]any)["is_active"] != false {
 		t.Fatalf("short link toggle failed: %d %v", res.StatusCode, payload)

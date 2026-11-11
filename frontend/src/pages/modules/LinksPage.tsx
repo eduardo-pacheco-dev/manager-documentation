@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   Add,
+  Attachment,
   Copy,
   Download,
   Edit,
@@ -37,7 +38,12 @@ interface ShortLink {
   description: string | null; is_active: boolean; expires_at: string | null;
   click_count: number; unique_clicks: number; last_click_at: string | null;
   created_at: string; updated_at: string; creator_name: string | null;
-  expired: boolean; short_url: string;
+  expired: boolean; short_url: string; file_count: number;
+}
+interface ShortLinkFile {
+  id: number; short_link_id: number; original_name: string; disk: string;
+  mime_type: string | null; size: number; created_at: string;
+  uploader_name: string | null; download_url: string;
 }
 interface ShortLinkStats {
   total: number; active: number; inactive: number; expired: number; clicks: number; unique_clicks: number;
@@ -52,6 +58,7 @@ interface ListData {
 }
 interface DetailData {
   link: ShortLink; short_url: string; clicks: ShortLinkClick[]; daily: Daily[]; sources: Source[];
+  files: ShortLinkFile[];
 }
 
 const EMPTY_FORM = {
@@ -68,6 +75,12 @@ function localDateTime(value: string | null): string {
   if (Number.isNaN(date.getTime())) return value.slice(0, 16);
   const pad = (part: number) => String(part).padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function formatBytes(size: number): string {
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function statusTag(link: ShortLink) {
@@ -93,6 +106,10 @@ export function LinksPage() {
   const [qrLink, setQrLink] = useState<ShortLink | null>(null);
   const [deleteLink, setDeleteLink] = useState<ShortLink | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [filesLink, setFilesLink] = useState<ShortLink | null>(null);
+  const [files, setFiles] = useState<ShortLinkFile[]>([]);
+  const [filesLoading, setFilesLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -150,7 +167,7 @@ export function LinksPage() {
 
   async function openDetail(link: ShortLink) {
     setDetailLoading(true);
-    setDetail({ link, short_url: shortURL(link), clicks: [], daily: [], sources: [] });
+    setDetail({ link, short_url: shortURL(link), clicks: [], daily: [], sources: [], files: [] });
     try {
       const response = await api.get<{ data: DetailData }>(`/links/${link.id}`);
       setDetail(response.data);
@@ -179,6 +196,62 @@ export function LinksPage() {
       if (detail?.link.id === link.id) await openDetail({ ...link, is_active: !link.is_active });
     } catch (error) {
       toast.error('Não foi possível alterar o link', errorMessage(error));
+    }
+  }
+
+  async function openFiles(link: ShortLink) {
+    setFilesLink(link);
+    setFiles([]);
+    setFilesLoading(true);
+    try {
+      const response = await api.get<{ data: ShortLinkFile[] }>(`/links/${link.id}/files`);
+      setFiles(response.data ?? []);
+    } catch (error) {
+      toast.error('Não foi possível carregar os arquivos', errorMessage(error));
+    } finally {
+      setFilesLoading(false);
+    }
+  }
+
+  async function reloadFiles(link: ShortLink) {
+    const response = await api.get<{ data: ShortLinkFile[] }>(`/links/${link.id}/files`);
+    setFiles(response.data ?? []);
+  }
+
+  async function uploadFiles(link: ShortLink, selected: FileList | null) {
+    if (!selected || selected.length === 0) return;
+    setUploading(true);
+    try {
+      const payload = new FormData();
+      Array.from(selected).forEach((file) => payload.append('files', file));
+      const response = await api.upload<{ message: string }>(`/links/${link.id}/files`, payload);
+      toast.success(response.message);
+      await reloadFiles(link);
+      await load();
+    } catch (error) {
+      toast.error('Não foi possível enviar os arquivos', errorMessage(error));
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function deleteFile(link: ShortLink, file: ShortLinkFile) {
+    try {
+      await api.delete(`/links/${link.id}/files/${file.id}`);
+      toast.success('Arquivo removido.');
+      await reloadFiles(link);
+      await load();
+    } catch (error) {
+      toast.error('Não foi possível remover o arquivo', errorMessage(error));
+    }
+  }
+
+  async function copyText(value: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success('Copiado para a área de transferência.');
+    } catch {
+      toast.error('Não foi possível copiar', value);
     }
   }
 
@@ -281,6 +354,7 @@ export function LinksPage() {
                         /s/{link.code}
                       </button>
                       <span className="cell-secondary">{link.title || 'Sem título'}</span>
+                      {link.file_count > 0 && <span className="cell-secondary">{link.file_count} arquivo(s)</span>}
                     </td>
                     <td className="hide-md link-target">
                       <a href={link.target_url} target="_blank" rel="noreferrer">{link.target_url}</a>
@@ -296,6 +370,7 @@ export function LinksPage() {
                       <Button kind="ghost" size="sm" hasIconOnly renderIcon={Copy} iconDescription="Copiar link" onClick={() => void copyLink(link)} />
                       <Button kind="ghost" size="sm" hasIconOnly renderIcon={Launch} iconDescription="Abrir link" onClick={() => window.open(shortURL(link), '_blank')} />
                       <Button kind="ghost" size="sm" hasIconOnly renderIcon={QrCode} iconDescription="QR Code" onClick={() => setQrLink(link)} />
+                      <Button kind="ghost" size="sm" hasIconOnly renderIcon={Attachment} iconDescription="Arquivos" onClick={() => void openFiles(link)} />
                       {canManage(link) && (
                         <>
                           <Button kind="ghost" size="sm" hasIconOnly renderIcon={Edit} iconDescription="Editar" onClick={() => openEdit(link)} />
@@ -326,7 +401,7 @@ export function LinksPage() {
         modalHeading={editing ? 'Editar link curto' : 'Novo link curto'}
         primaryButtonText={saving ? 'Salvando…' : 'Salvar'}
         secondaryButtonText="Cancelar"
-        primaryButtonDisabled={saving || !form.target_url.trim()}
+        primaryButtonDisabled={saving}
         onRequestSubmit={() => void save()}
         onRequestClose={() => setCreateOpen(false)}
         size="md"
@@ -334,11 +409,11 @@ export function LinksPage() {
         <div className="modal-form">
           <TextInput
             id="link-target"
-            labelText="URL de destino *"
+            labelText="URL de destino"
             placeholder="https://exemplo.com/pagina"
             value={form.target_url}
             onChange={(event) => setForm({ ...form, target_url: event.target.value })}
-            required
+            helperText="Opcional quando o link for usado apenas para arquivos."
           />
           <div className="form-row">
             <TextInput
@@ -429,6 +504,7 @@ export function LinksPage() {
             <div className="link-detail__actions">
               <Button size="sm" renderIcon={Copy} onClick={() => void copyLink(detail.link)}>Copiar</Button>
               <Button size="sm" kind="tertiary" renderIcon={QrCode} onClick={() => setQrLink(detail.link)}>QR Code</Button>
+              <Button size="sm" kind="tertiary" renderIcon={Attachment} onClick={() => void openFiles(detail.link)}>Arquivos</Button>
               <Button size="sm" kind="tertiary" renderIcon={View} onClick={() => window.open(detail.short_url, '_blank')}>Abrir</Button>
             </div>
 
@@ -466,6 +542,49 @@ export function LinksPage() {
                   </div>
                 </div>
               </>
+            )}
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        open={filesLink !== null}
+        modalHeading={filesLink ? `Arquivos — /s/${filesLink.code}` : 'Arquivos'}
+        primaryButtonText="Fechar"
+        onRequestSubmit={() => setFilesLink(null)}
+        onRequestClose={() => setFilesLink(null)}
+        size="md"
+      >
+        {filesLink && (
+          <div className="link-files">
+            <p className="muted">Até 20 arquivos por link, com no máximo 50 MB cada. Aceita PDF, Office, imagens, ZIP, DWG, KML, entre outros.</p>
+            <TextInput
+              id="link-files-upload"
+              type="file"
+              multiple
+              labelText="Adicionar arquivos"
+              disabled={uploading}
+              onChange={(event) => void uploadFiles(filesLink, event.target.files)}
+            />
+            {uploading && <InlineLoading description="Enviando arquivos…" />}
+            {filesLoading ? <InlineLoading description="Carregando arquivos…" /> : files.length === 0 ? (
+              <p className="muted">Nenhum arquivo anexado.</p>
+            ) : (
+              <div className="link-files__list">
+                {files.map((file) => (
+                  <div key={file.id} className="link-files__row">
+                    <div>
+                      <strong>{file.original_name}</strong>
+                      <span>{formatBytes(file.size)} · {file.uploader_name ?? 'Usuário removido'} · {relativeTime(file.created_at)}</span>
+                    </div>
+                    <div className="link-files__actions">
+                      <Button kind="ghost" size="xs" hasIconOnly renderIcon={Copy} iconDescription="Copiar link de download" onClick={() => void copyText(file.download_url)} />
+                      <Button kind="ghost" size="xs" hasIconOnly renderIcon={Download} iconDescription="Baixar" onClick={() => window.open(file.download_url, '_blank')} />
+                      <Button kind="danger--ghost" size="xs" hasIconOnly renderIcon={TrashCan} iconDescription="Remover arquivo" onClick={() => void deleteFile(filesLink, file)} />
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         )}
