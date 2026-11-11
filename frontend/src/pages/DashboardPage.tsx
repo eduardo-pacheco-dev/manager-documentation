@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Add,
   ArrowDown,
   ArrowUp,
   Checkmark,
+  Close,
   Draggable,
   Edit,
   Time,
@@ -216,6 +217,9 @@ export function DashboardPage() {
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerDragId, setDrawerDragId] = useState<string | null>(null);
+  const [dropBeforeId, setDropBeforeId] = useState<string | null | undefined>(undefined);
 
   async function load() {
     try {
@@ -236,7 +240,7 @@ export function DashboardPage() {
   if (loading || !data) return <Loading description="Carregando dashboard…" />;
 
   const hiddenSet = new Set(data.hidden);
-  const visible = editing ? data.widgets : data.widgets.filter((widget) => !hiddenSet.has(widget.id));
+  const visible = data.widgets.filter((widget) => !hiddenSet.has(widget.id));
   const hidden = data.widgets.filter((widget) => hiddenSet.has(widget.id));
 
   async function setVisibility(widget: DashboardWidget, hiddenValue: boolean) {
@@ -277,36 +281,56 @@ export function DashboardPage() {
     }
   }
 
-  async function persistOrder(order: string[]) {
+  async function placeWidget(sourceId: string, beforeId: string | null, fromDrawer: boolean) {
+    if (!data || beforeId === sourceId) return;
     setBusy(true);
+    const nextHidden = data.hidden.filter((id) => id !== sourceId);
+    const nextHiddenSet = new Set(nextHidden);
+    const visibleIds = data.widgets
+      .filter((widget) => widget.id === sourceId || !hiddenSet.has(widget.id))
+      .map((widget) => widget.id)
+      .filter((id) => id !== sourceId);
+    const targetIndex = beforeId ? visibleIds.indexOf(beforeId) : visibleIds.length;
+    visibleIds.splice(targetIndex < 0 ? visibleIds.length : targetIndex, 0, sourceId);
+    const hiddenIds = data.widgets
+      .filter((widget) => widget.id !== sourceId && nextHiddenSet.has(widget.id))
+      .map((widget) => widget.id);
+    const order = [...visibleIds, ...hiddenIds];
+
     try {
+      if (fromDrawer) {
+        await api.put(`/dashboard/widgets/${encodeURIComponent(sourceId)}`, { hidden: false });
+      }
       await api.put('/dashboard/widgets/order', { order });
-      setData((current) => (current ? { ...current, order } : current));
-      toast.success('Ordem dos widgets atualizada');
+      const byId = new Map(data.widgets.map((widget) => [widget.id, widget]));
+      setData({
+        ...data,
+        hidden: nextHidden,
+        order,
+        widgets: order.map((id) => byId.get(id)).filter((widget): widget is DashboardWidget => Boolean(widget)),
+      });
+      toast.success(fromDrawer ? 'Widget adicionado ao painel' : 'Ordem dos widgets atualizada');
     } catch (error) {
-      toast.error('Não foi possível salvar a ordem', errorMessage(error));
+      toast.error('Não foi possível posicionar o widget', errorMessage(error));
     } finally {
       setBusy(false);
+      setDragId(null);
+      setDrawerDragId(null);
+      setDropBeforeId(undefined);
     }
   }
 
-  function handleDrop(targetId: string) {
-    if (!dragId || dragId === targetId) return;
-    const ids = data!.widgets.map((widget) => widget.id);
-    const from = ids.indexOf(dragId);
-    const to = ids.indexOf(targetId);
-    if (from < 0 || to < 0) return;
-    ids.splice(to, 0, ids.splice(from, 1)[0]);
-    const reordered = ids
-      .map((id) => data!.widgets.find((widget) => widget.id === id))
-      .filter((widget): widget is DashboardWidget => Boolean(widget));
-    setData({ ...data!, widgets: reordered, order: ids });
-    setDragId(null);
-    void persistOrder(ids);
+  function handleDropAt(beforeId: string | null, event: React.DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    const sourceId = event.dataTransfer.getData('text/plain') || drawerDragId || dragId;
+    if (!sourceId) return;
+    const fromDrawer = hiddenSet.has(sourceId);
+    void placeWidget(sourceId, beforeId, fromDrawer);
   }
 
   return (
-    <div className="page">
+    <div className={`page ${editing && drawerOpen ? 'page--drawer-open' : ''}`}>
       <PageHeader
         eyebrow="Visão geral"
         title={data.greeting || `Bem-vindo, ${user?.name}!`}
@@ -316,7 +340,15 @@ export function DashboardPage() {
             kind={editing ? 'primary' : 'tertiary'}
             size="md"
             renderIcon={editing ? Checkmark : Edit}
-            onClick={() => setEditing((value) => !value)}
+            onClick={() => {
+              if (editing) {
+                setEditing(false);
+                setDrawerOpen(false);
+              } else {
+                setEditing(true);
+                setDrawerOpen(true);
+              }
+            }}
           >
             {editing ? 'Concluir edição' : 'Editar widgets'}
           </Button>
@@ -328,106 +360,193 @@ export function DashboardPage() {
           <Draggable size={20} />
           <div>
             <strong>Modo edição</strong>
-            <p>Arraste para reordenar, redimensione, remova widgets ou adicione de volta os que estão ocultos.</p>
+            <p>Arraste widgets da barra lateral para qualquer posição e use os controles para redimensionar ou remover.</p>
           </div>
           {busy && <InlineLoading description="Salvando…" />}
+          {!drawerOpen && (
+            <Button kind="ghost" size="sm" renderIcon={Add} onClick={() => setDrawerOpen(true)}>
+              Widgets disponíveis
+            </Button>
+          )}
         </div>
       )}
 
-      {visible.length === 0 ? (
+      {visible.length === 0 && !editing ? (
         <EmptyState
           title="Nenhum widget visível"
-          description={editing ? 'Adicione widgets ocultos abaixo.' : 'Ative o modo edição para adicionar widgets ao painel.'}
+          description="Ative o modo edição para adicionar widgets ao painel."
         />
       ) : (
-        <div className="widget-grid">
+        <div className={`widget-grid ${editing ? 'widget-grid--editing' : ''}`}>
+          {editing && visible.length === 0 && (
+            <div
+              className={`widget-empty-drop ${dropBeforeId === null ? 'is-over' : ''}`}
+              onDragOver={(event) => {
+                event.preventDefault();
+                setDropBeforeId(null);
+              }}
+              onDragLeave={() => setDropBeforeId(undefined)}
+              onDrop={(event) => handleDropAt(null, event)}
+            >
+              <Draggable size={24} />
+              <strong>Arraste widgets para cá</strong>
+              <span>Solte um widget da barra lateral para começar seu painel.</span>
+            </div>
+          )}
           {visible.map((widget) => {
             const span = data.spans[widget.id] ?? widget.default_span;
             return (
-              <section
-                key={widget.id}
-                className={`widget-card widget-card--span-${Math.max(1, Math.min(3, span))} ${editing ? 'widget-card--editing' : ''} ${dragId === widget.id ? 'widget-card--dragging' : ''}`}
-                style={{ ['--widget-span' as string]: Math.max(1, Math.min(3, span)) }}
-                draggable={editing}
-                onDragStart={() => setDragId(widget.id)}
-                onDragEnd={() => setDragId(null)}
-                onDragOver={(event) => {
-                  if (editing) event.preventDefault();
-                }}
-                onDrop={() => handleDrop(widget.id)}
-              >
+              <Fragment key={widget.id}>
                 {editing && (
-                  <div className="widget-toolbar">
-                    <div className="widget-toolbar__left">
-                      <Draggable size={16} />
-                      <span>Arraste para reordenar</span>
-                    </div>
-                    <div className="widget-toolbar__actions">
-                      {[1, 2, 3].map((columns) => (
-                        <Button
-                          key={columns}
-                          size="sm"
-                          kind={columns === span ? 'primary' : 'ghost'}
-                          onClick={() => void setSpan(widget, columns)}
-                          disabled={busy}
-                        >
-                          {columns} col{columns > 1 ? 's' : ''}
-                        </Button>
-                      ))}
-                      <Button
-                        size="sm"
-                        kind="danger--ghost"
-                        renderIcon={TrashCan}
-                        onClick={() => void setVisibility(widget, true)}
-                        disabled={busy}
-                      >
-                        Remover
-                      </Button>
-                    </div>
+                  <div
+                    className={`widget-drop-zone ${dropBeforeId === widget.id ? 'is-over' : ''}`}
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      setDropBeforeId(widget.id);
+                    }}
+                    onDragLeave={() => setDropBeforeId(undefined)}
+                    onDrop={(event) => handleDropAt(widget.id, event)}
+                  >
+                    <span>Solte aqui</span>
                   </div>
                 )}
-                <div className="widget-card__content">
-                  <WidgetBody widget={widget} onOpen={() => navigate('/users')} />
-                </div>
-              </section>
+                <section
+                  className={`widget-card widget-card--span-${Math.max(1, Math.min(3, span))} ${editing ? 'widget-card--editing' : ''} ${dragId === widget.id ? 'widget-card--dragging' : ''}`}
+                  style={{ ['--widget-span' as string]: Math.max(1, Math.min(3, span)) }}
+                  draggable={editing}
+                  onDragStart={(event) => {
+                    event.dataTransfer.setData('text/plain', widget.id);
+                    event.dataTransfer.effectAllowed = 'move';
+                    setDragId(widget.id);
+                  }}
+                  onDragEnd={() => {
+                    setDragId(null);
+                    setDrawerDragId(null);
+                    setDropBeforeId(undefined);
+                  }}
+                  onDragOver={(event) => {
+                    if (editing) {
+                      event.preventDefault();
+                      setDropBeforeId(widget.id);
+                    }
+                  }}
+                  onDrop={(event) => handleDropAt(widget.id, event)}
+                >
+                  {editing && (
+                    <div className="widget-toolbar">
+                      <div className="widget-toolbar__left">
+                        <Draggable size={16} />
+                        <span>Arraste para reordenar</span>
+                      </div>
+                      <div className="widget-toolbar__actions">
+                        {[1, 2, 3].map((columns) => (
+                          <Button
+                            key={columns}
+                            size="sm"
+                            kind={columns === span ? 'primary' : 'ghost'}
+                            onClick={() => void setSpan(widget, columns)}
+                            disabled={busy}
+                          >
+                            {columns} col{columns > 1 ? 's' : ''}
+                          </Button>
+                        ))}
+                        <Button
+                          size="sm"
+                          kind="danger--ghost"
+                          renderIcon={TrashCan}
+                          onClick={() => void setVisibility(widget, true)}
+                          disabled={busy}
+                        >
+                          Remover
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  <div className="widget-card__content">
+                    <WidgetBody widget={widget} onOpen={() => navigate('/users')} />
+                  </div>
+                </section>
+              </Fragment>
             );
           })}
+          {editing && (
+            <div
+              className={`widget-drop-zone widget-drop-zone--end ${dropBeforeId === null ? 'is-over' : ''}`}
+              onDragOver={(event) => {
+                event.preventDefault();
+                setDropBeforeId(null);
+              }}
+              onDragLeave={() => setDropBeforeId(undefined)}
+              onDrop={(event) => handleDropAt(null, event)}
+            >
+              <span>Solte aqui no final</span>
+            </div>
+          )}
         </div>
       )}
 
-      {editing && (
-        <section className="hidden-widgets">
-          <div className="hidden-widgets__header">
+      {editing && drawerOpen && (
+        <aside className="widget-drawer" aria-label="Widgets disponíveis">
+          <header className="widget-drawer__header">
             <div>
-              <h2>Widgets ocultos</h2>
-              <p>{hidden.length} widget(s) fora do painel.</p>
+              <p className="widget-drawer__eyebrow">Personalizar painel</p>
+              <h2>Widgets disponíveis</h2>
             </div>
-          </div>
-          {hidden.length === 0 ? (
-            <p className="muted">Todos os widgets disponíveis já estão visíveis.</p>
-          ) : (
-            <div className="hidden-widgets__list">
-              {hidden.map((widget) => (
-                <div key={widget.id} className="hidden-widget">
-                  <div className="hidden-widget__icon"><WidgetIcon id={widget.id} /></div>
-                  <div className="hidden-widget__text">
+            <Button
+              kind="ghost"
+              size="sm"
+              hasIconOnly
+              renderIcon={Close}
+              iconDescription="Fechar barra de widgets"
+              onClick={() => setDrawerOpen(false)}
+            />
+          </header>
+          <p className="widget-drawer__hint">
+            Arraste um widget e solte entre os cards do painel. Você também pode usar o botão + para adicioná-lo ao final.
+          </p>
+          <div className="widget-drawer__list">
+            {hidden.length === 0 ? (
+              <div className="widget-drawer__empty">
+                <Checkmark size={24} />
+                <strong>Todos os widgets estão no painel</strong>
+                <span>Remova um widget do painel para ele aparecer aqui novamente.</span>
+              </div>
+            ) : (
+              hidden.map((widget) => (
+                <div
+                  key={widget.id}
+                  className={`widget-drawer__item ${drawerDragId === widget.id ? 'is-dragging' : ''}`}
+                  draggable
+                  onDragStart={(event) => {
+                    event.dataTransfer.setData('text/plain', widget.id);
+                    event.dataTransfer.effectAllowed = 'copy';
+                    setDrawerDragId(widget.id);
+                  }}
+                  onDragEnd={() => setDrawerDragId(null)}
+                >
+                  <div className="widget-drawer__icon"><WidgetIcon id={widget.id} /></div>
+                  <div className="widget-drawer__text">
                     <strong>{widget.title}</strong>
                     <span>{widget.description}</span>
                   </div>
                   <Button
                     size="sm"
                     kind="ghost"
+                    hasIconOnly
                     renderIcon={Add}
-                    onClick={() => void setVisibility(widget, false)}
+                    iconDescription={`Adicionar ${widget.title}`}
+                    onClick={() => void placeWidget(widget.id, null, true)}
                     disabled={busy}
-                  >
-                    Adicionar
-                  </Button>
+                  />
                 </div>
-              ))}
-            </div>
-          )}
-        </section>
+              ))
+            )}
+          </div>
+          <footer className="widget-drawer__footer">
+            <Draggable size={16} />
+            <span>{hidden.length} widget(s) disponível(is)</span>
+          </footer>
+        </aside>
       )}
     </div>
   );
