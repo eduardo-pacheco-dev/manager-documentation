@@ -460,6 +460,25 @@ func TestNativeModules(t *testing.T) {
 	if res.StatusCode != http.StatusOK {
 		t.Fatalf("checklist status = %d", res.StatusCode)
 	}
+	res, payload = app.request(http.MethodPut, fmt.Sprintf("/api/v1/nokia/sites/%d/dates", siteID), map[string]any{
+		"fam_instalacao_approved_at": "2026-11-01",
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("nokia dates status = %d", res.StatusCode)
+	}
+	site := payload["data"].(map[string]any)["site"].(map[string]any)
+	if site["checklist_fam_instalacao_status"] != "sent" || site["checklist_fam_instalacao"] != true {
+		t.Fatalf("approval date did not sync checklist: %v", site)
+	}
+	for _, path := range []string{"/api/v1/nokia/sites/template", "/api/v1/nokia/sites/export", "/api/v1/nokia/sites/export/pending"} {
+		res, _ := app.request(http.MethodGet, path, nil, "", nil)
+		if res.StatusCode != http.StatusOK {
+			t.Fatalf("%s status = %d", path, res.StatusCode)
+		}
+		if !strings.Contains(res.Header.Get("Content-Type"), "spreadsheetml") {
+			t.Fatalf("%s content-type = %q", path, res.Header.Get("Content-Type"))
+		}
+	}
 
 	res, payload = app.request(http.MethodGet, "/api/v1/dashboard", nil, "", nil)
 	if res.StatusCode != http.StatusOK || len(payload["data"].(map[string]any)["widgets"].([]any)) < 6 {

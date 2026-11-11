@@ -180,6 +180,7 @@ func (s *Server) Router() http.Handler {
 				nokia.Get("/roms", s.nokiaROMList)
 				nokia.Post("/sites", s.nokiaCreate)
 				nokia.Get("/sites/export", s.nokiaExport)
+				nokia.Get("/sites/export/pending", s.nokiaPendingExport)
 				nokia.Get("/sites/template", s.nokiaTemplate)
 				nokia.Post("/sites/import", s.nokiaImport)
 				nokia.Get("/sites/{id}", s.nokiaShow)

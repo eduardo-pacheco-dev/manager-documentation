@@ -188,15 +188,54 @@ function FollowUpsChartWidget({ widget }: { widget: DashboardWidget }) {
 
 function NokiaWidget({ widget }: { widget: DashboardWidget }) {
   const data = (widget.data as Record<string, unknown> | undefined) ?? {};
+  const statuses = (data.statuses as Array<Record<string, unknown>> | undefined) ?? [];
+  const regional = (data.regional as Array<Record<string, unknown>> | undefined) ?? [];
+  const pending = (data.pending_items as Array<Record<string, unknown>> | undefined) ?? [];
   return (
     <div className="widget-recent">
-      <div className="widget-recent__header"><div><h3>Projetos Nokia</h3><p>{widget.description}</p></div></div>
-      <div className="mini-stats">
-        <div><strong>{String(data.total ?? 0)}</strong><span>Sites</span></div>
-        <div><strong>{String(data.accepted ?? 0)}</strong><span>Aceitos</span></div>
-        <div><strong>{String(data.rejected ?? 0)}</strong><span>Rejeitados</span></div>
-        <div><strong>{String(data.pending ?? 0)}</strong><span>Pendências</span></div>
+      <div className="widget-recent__header">
+        <div><h3>Projetos Nokia</h3><p>{widget.description}</p></div>
+        <Tag type={Number(data.acceptance ?? 0) >= 80 ? 'green' : 'red'} size="sm">Aceite {Number(data.acceptance ?? 0).toFixed(1)}%</Tag>
       </div>
+      <div className="mini-stats">
+        <div><strong>{String(data.integrated ?? data.total ?? 0)}</strong><span>Sites integrados</span></div>
+        <div><strong>{String(data.accepted ?? 0)}</strong><span>Aceitos</span></div>
+        <div><strong>{String(data.pending ?? 0)}</strong><span>Pendências</span></div>
+        <div><strong>{Number(data.projected ?? 0).toFixed(1)}%</strong><span>Projeção</span></div>
+      </div>
+      {statuses.length > 0 && (
+        <div className="bar-list">
+          {statuses.map((status) => (
+            <div key={String(status.key)} className="bar-row">
+              <span>{String(status.label)}</span>
+              <div><i style={{ width: `${Math.min(100, Number(status.percent ?? 0))}%`, background: String(status.color ?? '#4589ff') }} /></div>
+              <strong>{String(status.count)}</strong>
+            </div>
+          ))}
+        </div>
+      )}
+      {regional.length > 0 && (
+        <div className="nokia-widget-columns">
+          <div>
+            <p className="field-label">Regionais</p>
+            {regional.slice(0, 5).map((item) => (
+              <div key={String(item.name)} className="widget-list-row">
+                <span>{String(item.name)}</span>
+                <strong>{Number(item.percent ?? 0).toFixed(1)}%</strong>
+              </div>
+            ))}
+          </div>
+          <div>
+            <p className="field-label">Pendências recentes</p>
+            {pending.slice(0, 5).map((item, index) => (
+              <div key={`${String(item.site_id)}-${index}`} className="widget-list-row">
+                <span>{String(item.site_id)} · {String(item.description)}</span>
+                <Tag type="gray" size="sm">{String(item.kind_label)}</Tag>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

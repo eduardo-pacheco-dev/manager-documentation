@@ -29,7 +29,7 @@ Os antigos plugins foram convertidos em módulos nativos:
 
 | Camada | Tecnologia |
 | --- | --- |
-| Backend | Go 1.24+, chi, SQLite |
+| Backend | Go 1.26+, chi, SQLite |
 | Frontend | React 19, TypeScript, Vite |
 | Design system | IBM Carbon Design System |
 | Tipografia | IBM Plex Sans / Mono |

@@ -2,7 +2,7 @@
 
 ## Requisitos
 
-- Go 1.24 ou superior.
+- Go 1.26 ou superior.
 - Node.js 20.19+ e npm.
 - Nenhum servidor de banco externo: o SQLite é criado automaticamente.
 

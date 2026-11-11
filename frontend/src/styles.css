@@ -2316,6 +2316,51 @@ p {
   font-weight: 600;
 }
 
+.nokia-interruption {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.85rem 1rem;
+  border-left: 3px solid var(--cds-support-error);
+  background: var(--cds-layer-accent-01);
+}
+
+.nokia-interruption strong {
+  font-size: 0.9rem;
+}
+
+.nokia-interruption span {
+  color: var(--cds-text-secondary);
+  font-size: 0.78rem;
+}
+
+.data-table--compact {
+  min-width: 0;
+  font-size: 0.78rem;
+}
+
+.data-table--compact th,
+.data-table--compact td {
+  padding: 0.4rem 0.6rem;
+}
+
+.data-table--compact td:first-child {
+  width: 14rem;
+}
+
+.nokia-widget-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
+@media (max-width: 671px) {
+  .nokia-widget-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
 .timeline {
   display: flex;
   flex-direction: column;

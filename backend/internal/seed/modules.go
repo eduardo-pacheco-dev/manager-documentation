@@ -131,6 +131,13 @@ func seedNokia(m *modules.Store) error {
 	})
 	if first.ID > 0 && len(tasks) > 0 {
 		_ = m.ToggleNokiaTask(first.ID, tasks[0].ID)
+		_ = m.ToggleNokiaTask(first.ID, tasks[1].ID)
+		_, _ = m.UpdateNokiaDates(first.ID, map[string]string{
+			"mos_plan_at": "2026-10-01", "mos_real_at": "2026-10-03",
+			"instalacao_plan_at": "2026-10-05", "instalacao_real_at": "2026-10-08",
+			"integracao_plan_at": "2026-10-10", "integracao_real_at": "2026-10-12",
+			"fam_instalacao_approved_at": "2026-10-15",
+		})
 	}
 	if second.ID > 0 && len(tasks) > 1 {
 		_ = m.ToggleNokiaTask(second.ID, tasks[1].ID)

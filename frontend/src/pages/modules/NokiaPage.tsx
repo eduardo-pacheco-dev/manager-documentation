@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Add, Download, Edit, Settings, TrashCan, Upload, Warning } from '@carbon/icons-react';
+import { Add, ArrowDown, ArrowUp, Download, Edit, Settings, TrashCan, Upload, Warning } from '@carbon/icons-react';
 import {
   Button,
   Checkbox,
@@ -52,6 +52,31 @@ const DATE_FIELDS = [
   ['rfa_plan_at', 'RFA Plan'], ['rfa_real_at', 'RFA Real'], ['fam_entrega_approved_at', 'FAM Entrega Aprovado'],
   ['fam_instalacao_approved_at', 'FAM Instalação Aprovado'], ['fam_panoramica_approved_at', 'FAM Panorâmica Aprovado'],
 ];
+const FAM_LABEL: Record<string, string> = {
+  checklist_fam_entrega: 'FAM Entrega',
+  checklist_fam_instalacao: 'FAM Instalação',
+  checklist_fam_panoramica: 'FAM Panorâmica',
+};
+const ATTACHMENT_CATEGORIES = [
+  { value: 'tssr', label: 'TSSR' },
+  { value: 'doc-d', label: 'DOC-D' },
+  { value: 'dwg', label: 'DWG' },
+];
+
+function dateBR(value: string | null | undefined): string {
+  if (!value) return '—';
+  const date = new Date(value.length === 10 ? `${value}T00:00:00` : value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString('pt-BR');
+}
+
+function addDays(value: string | null | undefined, days: number | null | undefined): string {
+  if (!value || days == null) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  date.setDate(date.getDate() + days);
+  return date.toLocaleDateString('pt-BR');
+}
 
 const EMPTY_FORM = {
   site_id: '', end_id: '', oc: '', os_fam_entrega: '', os_fam_instalacao: '', regional: '', subcon: '',
@@ -80,7 +105,9 @@ export function NokiaPage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settings, setSettings] = useState<{ roms: ROM[]; tasks: Task[] }>({ roms: [], tasks: [] });
   const [romForm, setRomForm] = useState({ first_name: '', last_name: '', email: '', phone: '' });
+  const [romEditingId, setRomEditingId] = useState<number | null>(null);
   const [taskName, setTaskName] = useState('');
+  const [attachmentCategory, setAttachmentCategory] = useState('tssr');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -134,7 +161,14 @@ export function NokiaPage() {
   async function openDetail(site: Site) {
     try {
       const response = await api.get<{ data: { site: Site } }>(`/nokia/sites/${site.id}`);
-      setDetail(response.data.site);
+      const loaded = response.data.site;
+      setDetail({
+        ...loaded,
+        tasks: loaded.tasks ?? [],
+        attachments: loaded.attachments ?? [],
+        comments: loaded.comments ?? [],
+        rejections: loaded.rejections ?? [],
+      });
     } catch (error) {
       toast.error('Não foi possível abrir o site', errorMessage(error));
     }
@@ -183,20 +217,42 @@ export function NokiaPage() {
     setSettingsOpen(true);
   }
 
-  async function saveROM() {
-    await api.post('/nokia/settings/roms', romForm);
-    setRomForm({ first_name: '', last_name: '', email: '', phone: '' });
+  async function reloadNokiaSettings() {
     const response = await api.get<{ data: { roms: ROM[]; tasks: Task[] } }>('/nokia/settings');
     setSettings(response.data);
     const publicRoms = await api.get<{ data: ROM[] }>('/nokia/roms');
     setRoms(publicRoms.data);
   }
 
+  async function saveROM() {
+    if (romEditingId) {
+      await api.put(`/nokia/settings/roms/${romEditingId}`, romForm);
+      toast.success('ROM atualizado com sucesso.');
+    } else {
+      await api.post('/nokia/settings/roms', romForm);
+      toast.success('ROM cadastrado com sucesso.');
+    }
+    setRomForm({ first_name: '', last_name: '', email: '', phone: '' });
+    setRomEditingId(null);
+    await reloadNokiaSettings();
+  }
+
   async function saveTask() {
     await api.post('/nokia/settings/tasks', { name: taskName });
     setTaskName('');
-    const response = await api.get<{ data: { roms: ROM[]; tasks: Task[] } }>('/nokia/settings');
-    setSettings(response.data);
+    await reloadNokiaSettings();
+  }
+
+  async function renameTask(task: Task) {
+    const name = window.prompt('Nome da tarefa', task.name);
+    if (!name || name.trim() === '' || name === task.name) return;
+    await api.put(`/nokia/settings/tasks/${task.id}`, { name });
+    await reloadNokiaSettings();
+  }
+
+  async function moveTask(task: Task, direction: 'up' | 'down') {
+    await api.patch(`/nokia/settings/tasks/${task.id}/move`, { direction });
+    await reloadNokiaSettings();
   }
 
   async function addComment() {
@@ -216,8 +272,10 @@ export function NokiaPage() {
         description="Sites, checklist de FAMs, tarefas, datas, rejeições e interrupções."
         actions={
           <>
-            <Button kind="ghost" renderIcon={Download} onClick={() => window.open('/api/v1/nokia/sites/export', '_blank')}>Exportar</Button>
-            <Button kind="ghost" renderIcon={Upload} onClick={() => { const input = document.createElement('input'); input.type = 'file'; input.accept = '.csv'; input.onchange = async () => { if (!input.files?.[0]) return; const formData = new FormData(); formData.append('file', input.files[0]); try { const response = await api.upload<{ message: string }>('/nokia/sites/import', formData); toast.success(response.message); await load(); } catch (error) { toast.error('Falha na importação', errorMessage(error)); } }; input.click(); }}>Importar</Button>
+            <Button kind="ghost" renderIcon={Download} onClick={() => window.open(`/api/v1/nokia/sites/export?search=${encodeURIComponent(search)}`, '_blank')}>Exportar</Button>
+            <Button kind="ghost" renderIcon={Download} onClick={() => window.open('/api/v1/nokia/sites/export/pending', '_blank')}>Pendências</Button>
+            <Button kind="ghost" renderIcon={Download} onClick={() => window.open('/api/v1/nokia/sites/template', '_blank')}>Modelo XLSX</Button>
+            <Button kind="ghost" renderIcon={Upload} onClick={() => { const input = document.createElement('input'); input.type = 'file'; input.accept = '.csv,.xlsx'; input.onchange = async () => { if (!input.files?.[0]) return; const formData = new FormData(); formData.append('file', input.files[0]); try { const response = await api.upload<{ message: string }>('/nokia/sites/import', formData); toast.success(response.message); await load(); } catch (error) { toast.error('Falha na importação', errorMessage(error)); } }; input.click(); }}>Importar</Button>
             {user?.is_admin && <Button kind="ghost" renderIcon={Settings} onClick={() => void openSettings()}>Configurações</Button>}
             <Button renderIcon={Add} onClick={openCreate}>Novo site</Button>
           </>
@@ -310,6 +368,28 @@ export function NokiaPage() {
               <div><span>Subcon</span><strong>{detail.subcon ?? '—'}</strong></div>
               <div><span>OS Entrega</span><strong>{detail.os_fam_entrega ?? '—'}</strong></div>
               <div><span>OS Instalação</span><strong>{detail.os_fam_instalacao ?? '—'}</strong></div>
+              <div><span>Progresso</span><strong>{CHECKLISTS.filter((item) => (detail as unknown as Record<string, string>)[item.status] === 'sent').length + detail.tasks.filter((task) => task.completed_at).length}/{3 + detail.tasks.length}</strong></div>
+              <div><span>Criado em</span><strong>{dateBR(detail.created_at)}</strong></div>
+            </div>
+
+            {detail.interruption_reason && (
+              <div className="nokia-interruption">
+                <Tag type="red" size="sm">Obra interrompida</Tag>
+                <strong>{detail.interruption_reason}</strong>
+                <span>Início: {dateBR(detail.interruption_started_at)} · Retorno previsto: {addDays(detail.interruption_started_at, detail.interruption_return_days)}</span>
+              </div>
+            )}
+
+            <h4>Datas</h4>
+            <div className="table-scroll">
+              <table className="data-table data-table--compact">
+                <thead><tr><th>Etapa</th><th>Data</th></tr></thead>
+                <tbody>
+                  {DATE_FIELDS.map(([field, label]) => (
+                    <tr key={field}><td>{label}</td><td>{dateBR(String((detail as unknown as Record<string, string>)[field] ?? ''))}</td></tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
 
             <h4>Checklist FAM</h4>
@@ -339,29 +419,68 @@ export function NokiaPage() {
             {detail.rejections.length === 0 && <p className="muted">Nenhuma rejeição registrada.</p>}
             {detail.rejections.map((item) => (
               <div key={item.id} className="comment-row">
-                <div><strong>{item.checklist_field}</strong><span>{relativeTime(item.started_at)}</span></div>
-                <p>{item.reason} · {item.return_days} dias {item.resolved_at ? '· Encerrada' : '· Ativa'}</p>
+                <div><strong>{FAM_LABEL[item.checklist_field] ?? item.checklist_field}</strong><span>{relativeTime(item.started_at)}</span></div>
+                <p>
+                  {item.reason} · {item.return_days} dias · retorno previsto {addDays(item.started_at, item.return_days)}
+                  {item.requires_field_return ? ' · requer retorno a campo' : ''}
+                  {item.resolved_at ? ' · Encerrada' : ' · Ativa'}
+                </p>
                 {!item.resolved_at && <Button kind="ghost" size="xs" onClick={async () => { await api.patch(`/nokia/sites/${detail.id}/rejections/${item.id}`); await openDetail(detail); }}>Encerrar</Button>}
               </div>
             ))}
 
             <h4>Anexos ({detail.attachments.length})</h4>
-            <TextInput id="nk-files" type="file" labelText="Anexos TSSR/DOC-D/DWG" multiple onChange={async (event) => {
-              const files = event.target.files;
-              if (!files || !detail) return;
-              const payload = new FormData();
-              payload.append('category', 'tssr');
-              Array.from(files).forEach((file) => payload.append('files', file));
-              try { await api.upload(`/nokia/sites/${detail.id}/attachments`, payload); await openDetail(detail); } catch (error) { toast.error('Falha no upload', errorMessage(error)); }
-            }} />
-            {detail.attachments.map((item) => <div key={item.id} className="attachment-row"><a href={item.url} target="_blank" rel="noreferrer">{item.original_name}</a><span>{relativeTime(item.created_at)}</span></div>)}
+            <div className="inline-form">
+              <Select id="nk-category" labelText="Categoria" value={attachmentCategory} onChange={(event) => setAttachmentCategory(event.target.value)}>
+                {ATTACHMENT_CATEGORIES.map((category) => <SelectItem key={category.value} value={category.value} text={category.label} />)}
+              </Select>
+              <TextInput id="nk-files" type="file" labelText="Arquivos (até 20 MB cada)" multiple onChange={async (event) => {
+                const files = event.target.files;
+                if (!files || !detail) return;
+                const payload = new FormData();
+                payload.append('category', attachmentCategory);
+                Array.from(files).forEach((file) => payload.append('files', file));
+                try {
+                  const response = await api.upload<{ message: string }>(`/nokia/sites/${detail.id}/attachments`, payload);
+                  toast.success(response.message);
+                  await openDetail(detail);
+                  event.target.value = '';
+                } catch (error) {
+                  toast.error('Falha no upload', errorMessage(error));
+                }
+              }} />
+            </div>
+            {ATTACHMENT_CATEGORIES.map((category) => {
+              const files = detail.attachments.filter((item) => item.category === category.value);
+              if (files.length === 0) return null;
+              return (
+                <div key={category.value}>
+                  <p className="field-label">{category.label} ({files.length})</p>
+                  {files.map((item) => (
+                    <div key={item.id} className="attachment-row">
+                      <a href={item.url} target="_blank" rel="noreferrer">{item.original_name}</a>
+                      <span>{relativeTime(item.created_at)}</span>
+                      <Button kind="danger--ghost" size="xs" hasIconOnly renderIcon={TrashCan} iconDescription="Remover anexo" onClick={async () => { await api.delete(`/nokia/sites/${detail.id}/attachments/${item.id}`); await openDetail(detail); }} />
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
 
             <h4>Comentários ({detail.comments.length})</h4>
             <div className="inline-form">
               <TextArea id="nk-comment" labelText="Comentário" value={comment} onChange={(event) => setComment(event.target.value)} rows={2} />
               <Button kind="tertiary" onClick={() => void addComment()}>Comentar</Button>
             </div>
-            {detail.comments.map((item) => <div key={item.id} className="comment-row"><div><strong>{item.author_name ?? 'Usuário removido'}</strong><span>{relativeTime(item.created_at)}</span></div><p>{item.body}</p></div>)}
+            {detail.comments.map((item) => (
+              <div key={item.id} className="comment-row">
+                <div><strong>{item.author_name ?? 'Usuário removido'}</strong><span>{relativeTime(item.created_at)}</span></div>
+                <p>{item.body}</p>
+                {(user?.is_admin || item.user_id === user?.id) && (
+                  <Button kind="danger--ghost" size="xs" hasIconOnly renderIcon={TrashCan} iconDescription="Remover comentário" onClick={async () => { await api.delete(`/nokia/sites/${detail.id}/comments/${item.id}`); await openDetail(detail); }} />
+                )}
+              </div>
+            ))}
           </div>
         )}
       </Modal>
@@ -398,16 +517,34 @@ export function NokiaPage() {
       <Modal open={settingsOpen} modalHeading="Configurações Nokia" primaryButtonText="Fechar" onRequestClose={() => setSettingsOpen(false)} onRequestSubmit={() => setSettingsOpen(false)} size="md">
         <div className="modal-form">
           <h4>ROMs</h4>
-          {settings.roms.map((rom) => <div key={rom.id} className="attachment-row"><span>{rom.first_name} {rom.last_name}</span><span>{rom.email}</span><Button kind="danger--ghost" size="xs" hasIconOnly renderIcon={TrashCan} iconDescription="Excluir" onClick={async () => { await api.delete(`/nokia/settings/roms/${rom.id}`); await openSettings(); }} /></div>)}
+          {settings.roms.map((rom) => (
+            <div key={rom.id} className="attachment-row">
+              <span>{rom.first_name} {rom.last_name}</span>
+              <span>{rom.email} · {rom.phone}</span>
+              <Button kind="ghost" size="xs" hasIconOnly renderIcon={Edit} iconDescription="Editar ROM" onClick={() => { setRomEditingId(rom.id); setRomForm({ first_name: rom.first_name, last_name: rom.last_name, email: rom.email, phone: rom.phone }); }} />
+              <Button kind="danger--ghost" size="xs" hasIconOnly renderIcon={TrashCan} iconDescription="Excluir" onClick={async () => { await api.delete(`/nokia/settings/roms/${rom.id}`); await reloadNokiaSettings(); }} />
+            </div>
+          ))}
           <div className="form-grid">
             <TextInput id="nk-rom-first" labelText="Nome" value={romForm.first_name} onChange={(event) => setRomForm({ ...romForm, first_name: event.target.value })} />
             <TextInput id="nk-rom-last" labelText="Sobrenome" value={romForm.last_name} onChange={(event) => setRomForm({ ...romForm, last_name: event.target.value })} />
             <TextInput id="nk-rom-email" labelText="E-mail" value={romForm.email} onChange={(event) => setRomForm({ ...romForm, email: event.target.value })} />
             <TextInput id="nk-rom-phone" labelText="Telefone" value={romForm.phone} onChange={(event) => setRomForm({ ...romForm, phone: event.target.value })} />
           </div>
-          <Button kind="tertiary" onClick={() => void saveROM()}>Adicionar ROM</Button>
+          <div className="section-actions">
+            {romEditingId && <Button kind="ghost" onClick={() => { setRomEditingId(null); setRomForm({ first_name: '', last_name: '', email: '', phone: '' }); }}>Cancelar edição</Button>}
+            <Button kind="tertiary" onClick={() => void saveROM()}>{romEditingId ? 'Salvar ROM' : 'Adicionar ROM'}</Button>
+          </div>
           <h4>Tarefas</h4>
-          {settings.tasks.map((task) => <div key={task.id} className="attachment-row"><span>{task.name}</span><Button kind="danger--ghost" size="xs" hasIconOnly renderIcon={TrashCan} iconDescription="Excluir" onClick={async () => { await api.delete(`/nokia/settings/tasks/${task.id}`); await openSettings(); }} /></div>)}
+          {settings.tasks.map((task, index) => (
+            <div key={task.id} className="attachment-row">
+              <span>{task.name}</span>
+              <Button kind="ghost" size="xs" hasIconOnly renderIcon={ArrowUp} iconDescription="Mover para cima" disabled={index === 0} onClick={() => void moveTask(task, 'up')} />
+              <Button kind="ghost" size="xs" hasIconOnly renderIcon={ArrowDown} iconDescription="Mover para baixo" disabled={index === settings.tasks.length - 1} onClick={() => void moveTask(task, 'down')} />
+              <Button kind="ghost" size="xs" hasIconOnly renderIcon={Edit} iconDescription="Renomear tarefa" onClick={() => void renameTask(task)} />
+              <Button kind="danger--ghost" size="xs" hasIconOnly renderIcon={TrashCan} iconDescription="Excluir" onClick={async () => { await api.delete(`/nokia/settings/tasks/${task.id}`); await reloadNokiaSettings(); }} />
+            </div>
+          ))}
           <div className="inline-form">
             <TextInput id="nk-task-name" labelText="Nova tarefa" value={taskName} onChange={(event) => setTaskName(event.target.value)} />
             <Button kind="tertiary" onClick={() => void saveTask()}>Adicionar</Button>

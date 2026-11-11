@@ -6,7 +6,7 @@ Reescrita do **Documentation Center** em **Go + React + IBM Carbon Design System
 
 | Camada | Tecnologia |
 | --- | --- |
-| Backend | Go 1.24+, chi, SQLite |
+| Backend | Go 1.26+, chi, SQLite |
 | Frontend | React 19, TypeScript, Vite |
 | Design system | IBM Carbon Design System (`@carbon/react`) |
 | Ícones | Carbon Icons React |
@@ -74,7 +74,7 @@ Todos os plugins (`Agenda`, `FollowUp`, `Nokia`, `Stations` e `Tasks`) foram por
 
 ### Requisitos
 
-- Go 1.24+
+- Go 1.26+
 - Node.js 20.19+ (recomendado 22+ por causa do Carbon)
 - npm
 
@@ -212,6 +212,6 @@ Os testes do backend cobrem autenticação, CSRF, usuários, wiki, sanitização
 
 - O banco original era MySQL; esta versão usa SQLite por padrão para execução sem dependências externas. A camada de acesso fica isolada em `internal/store` e `internal/modules`.
 - Os cinco plugins originais (`Agenda`, `FollowUp`, `Nokia`, `Stations` e `Tasks`) foram convertidos em módulos nativos, com tabelas e APIs próprias.
+- A importação/exportação dos módulos usa CSV; o módulo Nokia também suporta planilhas XLSX, incluindo modelo, exportação completa e relatório de pendências.
 - O armazenamento configurável é compartilhado pelos uploads de imagens e anexos dos módulos.
 - A documentação inicial foi reescrita para refletir o novo stack.
-- A importação/exportação dos módulos usa CSV; o sistema original usava XLSX em alguns fluxos.

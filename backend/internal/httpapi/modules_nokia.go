@@ -1,13 +1,18 @@
 package httpapi
 
 import (
+	"bytes"
 	"encoding/csv"
 	"fmt"
+	"io"
 	"net/http"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/xuri/excelize/v2"
 
 	"github.com/eduardo-pacheco-dev/manager-documentation/backend/internal/modules"
 )
@@ -447,33 +452,114 @@ func (s *Server) nokiaDeleteTask(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) nokiaExport(w http.ResponseWriter, r *http.Request) {
-	items, _, _, _, err := s.Modules.ListNokiaSites(modules.NokiaSiteFilter{Page: 1, PerPage: 10000})
+	search := r.URL.Query().Get("search")
+	items, _, _, _, err := s.Modules.ListNokiaSites(modules.NokiaSiteFilter{Search: search, Page: 1, PerPage: 10000})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Não foi possível exportar os sites.", nil)
 		return
 	}
-	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="sites-nokia-%s.csv"`, time.Now().Format("2006-01-02")))
-	writer := csv.NewWriter(w)
-	writer.Comma = ';'
-	_ = writer.Write([]string{"Site ID", "End ID", "OC", "ROM", "OS FAM Entrega", "OS FAM Instalação", "Regional", "Subcon", "FAM Entrega", "FAM Instalação", "FAM Panorâmica", "MOS Plan", "MOS Real", "Instalação Plan", "Instalação Real", "Integração Plan", "Integração Real", "RFA Plan", "RFA Real"})
+	tasks, _ := s.Modules.NokiaTasks()
+	headers := nokiaExportHeaders(tasks)
+	rows := make([][]string, 0, len(items))
 	for _, item := range items {
-		_ = writer.Write([]string{
+		row := []string{
 			item.SiteID, derefString(item.EndID), derefString(item.OC), derefString(item.ROMName),
-			derefString(item.OSFamEntrega), derefString(item.OSFamInstalacao), derefString(item.Regional), derefString(item.Subcon),
-			item.ChecklistFamEntregaStatus, item.ChecklistFamInstalacaoStatus, item.ChecklistFamPanoramicaStatus,
+			derefString(item.OSFamEntrega), derefString(item.OSFamInstalacao), derefString(item.Regional),
+			derefString(item.Subcon), nokiaChecklistStatus(item.ChecklistFamEntregaStatus),
+			nokiaChecklistStatus(item.ChecklistFamInstalacaoStatus), nokiaChecklistStatus(item.ChecklistFamPanoramicaStatus),
+		}
+		completedTasks := map[int64]bool{}
+		for _, task := range item.Tasks {
+			completedTasks[task.ID] = task.CompletedAt != nil
+		}
+		for _, task := range tasks {
+			if completedTasks[task.ID] {
+				row = append(row, "Concluída")
+			} else {
+				row = append(row, "Pendente")
+			}
+		}
+		if item.InterruptionReason != nil {
+			row = append(row, derefString(item.InterruptionReason), formatNokiaDateTime(item.InterruptionStartedAt),
+				formatNokiaInt(item.InterruptionReturnDays), nokiaReturnDate(item.InterruptionStartedAt, item.InterruptionReturnDays))
+		} else {
+			row = append(row, "", "", "", "")
+		}
+		for _, field := range []string{"checklist_fam_entrega", "checklist_fam_instalacao", "checklist_fam_panoramica"} {
+			row = append(row, nokiaRejectionSummary(item.Rejections, field))
+		}
+		row = append(row,
 			derefString(item.MOSPlanAt), derefString(item.MOSRealAt), derefString(item.InstalacaoPlanAt),
 			derefString(item.InstalacaoRealAt), derefString(item.IntegracaoPlanAt), derefString(item.IntegracaoRealAt),
-			derefString(item.RFAPlanAt), derefString(item.RFARealAt),
+			derefString(item.RFAPlanAt), derefString(item.RFARealAt), derefString(item.FamEntregaApprovedAt),
+			derefString(item.FamInstalacaoApprovedAt), derefString(item.FamPanoramicaApprovedAt),
+			item.CreatedAt.Format("02/01/2006 15:04"), item.UpdatedAt.Format("02/01/2006 15:04"),
+		)
+		rows = append(rows, row)
+	}
+	writeNokiaXLSX(w, "sites-nokia-"+time.Now().Format("2006-01-02")+".xlsx", "Sites", headers, rows, []int{18, 18, 16, 24, 20, 20, 16, 16})
+}
+
+func (s *Server) nokiaPendingExport(w http.ResponseWriter, r *http.Request) {
+	metrics, err := s.Modules.NokiaMetrics()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Não foi possível gerar o relatório de pendências.", nil)
+		return
+	}
+	headers := []string{"Site ID", "OC", "Regional", "Subcon", "ROM", "Status do site", "Tipo", "Pendência", "Situação", "Aging (dias)"}
+	rows := make([][]string, 0, len(metrics.PendingItems))
+	for _, item := range metrics.PendingItems {
+		rows = append(rows, []string{
+			mapString(item, "site_id"), mapString(item, "oc"), mapString(item, "regional"), mapString(item, "subcon"),
+			mapString(item, "rom"), mapString(item, "site_status"), mapString(item, "kind_label"),
+			mapString(item, "description"), mapString(item, "detail"), mapString(item, "aging"),
 		})
 	}
-	writer.Flush()
+	writeNokiaXLSX(w, "pendencias-nokia-"+time.Now().Format("2006-01-02")+".xlsx", "Pendências", headers, rows, []int{18, 16, 16, 16, 24, 18, 14, 30, 18, 14})
 }
 
 func (s *Server) nokiaTemplate(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
-	w.Header().Set("Content-Disposition", `attachment; filename="modelo-importacao-sites-nokia.csv"`)
-	_, _ = w.Write([]byte("Site ID *;End ID;OC *;ROM;OS FAM Entrega;OS FAM Instalação;Regional;Subcon\n"))
+	tasks, _ := s.Modules.NokiaTasks()
+	headers := nokiaTemplateHeaders(tasks)
+	f := excelize.NewFile()
+	defer func() { _ = f.Close() }()
+	sheet := "Sites"
+	f.SetSheetName("Sheet1", sheet)
+	writeXLSXRow(f, sheet, 1, headers)
+	styleNokiaSheet(f, sheet, len(headers), 1)
+	example := []string{
+		"SPEXEMPLO01", "END-00001", "OC-0001", "Nome do ROM", "OS-E-00001", "OS-I-00001", "TNO", "AFL",
+		"Sim", "Não", "Não", "10/01/2026", "12/01/2026", "11/01/2026", "13/01/2026",
+		"14/01/2026", "16/01/2026", "17/01/2026", "18/01/2026", "Sim", "Não", "Não",
+	}
+	for _, task := range tasks {
+		example = append(example, "Não")
+		_ = task
+	}
+	exSheet := "Exemplo"
+	if _, err := f.NewSheet(exSheet); err == nil {
+		writeXLSXRow(f, exSheet, 1, headers)
+		writeXLSXRow(f, exSheet, 2, example)
+		styleNokiaSheet(f, exSheet, len(headers), 1)
+	}
+	infoSheet := "Instruções"
+	if _, err := f.NewSheet(infoSheet); err == nil {
+		instructions := [][]string{
+			{"Instruções de importação"},
+			{"Preencha a aba Sites a partir da linha 2. A aba Exemplo é apenas referência."},
+			{"Site ID e OC são obrigatórios."},
+			{"O ROM deve ser o nome completo de um ROM cadastrado em Configurações Nokia."},
+			{"Checklists e tarefas aceitam Sim/Não, 1/0 ou X."},
+			{"Datas aceitam dd/mm/aaaa ou aaaa-mm-dd."},
+			{"OC existente atualiza o site; OCs repetidos no arquivo são rejeitados."},
+			{"A importação é atômica e aceita no máximo 500 sites."},
+		}
+		for index, row := range instructions {
+			writeXLSXRow(f, infoSheet, index+1, row)
+		}
+		f.SetColWidth(infoSheet, "A", "A", 110)
+	}
+	writeWorkbook(w, f, "modelo-importacao-sites-nokia.xlsx")
 }
 
 func (s *Server) nokiaImport(w http.ResponseWriter, r *http.Request) {
@@ -481,52 +567,483 @@ func (s *Server) nokiaImport(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "Arquivo inválido.", nil)
 		return
 	}
-	file, _, err := r.FormFile("file")
+	file, header, err := r.FormFile("file")
 	if err != nil {
-		writeValidation(w, validationErrors{"file": "Selecione um arquivo CSV."})
+		writeValidation(w, validationErrors{"file": "Selecione uma planilha CSV ou XLSX."})
 		return
 	}
 	defer file.Close()
-	reader := csv.NewReader(file)
-	reader.Comma = ';'
-	reader.FieldsPerRecord = -1
-	rows, err := reader.ReadAll()
-	if err != nil || len(rows) < 2 {
+	matrix, err := readNokiaImportMatrix(file, header.Filename)
+	if err != nil || len(matrix) < 2 {
 		writeValidation(w, validationErrors{"file": "O arquivo está vazio ou inválido."})
 		return
 	}
-	headers := map[string]int{}
-	for index, value := range rows[0] {
-		headers[normalizeHeader(value)] = index
+	headers := matrix[0]
+	index := map[string]int{}
+	for i, value := range headers {
+		index[normalizeNokiaHeader(value)] = i
 	}
-	created := 0
-	for _, row := range rows[1:] {
+	if _, ok := index["site_id"]; !ok {
+		writeValidation(w, validationErrors{"file": "O arquivo precisa conter a coluna Site ID."})
+		return
+	}
+	if _, ok := index["oc"]; !ok {
+		writeValidation(w, validationErrors{"file": "O arquivo precisa conter a coluna OC."})
+		return
+	}
+	tasks, _ := s.Modules.NokiaTasks()
+	roms, _ := s.Modules.NokiaROMs()
+	romByName := map[string]int64{}
+	for _, rom := range roms {
+		romByName[strings.ToLower(rom.FullName())] = rom.ID
+	}
+	taskByHeader := map[string]modules.NokiaTask{}
+	for _, task := range tasks {
+		taskByHeader[normalizeNokiaHeader("Tarefa - "+task.Name)] = task
+		taskByHeader[normalizeNokiaHeader("Atividade - "+task.Name)] = task
+	}
+	type importRow struct {
+		input      modules.NokiaSiteInput
+		dates      map[string]string
+		checklists map[string]string
+		tasks      map[int64]bool
+		line       int
+	}
+	rows := make([]importRow, 0, len(matrix)-1)
+	errorsList := []string{}
+	seenOC := map[string]int{}
+	for line, row := range matrix[1:] {
 		get := func(names ...string) string {
 			for _, name := range names {
-				if index, ok := headers[normalizeHeader(name)]; ok && index < len(row) {
-					return strings.TrimSpace(row[index])
+				if col, ok := index[normalizeNokiaHeader(name)]; ok && col < len(row) {
+					return strings.TrimSpace(row[col])
 				}
 			}
 			return ""
 		}
-		siteID := get("Site ID", "site_id")
-		oc := get("OC", "oc")
+		if strings.TrimSpace(strings.Join(row, "")) == "" {
+			continue
+		}
+		siteID := get("site_id")
+		oc := get("oc")
+		lineNumber := line + 2
 		if siteID == "" {
+			errorsList = append(errorsList, fmt.Sprintf("Linha %d: informe o Site ID.", lineNumber))
 			continue
 		}
 		if oc == "" {
-			writeValidation(w, validationErrors{"file": "Todos os sites precisam de um OC."})
+			errorsList = append(errorsList, fmt.Sprintf("Linha %d: informe o OC.", lineNumber))
+			continue
+		}
+		if previous, exists := seenOC[strings.ToLower(oc)]; exists {
+			errorsList = append(errorsList, fmt.Sprintf("Linha %d: o OC %s já foi usado na linha %d.", lineNumber, oc, previous))
+			continue
+		}
+		seenOC[strings.ToLower(oc)] = lineNumber
+		romName := get("rom", "rom_nome", "nome_rom", "responsavel")
+		var romID *int64
+		if romName != "" {
+			if id, ok := romByName[strings.ToLower(romName)]; ok {
+				romID = &id
+			} else {
+				errorsList = append(errorsList, fmt.Sprintf("Linha %d: ROM %s não encontrado. Cadastre-o em Configurações Nokia.", lineNumber, romName))
+				continue
+			}
+		}
+		checklists := map[string]string{}
+		for headerKey, field := range map[string]string{
+			"fam_entrega": "checklist_fam_entrega", "fam_instalacao": "checklist_fam_instalacao", "fam_panoramica": "checklist_fam_panoramica",
+		} {
+			if _, present := index[headerKey]; !present {
+				continue
+			}
+			value := get(headerKey)
+			if value == "" {
+				continue
+			}
+			if parseNokiaBool(value) {
+				checklists[field] = "sent"
+			} else {
+				checklists[field] = "pending"
+			}
+		}
+		dates := map[string]string{}
+		for headerKey, field := range map[string]string{
+			"mos_plan": "mos_plan_at", "mos_real": "mos_real_at", "instalacao_plan": "instalacao_plan_at",
+			"instalacao_real": "instalacao_real_at", "integracao_plan": "integracao_plan_at",
+			"integracao_real": "integracao_real_at", "rfa_plan": "rfa_plan_at", "rfa_real": "rfa_real_at",
+			"fam_entrega_aprovado": "fam_entrega_approved_at", "fam_instalacao_aprovado": "fam_instalacao_approved_at",
+			"fam_panoramica_aprovado": "fam_panoramica_approved_at", "fam_entrega_aprovada": "fam_entrega_approved_at",
+			"fam_instalacao_aprovada": "fam_instalacao_approved_at", "fam_panoramica_aprovada": "fam_panoramica_approved_at",
+		} {
+			if _, present := index[headerKey]; !present {
+				continue
+			}
+			raw := get(headerKey)
+			if raw == "" {
+				continue
+			}
+			parsed, ok := normalizeNokiaImportDate(raw)
+			if !ok {
+				errorsList = append(errorsList, fmt.Sprintf("Linha %d: %q não é uma data válida.", lineNumber, raw))
+				continue
+			}
+			dates[field] = parsed
+		}
+		taskValues := map[int64]bool{}
+		for headerKey, task := range taskByHeader {
+			if _, present := index[headerKey]; !present {
+				continue
+			}
+			value := get(headerKey)
+			if value == "" {
+				continue
+			}
+			taskValues[task.ID] = parseNokiaBool(value)
+		}
+		rows = append(rows, importRow{
+			input: modules.NokiaSiteInput{
+				SiteID: siteID, EndID: get("end_id"), OC: oc, OSFamEntrega: get("os_fam_entrega"),
+				OSFamInstalacao: get("os_fam_instalacao"), Regional: get("regional"), Subcon: get("subcon"),
+				ChecklistFamEntrega:    parseNokiaBool(get("fam_entrega")),
+				ChecklistFamInstalacao: parseNokiaBool(get("fam_instalacao")),
+				ChecklistFamPanoramica: parseNokiaBool(get("fam_panoramica")),
+				NokiaROMID:             romID,
+			},
+			dates: dates, checklists: checklists, tasks: taskValues, line: lineNumber,
+		})
+	}
+	if len(rows) == 0 && len(errorsList) == 0 {
+		writeValidation(w, validationErrors{"file": "O arquivo não possui nenhum site para importar."})
+		return
+	}
+	if len(rows) > 500 {
+		writeValidation(w, validationErrors{"file": "A importação aceita no máximo 500 sites por arquivo."})
+		return
+	}
+	if len(errorsList) > 0 {
+		message := strings.Join(firstN(errorsList, 5), " ")
+		if len(errorsList) > 5 {
+			message += fmt.Sprintf(" E mais %d erro(s).", len(errorsList)-5)
+		}
+		writeValidation(w, validationErrors{"file": message})
+		return
+	}
+	created, updated := 0, 0
+	for _, row := range rows {
+		existing, findErr := s.Modules.FindNokiaSiteByOC(row.input.OC)
+		var site modules.NokiaSite
+		var saveErr error
+		if findErr == nil {
+			input := row.input
+			if input.EndID == "" {
+				input.EndID = derefString(existing.EndID)
+			}
+			if input.OSFamEntrega == "" {
+				input.OSFamEntrega = derefString(existing.OSFamEntrega)
+			}
+			if input.OSFamInstalacao == "" {
+				input.OSFamInstalacao = derefString(existing.OSFamInstalacao)
+			}
+			if input.Regional == "" {
+				input.Regional = derefString(existing.Regional)
+			}
+			if input.Subcon == "" {
+				input.Subcon = derefString(existing.Subcon)
+			}
+			if input.NokiaROMID == nil {
+				input.NokiaROMID = existing.NokiaROMID
+			}
+			site, saveErr = s.Modules.UpdateNokiaSiteBase(existing.ID, input)
+			if saveErr == nil {
+				updated++
+			}
+		} else {
+			site, saveErr = s.Modules.CreateNokiaSite(row.input)
+			if saveErr == nil {
+				created++
+			}
+		}
+		if saveErr != nil {
+			writeError(w, http.StatusUnprocessableEntity, "Não foi possível importar os sites.", nil)
 			return
 		}
-		payload := modules.NokiaSiteInput{
-			SiteID: siteID, EndID: get("End ID"), OC: oc, OSFamEntrega: get("OS FAM Entrega"),
-			OSFamInstalacao: get("OS FAM Instalação"), Regional: get("Regional"), Subcon: get("Subcon"),
+		for field, status := range row.checklists {
+			_, _ = s.Modules.UpdateNokiaChecklist(site.ID, field, status)
 		}
-		if _, err := s.Modules.CreateNokiaSite(payload); err == nil {
-			created++
+		if len(row.dates) > 0 {
+			_, _ = s.Modules.UpdateNokiaDates(site.ID, row.dates)
+		}
+		for taskID, completed := range row.tasks {
+			_ = s.Modules.SetNokiaTaskState(site.ID, taskID, completed)
 		}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"message": fmt.Sprintf("%d site(s) importado(s).", created)})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"message": fmt.Sprintf("%d site(s) criado(s) e %d atualizado(s) com sucesso.", created, updated),
+	})
+}
+
+func nokiaExportHeaders(tasks []modules.NokiaTask) []string {
+	headers := []string{
+		"Site ID", "End ID", "OC", "ROM", "OS FAM Entrega", "OS FAM Instalação", "Regional", "Subcon",
+		"Checklist - FAM Entrega", "Checklist - FAM Instalação", "Checklist - FAM Panorâmica",
+	}
+	for _, task := range tasks {
+		headers = append(headers, "Tarefa - "+task.Name)
+	}
+	headers = append(headers, "Interrupção - Motivo", "Interrupção - Início", "Interrupção - Prazo (dias)", "Interrupção - Retorno previsto")
+	for _, label := range []string{"FAM Entrega", "FAM Instalação", "FAM Panorâmica"} {
+		headers = append(headers, "Rejeição - "+label)
+	}
+	headers = append(headers,
+		"MOS Plan", "MOS Real", "Instalação Plan", "Instalação Real", "Integração Plan", "Integração Real",
+		"RFA Plan", "RFA Real", "FAM Entrega Aprovado", "FAM Instalação Aprovado", "FAM Panorâmica Aprovado",
+		"Criado em", "Atualizado em",
+	)
+	return headers
+}
+
+func nokiaTemplateHeaders(tasks []modules.NokiaTask) []string {
+	headers := []string{
+		"Site ID *", "End ID", "OC *", "ROM", "OS FAM Entrega", "OS FAM Instalação", "Regional", "Subcon",
+		"FAM Entrega", "FAM Instalação", "FAM Panorâmica", "MOS Plan", "MOS Real", "Instalação Plan",
+		"Instalação Real", "Integração Plan", "Integração Real", "RFA Plan", "RFA Real",
+		"FAM Entrega Aprovado", "FAM Instalação Aprovado", "FAM Panorâmica Aprovado",
+	}
+	for _, task := range tasks {
+		headers = append(headers, "Tarefa - "+task.Name)
+	}
+	return headers
+}
+
+func writeNokiaXLSX(w http.ResponseWriter, filename, sheet string, headers []string, rows [][]string, widths []int) {
+	f := excelize.NewFile()
+	defer func() { _ = f.Close() }()
+	f.SetSheetName("Sheet1", sheet)
+	writeXLSXRow(f, sheet, 1, headers)
+	for index, row := range rows {
+		writeXLSXRow(f, sheet, index+2, row)
+	}
+	styleNokiaSheet(f, sheet, len(headers), len(rows)+1)
+	for i, width := range widths {
+		col, _ := excelize.ColumnNumberToName(i + 1)
+		f.SetColWidth(sheet, col, col, float64(width))
+	}
+	writeWorkbook(w, f, filename)
+}
+
+func writeXLSXRow(f *excelize.File, sheet string, row int, values []string) {
+	for col, value := range values {
+		cell, _ := excelize.CoordinatesToCellName(col+1, row)
+		_ = f.SetCellValue(sheet, cell, value)
+	}
+}
+
+func styleNokiaSheet(f *excelize.File, sheet string, columns, lastRow int) {
+	headerStyle, _ := f.NewStyle(&excelize.Style{
+		Font:      &excelize.Font{Bold: true, Color: "FFFFFF"},
+		Fill:      excelize.Fill{Type: "pattern", Pattern: 1, Color: []string{"1E293B"}},
+		Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "center", WrapText: true},
+		Border: []excelize.Border{
+			{Type: "left", Style: 1, Color: "E2E8F0"}, {Type: "right", Style: 1, Color: "E2E8F0"},
+			{Type: "top", Style: 1, Color: "E2E8F0"}, {Type: "bottom", Style: 1, Color: "E2E8F0"},
+		},
+	})
+	bodyStyle, _ := f.NewStyle(&excelize.Style{
+		Alignment: &excelize.Alignment{Vertical: "top", WrapText: true},
+		Border: []excelize.Border{
+			{Type: "left", Style: 1, Color: "E2E8F0"}, {Type: "right", Style: 1, Color: "E2E8F0"},
+			{Type: "top", Style: 1, Color: "E2E8F0"}, {Type: "bottom", Style: 1, Color: "E2E8F0"},
+		},
+	})
+	lastCol, _ := excelize.ColumnNumberToName(columns)
+	_ = f.SetCellStyle(sheet, "A1", lastCol+"1", headerStyle)
+	if lastRow > 1 {
+		_ = f.SetCellStyle(sheet, "A2", fmt.Sprintf("%s%d", lastCol, lastRow), bodyStyle)
+	}
+	_ = f.SetRowHeight(sheet, 1, 30)
+	_ = f.SetPanes(sheet, &excelize.Panes{Freeze: true, YSplit: 1, TopLeftCell: "A2", ActivePane: "bottomLeft"})
+	_ = f.AutoFilter(sheet, "A1:"+lastCol+"1", nil)
+}
+
+func writeWorkbook(w http.ResponseWriter, f *excelize.File, filename string) {
+	buffer, err := f.WriteToBuffer()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Não foi possível gerar a planilha.", nil)
+		return
+	}
+	w.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+	w.WriteHeader(http.StatusOK)
+	_, _ = io.Copy(w, buffer)
+}
+
+func readNokiaImportMatrix(file io.Reader, filename string) ([][]string, error) {
+	switch strings.ToLower(filepath.Ext(filename)) {
+	case ".xlsx":
+		workbook, err := excelize.OpenReader(file)
+		if err != nil {
+			return nil, err
+		}
+		defer func() { _ = workbook.Close() }()
+		sheets := workbook.GetSheetList()
+		if len(sheets) == 0 {
+			return nil, fmt.Errorf("workbook has no sheets")
+		}
+		return workbook.GetRows(sheets[0])
+	case ".xls":
+		return nil, fmt.Errorf("xls not supported")
+	default:
+		content, err := io.ReadAll(file)
+		if err != nil {
+			return nil, err
+		}
+		content = bytes.TrimPrefix(content, []byte{0xEF, 0xBB, 0xBF})
+		delimiter := detectNokiaDelimiter(string(content))
+		reader := csv.NewReader(bytes.NewReader(content))
+		reader.Comma = delimiter
+		reader.FieldsPerRecord = -1
+		return reader.ReadAll()
+	}
+}
+
+func detectNokiaDelimiter(content string) rune {
+	line := content
+	if index := strings.IndexAny(content, "\r\n"); index >= 0 {
+		line = content[:index]
+	}
+	counts := map[rune]int{';': strings.Count(line, ";"), ',': strings.Count(line, ","), '\t': strings.Count(line, "\t")}
+	best := ';'
+	bestCount := -1
+	for delimiter, count := range counts {
+		if count > bestCount {
+			best, bestCount = delimiter, count
+		}
+	}
+	return best
+}
+
+func normalizeNokiaHeader(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	value = strings.NewReplacer(
+		"á", "a", "à", "a", "â", "a", "ã", "a", "ä", "a",
+		"é", "e", "è", "e", "ê", "e", "ë", "e",
+		"í", "i", "ì", "i", "î", "i", "ï", "i",
+		"ó", "o", "ò", "o", "ô", "o", "õ", "o", "ö", "o",
+		"ú", "u", "ù", "u", "û", "u", "ü", "u",
+		"ç", "c", "ñ", "n",
+	).Replace(value)
+	var builder strings.Builder
+	previous := false
+	for _, r := range value {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			builder.WriteRune(r)
+			previous = false
+		} else if !previous {
+			builder.WriteByte('_')
+			previous = true
+		}
+	}
+	return strings.Trim(builder.String(), "_")
+}
+
+func parseNokiaBool(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "1", "sim", "s", "x", "yes", "y", "true", "on", "concluido", "concluida", "aprovado", "aprovada", "ok":
+		return true
+	default:
+		return false
+	}
+}
+
+func normalizeNokiaImportDate(value string) (string, bool) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "", true
+	}
+	for _, layout := range []string{"02/01/2006", "02-01-2006", "2006-01-02", "02/01/06", "2006/01/02"} {
+		if parsed, err := time.ParseInLocation(layout, value, time.Local); err == nil {
+			return parsed.Format("2006-01-02"), true
+		}
+	}
+	if serial, err := strconv.ParseFloat(strings.ReplaceAll(value, ",", "."), 64); err == nil && serial > 0 {
+		if parsed, err := excelize.ExcelDateToTime(serial, false); err == nil {
+			return parsed.Format("2006-01-02"), true
+		}
+	}
+	return "", false
+}
+
+func nokiaChecklistStatus(value string) string {
+	switch value {
+	case "sent":
+		return "Aprovado"
+	case "analysis":
+		return "Análise TIM"
+	case "rejected":
+		return "Rejeitado"
+	default:
+		return "Pendente"
+	}
+}
+
+func formatNokiaDateTime(value *time.Time) string {
+	if value == nil {
+		return ""
+	}
+	return value.Format("02/01/2006 15:04")
+}
+
+func formatNokiaInt(value *int) string {
+	if value == nil {
+		return ""
+	}
+	return strconv.Itoa(*value)
+}
+
+func nokiaReturnDate(started *time.Time, days *int) string {
+	if started == nil || days == nil {
+		return ""
+	}
+	return started.AddDate(0, 0, *days).Format("02/01/2006")
+}
+
+func nokiaRejectionSummary(rejections []modules.NokiaRejection, field string) string {
+	parts := []string{}
+	index := 0
+	for _, rejection := range rejections {
+		if rejection.ChecklistField != field {
+			continue
+		}
+		index++
+		returnDate := rejection.StartedAt.AddDate(0, 0, rejection.ReturnDays).Format("02/01/2006")
+		status := "Ativa"
+		if rejection.ResolvedAt != nil {
+			status = "Encerrada"
+		}
+		fieldReturn := "Não"
+		if rejection.RequiresFieldReturn {
+			fieldReturn = "Sim"
+		}
+		parts = append(parts, fmt.Sprintf("#%d %s — %d dias — %s — retorno a campo: %s — %s",
+			index, rejection.Reason, rejection.ReturnDays, returnDate, fieldReturn, status))
+	}
+	return strings.Join(parts, "; ")
+}
+
+func mapString(item map[string]any, key string) string {
+	value, ok := item[key]
+	if !ok || value == nil {
+		return ""
+	}
+	return fmt.Sprint(value)
+}
+
+func firstN(values []string, limit int) []string {
+	if len(values) <= limit {
+		return values
+	}
+	return values[:limit]
 }
 
 func chiURLParam(r *http.Request, name string) string {
