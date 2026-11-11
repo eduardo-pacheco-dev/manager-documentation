@@ -674,6 +674,21 @@ var migrations = [][]string{
 		`ALTER TABLE notifications ADD COLUMN dedupe_key VARCHAR(191) NULL`,
 		`CREATE UNIQUE INDEX idx_notifications_dedupe ON notifications(user_id, dedupe_key)`,
 	},
+	{
+		`CREATE TABLE nokia_site_agenda_events (
+			id BIGINT NOT NULL AUTO_INCREMENT,
+			nokia_site_id BIGINT NOT NULL,
+			date_field VARCHAR(64) NOT NULL,
+			agenda_event_id BIGINT NOT NULL,
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL,
+			PRIMARY KEY (id),
+			UNIQUE KEY uq_nokia_agenda_field (nokia_site_id, date_field),
+			KEY idx_nokia_agenda_event (agenda_event_id),
+			CONSTRAINT fk_nokia_agenda_site FOREIGN KEY (nokia_site_id) REFERENCES nokia_sites(id) ON DELETE CASCADE,
+			CONSTRAINT fk_nokia_agenda_event FOREIGN KEY (agenda_event_id) REFERENCES agenda_events(id) ON DELETE CASCADE
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+	},
 }
 
 // CleanupSessions removes expired sessions and tokens. It is safe to call at

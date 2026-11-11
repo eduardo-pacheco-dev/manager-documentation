@@ -522,6 +522,19 @@ func TestNativeModules(t *testing.T) {
 	if res.StatusCode != http.StatusOK || int(payload["meta"].(map[string]any)["total"].(float64)) != 1 {
 		t.Fatalf("nokia site was not synced to stations: %d %v", res.StatusCode, payload)
 	}
+	res, payload = app.request(http.MethodGet, "/api/v1/follow-ups?search=NKTESTE01&per_page=50", nil, "", nil)
+	if res.StatusCode != http.StatusOK || int(payload["meta"].(map[string]any)["total"].(float64)) != 3 {
+		t.Fatalf("nokia checklist follow-ups missing: %d %v", res.StatusCode, payload)
+	}
+	followUpTitles := map[string]bool{}
+	for _, item := range payload["data"].([]any) {
+		followUpTitles[item.(map[string]any)["title"].(string)] = true
+	}
+	for _, title := range []string{"NKTESTE01 - FAM Entrega", "NKTESTE01 - FAM Instalação", "NKTESTE01 - FAM Panorâmica"} {
+		if !followUpTitles[title] {
+			t.Fatalf("missing follow-up %q: %v", title, followUpTitles)
+		}
+	}
 	res, _ = app.request(http.MethodPut, fmt.Sprintf("/api/v1/nokia/sites/%d/checklist/checklist_fam_entrega", siteID), map[string]any{"status": "analysis"}, app.csrf, nil)
 	if res.StatusCode != http.StatusOK {
 		t.Fatalf("checklist status = %d", res.StatusCode)
@@ -535,6 +548,31 @@ func TestNativeModules(t *testing.T) {
 	site := payload["data"].(map[string]any)["site"].(map[string]any)
 	if site["checklist_fam_instalacao_status"] != "sent" || site["checklist_fam_instalacao"] != true {
 		t.Fatalf("approval date did not sync checklist: %v", site)
+	}
+	res, agendaPayload := app.request(http.MethodGet, "/api/v1/agenda?date=2026-11-01&view=month", nil, "", nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("agenda status = %d payload=%v", res.StatusCode, agendaPayload)
+	}
+	agendaData := agendaPayload["data"].(map[string]any)
+	dedicated := false
+	for _, calendar := range agendaData["calendars"].([]any) {
+		if calendar.(map[string]any)["name"] == "Projetos Nokia" {
+			dedicated = true
+			break
+		}
+	}
+	if !dedicated {
+		t.Fatalf("dedicated Nokia calendar missing: %v", agendaData["calendars"])
+	}
+	eventFound := false
+	for _, occurrence := range agendaData["occurrences"].([]any) {
+		if occurrence.(map[string]any)["title"] == "NKTESTE01 - FAM Instalação - Aprovado" {
+			eventFound = true
+			break
+		}
+	}
+	if !eventFound {
+		t.Fatalf("Nokia date event missing from agenda: %v", agendaData["occurrences"])
 	}
 	for _, path := range []string{"/api/v1/nokia/sites/template", "/api/v1/nokia/sites/export", "/api/v1/nokia/sites/export/pending"} {
 		res, _ := app.request(http.MethodGet, path, nil, "", nil)

@@ -90,7 +90,81 @@ func (s *Server) nokiaCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = s.Modules.SyncNokiaSiteToStation(site.ID)
-	writeJSON(w, http.StatusCreated, map[string]any{"message": "Site cadastrado com sucesso.", "data": map[string]any{"site": site}})
+	s.createNokiaChecklistFollowUps(currentUser(r).ID, site)
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"message": "Site cadastrado com sucesso. Follow-ups dos 3 itens do checklist criados.",
+		"data":    map[string]any{"site": site},
+	})
+}
+
+func nokiaChecklistFollowUpCode(siteID int64, field string) string {
+	switch field {
+	case "checklist_fam_entrega":
+		return fmt.Sprintf("NOKIA-%d-FAM-ENTREGA", siteID)
+	case "checklist_fam_instalacao":
+		return fmt.Sprintf("NOKIA-%d-FAM-INSTALACAO", siteID)
+	case "checklist_fam_panoramica":
+		return fmt.Sprintf("NOKIA-%d-FAM-PANORAMICA", siteID)
+	default:
+		return fmt.Sprintf("NOKIA-%d-%s", siteID, strings.ToUpper(field))
+	}
+}
+
+func nokiaSiteChecklistStatus(site modules.NokiaSite, field string) string {
+	switch field {
+	case "checklist_fam_entrega":
+		return site.ChecklistFamEntregaStatus
+	case "checklist_fam_instalacao":
+		return site.ChecklistFamInstalacaoStatus
+	case "checklist_fam_panoramica":
+		return site.ChecklistFamPanoramicaStatus
+	default:
+		return ""
+	}
+}
+
+// createNokiaChecklistFollowUps creates one FollowUp per FAM checklist item
+// when a Nokia site is created, linking each one back to the project site.
+func (s *Server) createNokiaChecklistFollowUps(userID int64, site modules.NokiaSite) {
+	items := []struct {
+		Field string
+		Label string
+	}{
+		{"checklist_fam_entrega", "FAM Entrega"},
+		{"checklist_fam_instalacao", "FAM Instalação"},
+		{"checklist_fam_panoramica", "FAM Panorâmica"},
+	}
+	for _, item := range items {
+		code := nokiaChecklistFollowUpCode(site.ID, item.Field)
+		var existing int
+		if err := s.Modules.DB.Get(&existing, `SELECT COUNT(*) FROM follow_ups WHERE code = ?`, code); err != nil {
+			log.Printf("nokia follow-up %s: %v", code, err)
+			continue
+		}
+		if existing > 0 {
+			continue
+		}
+		status := "pendente"
+		if nokiaSiteChecklistStatus(site, item.Field) == "sent" {
+			status = "concluido"
+		}
+		description := fmt.Sprintf("Follow-up automático do checklist Nokia.\nSite ID: %s\nOC: %s\nItem: %s",
+			site.SiteID, derefString(site.OC), item.Label)
+		followUp, err := s.Modules.CreateFollowUp(userID, modules.FollowUpInput{
+			Title:       site.SiteID + " - " + item.Label,
+			Code:        code,
+			Description: description,
+			Status:      status,
+			Priority:    "media",
+		})
+		if err != nil {
+			log.Printf("nokia follow-up %s: %v", code, err)
+			continue
+		}
+		if _, err := s.Modules.CreateWorkLink(userID, "follow_up", followUp.ID, "nokia_site", site.ID); err != nil {
+			log.Printf("nokia follow-up link %s: %v", code, err)
+		}
+	}
 }
 
 func (s *Server) nokiaUpdate(w http.ResponseWriter, r *http.Request) {
@@ -109,6 +183,9 @@ func (s *Server) nokiaUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = s.Modules.SyncNokiaSiteToStation(site.ID)
+	if err := s.Modules.SyncNokiaDatesToAgenda(currentUser(r).ID, site.ID); err != nil {
+		log.Printf("nokia agenda sync %d: %v", site.ID, err)
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"message": "Site atualizado com sucesso.", "data": map[string]any{"site": site}})
 }
 
@@ -161,6 +238,9 @@ func (s *Server) nokiaUpdateDates(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Não foi possível atualizar as datas.", nil)
 		return
+	}
+	if err := s.Modules.SyncNokiaDatesToAgenda(currentUser(r).ID, site.ID); err != nil {
+		log.Printf("nokia agenda sync %d: %v", site.ID, err)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"message": "Datas atualizadas com sucesso.", "data": map[string]any{"site": site}})
 }
@@ -751,6 +831,7 @@ func (s *Server) nokiaImport(w http.ResponseWriter, r *http.Request) {
 	created, updated := 0, 0
 	for _, row := range rows {
 		existing, findErr := s.Modules.FindNokiaSiteByOC(row.input.OC)
+		wasCreated := findErr != nil
 		var site modules.NokiaSite
 		var saveErr error
 		if findErr == nil {
@@ -797,6 +878,14 @@ func (s *Server) nokiaImport(w http.ResponseWriter, r *http.Request) {
 			_ = s.Modules.SetNokiaTaskState(site.ID, taskID, completed)
 		}
 		_ = s.Modules.SyncNokiaSiteToStation(site.ID)
+		if refreshed, findErr := s.Modules.FindNokiaSite(site.ID); findErr == nil {
+			if wasCreated {
+				s.createNokiaChecklistFollowUps(currentUser(r).ID, refreshed)
+			}
+			if err := s.Modules.SyncNokiaDatesToAgenda(currentUser(r).ID, site.ID); err != nil {
+				log.Printf("nokia agenda sync %d: %v", site.ID, err)
+			}
+		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"message": fmt.Sprintf("%d site(s) criado(s) e %d atualizado(s) com sucesso.", created, updated),
