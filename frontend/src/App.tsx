@@ -17,7 +17,6 @@ import { AgendaPage } from './pages/modules/AgendaPage';
 import { FollowUpsPage } from './pages/modules/FollowUpsPage';
 import { StationsPage } from './pages/modules/StationsPage';
 import { NokiaPage } from './pages/modules/NokiaPage';
-import { ExamplePage } from './pages/modules/ExamplePage';
 import { NotFoundPage, ForbiddenPage } from './pages/StatusPages';
 
 function Splash() {
@@ -70,7 +69,6 @@ export default function App() {
         <Route path="/follow-ups" element={<FollowUpsPage />} />
         <Route path="/stations" element={<StationsPage />} />
         <Route path="/nokia" element={<NokiaPage />} />
-        <Route path="/example" element={<ExamplePage />} />
         <Route element={<AdminRoute />}>
           <Route path="/users" element={<UsersPage />} />
           <Route path="/dev-docs" element={<DevDocsPage />} />

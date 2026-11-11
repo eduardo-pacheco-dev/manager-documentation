@@ -6,7 +6,6 @@ import {
   ChartBar,
   Checkmark,
   Close,
-  Cube,
   Document,
   Home,
   Light,
@@ -55,8 +54,6 @@ function iconFor(key: string) {
     case 'stations':
     case 'nokia':
       return SignalStrength;
-    case 'example':
-      return Cube;
     default:
       return Home;
   }

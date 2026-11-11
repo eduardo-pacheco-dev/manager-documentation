@@ -31,11 +31,10 @@ Reescrita do **Documentation Center** em **Go + React + IBM Carbon Design System
 - **Follow-ups**: status, prioridade, prazos, responsáveis, clientes/projetos, histórico, configurações, importação/exportação e widget.
 - **Estações**: inventário de 23 campos, busca/filtros, anexos, comentários, importação/exportação CSV e widget de sites.
 - **Projetos Nokia**: sites, ROMs, tarefas, checklist de FAMs, datas, interrupções, rejeições, anexos, comentários e widget.
-- **Exemplo**: demonstração do antigo plugin convertido em módulo.
 - **Responsividade**: sidebar em gaveta no mobile, grids adaptáveis, tabelas com rolagem e ações empilhadas.
 - **Administração inicial**: seed idempotente com administrador e wiki de exemplo.
 
-Todos os plugins (`Agenda`, `FollowUp`, `Nokia`, `Stations`, `Tasks` e `Example`) foram portados como módulos nativos. O sistema de instalação dinâmica de plugins não existe mais; os módulos fazem parte do binário e podem ser habilitados, ordenados e movidos entre sidebar e menu Módulos nas configurações.
+Todos os plugins (`Agenda`, `FollowUp`, `Nokia`, `Stations` e `Tasks`) foram portados como módulos nativos. O sistema de instalação dinâmica de plugins não existe mais; os módulos fazem parte do binário e podem ser habilitados, ordenados e movidos entre sidebar e menu Módulos nas configurações.
 
 ## Estrutura
 
@@ -212,7 +211,7 @@ Os testes do backend cobrem autenticação, CSRF, usuários, wiki, sanitização
 ## Observações sobre a migração
 
 - O banco original era MySQL; esta versão usa SQLite por padrão para execução sem dependências externas. A camada de acesso fica isolada em `internal/store` e `internal/modules`.
-- Os seis plugins originais (`Agenda`, `FollowUp`, `Nokia`, `Stations`, `Tasks` e `Example`) foram convertidos em módulos nativos, com tabelas e APIs próprias.
+- Os cinco plugins originais (`Agenda`, `FollowUp`, `Nokia`, `Stations` e `Tasks`) foram convertidos em módulos nativos, com tabelas e APIs próprias.
 - O armazenamento configurável é compartilhado pelos uploads de imagens e anexos dos módulos.
 - A documentação inicial foi reescrita para refletir o novo stack.
 - A importação/exportação dos módulos usa CSV; o sistema original usava XLSX em alguns fluxos.

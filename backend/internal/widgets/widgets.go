@@ -88,14 +88,6 @@ var registry = []Widget{
 		Order:       50,
 		DefaultSpan: 3,
 	},
-	{
-		ID:          "example.status",
-		Title:       "Widget de exemplo",
-		Description: "Status do módulo Example convertido.",
-		Icon:        "cube",
-		Order:       55,
-		DefaultSpan: 1,
-	},
 }
 
 // Available returns widgets visible to the user, sorted by registry order and
@@ -155,8 +147,6 @@ func Available(s *store.Store, m *modules.Store, user models.User) ([]Widget, er
 				return nil, err
 			}
 			widget.Data = data
-		case "example.status":
-			widget.Data = map[string]any{"message": "Módulo Example ativo.", "version": "1.0.0"}
 		}
 		result = append(result, widget)
 	}

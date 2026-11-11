@@ -113,13 +113,6 @@ function WidgetBody({ widget, onOpen }: { widget: DashboardWidget; onOpen: () =>
       return <FollowUpsChartWidget widget={widget} />;
     case 'nokia.charts':
       return <NokiaWidget widget={widget} />;
-    case 'example.status':
-      return (
-        <div className="widget-generic">
-          <h3>{widget.title}</h3>
-          <p>{String((widget.data as Record<string, unknown> | undefined)?.message ?? 'Módulo ativo.')}</p>
-        </div>
-      );
     default:
       return <Tile className="widget-generic">{widget.description}</Tile>;
   }

@@ -23,7 +23,6 @@ Os antigos plugins foram convertidos em módulos nativos:
 | Follow-ups | Status, prioridade, prazos, responsáveis, histórico e resumo |
 | Estações | Inventário, busca, anexos, comentários e importação CSV |
 | Projetos Nokia | Sites, checklist FAM, tarefas, datas, rejeições e interrupções |
-| Exemplo | Página e widget demonstrativos do módulo convertido |
 
 
 ## Stack

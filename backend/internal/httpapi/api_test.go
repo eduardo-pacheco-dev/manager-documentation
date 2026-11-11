@@ -138,8 +138,8 @@ func TestAuthenticationAndCSRF(t *testing.T) {
 	if data["user"].(map[string]any)["email"] != "admin@test.local" {
 		t.Fatalf("unexpected user payload: %v", data["user"])
 	}
-	if len(data["modules"].([]any)) != 9 {
-		t.Fatalf("expected 9 modules, got %v", data["modules"])
+	if len(data["modules"].([]any)) != 8 {
+		t.Fatalf("expected 8 modules, got %v", data["modules"])
 	}
 
 	res, _ = app.request(http.MethodPost, "/api/v1/users", map[string]any{
@@ -461,13 +461,8 @@ func TestNativeModules(t *testing.T) {
 		t.Fatalf("checklist status = %d", res.StatusCode)
 	}
 
-	res, payload = app.request(http.MethodGet, "/api/v1/example", nil, "", nil)
-	if res.StatusCode != http.StatusOK || payload["data"].(map[string]any)["title"] == nil {
-		t.Fatalf("example status = %d", res.StatusCode)
-	}
-
 	res, payload = app.request(http.MethodGet, "/api/v1/dashboard", nil, "", nil)
-	if res.StatusCode != http.StatusOK || len(payload["data"].(map[string]any)["widgets"].([]any)) < 7 {
+	if res.StatusCode != http.StatusOK || len(payload["data"].(map[string]any)["widgets"].([]any)) < 6 {
 		t.Fatalf("module widgets missing: %v", payload)
 	}
 }

@@ -88,14 +88,6 @@ var CoreModules = []Module{
 		Toggleable:     true,
 		DefaultSection: SectionModules,
 	},
-	{
-		Key:            "example",
-		Label:          "Exemplo",
-		Icon:           "cube",
-		Path:           "/example",
-		Toggleable:     true,
-		DefaultSection: SectionModules,
-	},
 }
 
 func AvailableModules(user User) []Module {

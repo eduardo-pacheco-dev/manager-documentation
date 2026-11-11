@@ -210,8 +210,6 @@ func (s *Server) Router() http.Handler {
 				})
 			})
 
-			auth.Get("/example", s.exampleIndex)
-
 			auth.Group(func(admin chi.Router) {
 				admin.Use(s.requireAdmin)
 				admin.Get("/users", s.listUsers)
