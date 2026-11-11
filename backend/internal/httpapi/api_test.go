@@ -709,13 +709,15 @@ func TestDemands(t *testing.T) {
 	res, payload := app.request(http.MethodPost, "/api/v1/demands", map[string]any{
 		"assignee_id": app.userID, "title": "Atualizar documentação do site", "description": "Revisar o procedimento.",
 		"priority": "alta", "due_at": "2026-11-20", "status": "aberta",
+		"client_name": "Cliente Teste", "client_email": "cliente@test.local",
 	}, app.csrf, nil)
 	if res.StatusCode != http.StatusCreated {
 		t.Fatalf("create demand status = %d payload=%v", res.StatusCode, payload)
 	}
 	demand := payload["data"].(map[string]any)["demand"].(map[string]any)
 	demandID := int64(demand["id"].(float64))
-	if demand["status"] != "aberta" || demand["assignee_id"].(float64) != float64(app.userID) {
+	if demand["status"] != "aberta" || demand["assignee_id"].(float64) != float64(app.userID) ||
+		demand["client_email"] != "cliente@test.local" {
 		t.Fatalf("unexpected demand: %v", demand)
 	}
 

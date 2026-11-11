@@ -45,6 +45,8 @@ type Demand struct {
 	AssigneeID    int64              `db:"assignee_id" json:"assignee_id"`
 	Title         string             `db:"title" json:"title"`
 	Description   *string            `db:"description" json:"description"`
+	ClientName    *string            `db:"client_name" json:"client_name"`
+	ClientEmail   *string            `db:"client_email" json:"client_email"`
 	Status        string             `db:"status" json:"status"`
 	Priority      string             `db:"priority" json:"priority"`
 	DueAt         *string            `db:"due_at" json:"due_at"`
@@ -253,6 +255,8 @@ type DemandInput struct {
 	AssigneeID  int64
 	Title       string
 	Description string
+	ClientName  string
+	ClientEmail string
 	Status      string
 	Priority    string
 	DueAt       string
@@ -271,9 +275,10 @@ func (s *Store) CreateDemand(requesterID int64, input DemandInput) (Demand, erro
 		completedAt = timestamp
 	}
 	result, err := s.DB.Exec(`INSERT INTO demands
-		(requester_id, assignee_id, title, description, status, priority, due_at, completed_at, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		(requester_id, assignee_id, title, description, client_name, client_email, status, priority, due_at, completed_at, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		requesterID, input.AssigneeID, strings.TrimSpace(input.Title), nullString(input.Description),
+		nullString(input.ClientName), nullString(strings.ToLower(strings.TrimSpace(input.ClientEmail))),
 		input.Status, input.Priority, nullDate(input.DueAt), completedAt, timestamp, timestamp)
 	if err != nil {
 		return Demand{}, err
@@ -304,10 +309,11 @@ func (s *Store) UpdateDemand(id, userID int64, input DemandInput) (Demand, error
 	} else {
 		completedAt = nil
 	}
-	_, err = s.DB.Exec(`UPDATE demands SET assignee_id = ?, title = ?, description = ?, status = ?,
-		priority = ?, due_at = ?, completed_at = ?, updated_at = ? WHERE id = ?`,
-		input.AssigneeID, strings.TrimSpace(input.Title), nullString(input.Description), input.Status,
-		input.Priority, nullDate(input.DueAt), completedAt, now(), id)
+	_, err = s.DB.Exec(`UPDATE demands SET assignee_id = ?, title = ?, description = ?,
+		client_name = ?, client_email = ?, status = ?, priority = ?, due_at = ?, completed_at = ?, updated_at = ? WHERE id = ?`,
+		input.AssigneeID, strings.TrimSpace(input.Title), nullString(input.Description),
+		nullString(input.ClientName), nullString(strings.ToLower(strings.TrimSpace(input.ClientEmail))),
+		input.Status, input.Priority, nullDate(input.DueAt), completedAt, now(), id)
 	if err != nil {
 		return current, err
 	}

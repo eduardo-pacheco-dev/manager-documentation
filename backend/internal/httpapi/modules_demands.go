@@ -16,6 +16,8 @@ type demandPayload struct {
 	AssigneeID  int64  `json:"assignee_id"`
 	Title       string `json:"title"`
 	Description string `json:"description"`
+	ClientName  string `json:"client_name"`
+	ClientEmail string `json:"client_email"`
 	Status      string `json:"status"`
 	Priority    string `json:"priority"`
 	DueAt       string `json:"due_at"`
@@ -24,6 +26,7 @@ type demandPayload struct {
 func (p demandPayload) input() modules.DemandInput {
 	return modules.DemandInput{
 		AssigneeID: p.AssigneeID, Title: p.Title, Description: p.Description,
+		ClientName: p.ClientName, ClientEmail: p.ClientEmail,
 		Status: p.Status, Priority: p.Priority, DueAt: p.DueAt,
 	}
 }
@@ -51,6 +54,12 @@ func validateDemand(payload demandPayload) validationErrors {
 	}
 	if len([]rune(payload.Description)) > 10000 {
 		fields["description"] = "A descrição deve ter no máximo 10.000 caracteres."
+	}
+	if strings.TrimSpace(payload.ClientName) != "" && len([]rune(payload.ClientName)) > 255 {
+		fields["client_name"] = "O cliente deve ter no máximo 255 caracteres."
+	}
+	if email := strings.TrimSpace(payload.ClientEmail); email != "" && !validateEmail(email) {
+		fields["client_email"] = "Informe um e-mail de cliente válido."
 	}
 	return fields
 }
@@ -455,7 +464,7 @@ func (s *Server) demandsExport(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="demandas-%s.csv"`, time.Now().Format("2006-01-02")))
 	writer := csv.NewWriter(w)
 	writer.Comma = ';'
-	_ = writer.Write([]string{"ID", "Título", "Solicitante", "Responsável", "Status", "Prioridade", "Prazo", "Atrasada", "Criada em", "Concluída em"})
+	_ = writer.Write([]string{"ID", "Título", "Solicitante", "Responsável", "Cliente", "E-mail do cliente", "Status", "Prioridade", "Prazo", "Atrasada", "Criada em", "Concluída em"})
 	for _, item := range items {
 		overdue := "Não"
 		if item.Overdue {
@@ -467,6 +476,7 @@ func (s *Server) demandsExport(w http.ResponseWriter, r *http.Request) {
 		}
 		_ = writer.Write([]string{
 			strconv.FormatInt(item.ID, 10), item.Title, derefString(item.RequesterName), derefString(item.AssigneeName),
+			derefString(item.ClientName), derefString(item.ClientEmail),
 			modules.DemandStatusLabel(item.Status), item.Priority, derefString(item.DueAt), overdue,
 			item.CreatedAt.Format("02/01/2006 15:04"), completed,
 		})

@@ -26,6 +26,7 @@ interface Demand {
   id: number; requester_id: number; assignee_id: number; title: string;
   description: string | null; status: string; priority: string; due_at: string | null;
   completed_at: string | null; created_at: string; updated_at: string;
+  client_name: string | null; client_email: string | null;
   requester_name: string | null; assignee_name: string | null; assignee_email: string | null;
   overdue: boolean; update_count: number;
 }
@@ -53,6 +54,7 @@ export const demandPriorityType = (value: string) => value === 'urgente' ? 'red'
 
 const EMPTY_FORM = {
   title: '', description: '', assignee_id: '', priority: 'media', due_at: '', status: 'aberta',
+  client_name: '', client_email: '',
 };
 
 export function DemandsPage() {
@@ -113,6 +115,7 @@ export function DemandsPage() {
     setForm({
       title: demand.title, description: demand.description ?? '', assignee_id: String(demand.assignee_id),
       priority: demand.priority, due_at: demand.due_at ?? '', status: demand.status,
+      client_name: demand.client_name ?? '', client_email: demand.client_email ?? '',
     });
     setModalOpen(true);
   }
@@ -296,6 +299,10 @@ export function DemandsPage() {
         <div className="modal-form">
           <TextInput id="demand-title" labelText="Título *" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} required />
           <TextArea id="demand-description" labelText="Descrição" rows={4} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} />
+          <div className="form-row">
+            <TextInput id="demand-client-name" labelText="Cliente" value={form.client_name} onChange={(event) => setForm({ ...form, client_name: event.target.value })} />
+            <TextInput id="demand-client-email" type="email" labelText="E-mail do cliente" value={form.client_email} onChange={(event) => setForm({ ...form, client_email: event.target.value })} />
+          </div>
           <div className="form-row">
             <Select id="demand-form-assignee" labelText="Responsável *" value={form.assignee_id} onChange={(event) => setForm({ ...form, assignee_id: event.target.value })}>
               <SelectItem value="" text="Selecione" />

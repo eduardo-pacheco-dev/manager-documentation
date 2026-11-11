@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   Checkmark,
   Edit,
+  Email,
   Pause,
   Play,
   Restart,
@@ -49,12 +50,14 @@ interface Demand {
   id: number; requester_id: number; assignee_id: number; title: string;
   description: string | null; status: string; priority: string; due_at: string | null;
   completed_at: string | null; created_at: string; updated_at: string;
+  client_name: string | null; client_email: string | null;
   requester_name: string | null; assignee_name: string | null; assignee_email: string | null;
   overdue: boolean; update_count: number; updates: Update[]; attachments: AttachmentFile[];
 }
 
 const EMPTY_FORM = {
   title: '', description: '', assignee_id: '', priority: 'media', due_at: '', status: 'aberta',
+  client_name: '', client_email: '',
 };
 
 function formatBytes(size: number): string {
@@ -106,6 +109,7 @@ export function DemandDetailPage() {
     setForm({
       title: demand.title, description: demand.description ?? '', assignee_id: String(demand.assignee_id),
       priority: demand.priority, due_at: demand.due_at ?? '', status: demand.status,
+      client_name: demand.client_name ?? '', client_email: demand.client_email ?? '',
     });
     setEditOpen(true);
   }
@@ -191,6 +195,77 @@ export function DemandDetailPage() {
     }
   }
 
+  async function copyDispatchEmail() {
+    if (!demand) return;
+    const dueDate = demand.due_at
+      ? new Date(`${demand.due_at}T12:00:00`).toLocaleDateString('pt-BR')
+      : 'não informado';
+    const status = DEMAND_STATUS[demand.status] ?? demand.status;
+    const priority = DEMAND_PRIORITY[demand.priority] ?? demand.priority;
+    const link = `${window.location.origin}/demands/${demand.id}`;
+    const lines = [
+      `Para: ${demand.assignee_email ?? '—'}`,
+      `Assunto: [Demanda] ${demand.title}`,
+      '',
+      `Olá, ${demand.assignee_name ?? 'colaborador(a)'},`,
+      '',
+      'Você foi acionado(a) para atender a seguinte demanda:',
+      '',
+      `Demanda: ${demand.title}`,
+      `Solicitante: ${demand.requester_name ?? '—'}`,
+      `Responsável: ${demand.assignee_name ?? '—'}`,
+      `Prioridade: ${priority}`,
+      `Status: ${status}`,
+      `Prazo: ${dueDate}`,
+    ];
+    if (demand.description?.trim()) {
+      lines.push('', 'Descrição:', demand.description.trim());
+    }
+    lines.push('', 'Acesse a demanda:', link, '', 'Atenciosamente,', 'Documentation Center');
+    try {
+      await navigator.clipboard.writeText(lines.join('\n'));
+      toast.success('E-mail de acionamento copiado.');
+    } catch {
+      toast.error('Não foi possível copiar o e-mail', 'Copie manualmente o conteúdo da demanda.');
+    }
+  }
+
+  async function copyClientEmail() {
+    if (!demand) return;
+    if (!demand.client_email && !demand.client_name) {
+      toast.warning('Cliente não informado', 'Edite a demanda e preencha o cliente/e-mail.');
+      return;
+    }
+    const dueDate = demand.due_at
+      ? new Date(`${demand.due_at}T12:00:00`).toLocaleDateString('pt-BR')
+      : 'a combinar';
+    const status = DEMAND_STATUS[demand.status] ?? demand.status;
+    const link = `${window.location.origin}/demands/${demand.id}`;
+    const lines = [
+      `Para: ${demand.client_email ?? '—'}`,
+      `Assunto: [Demanda] ${demand.title}`,
+      '',
+      `Olá, ${demand.client_name ?? 'cliente'},`,
+      '',
+      'Segue o andamento da demanda registrada junto à nossa equipe:',
+      '',
+      `Demanda: ${demand.title}`,
+      `Responsável: ${demand.assignee_name ?? '—'}`,
+      `Status: ${status}`,
+      `Prazo: ${dueDate}`,
+    ];
+    if (demand.description?.trim()) {
+      lines.push('', 'Descrição:', demand.description.trim());
+    }
+    lines.push('', 'Para acompanhar, acesse:', link, '', 'Atenciosamente,', 'Documentation Center');
+    try {
+      await navigator.clipboard.writeText(lines.join('\n'));
+      toast.success('E-mail para o cliente copiado.');
+    } catch {
+      toast.error('Não foi possível copiar o e-mail', 'Copie manualmente o conteúdo da demanda.');
+    }
+  }
+
   if (loading) return <InlineLoading description="Carregando demanda…" />;
   if (notFound || !demand) {
     return (
@@ -228,6 +303,8 @@ export function DemandDetailPage() {
         actions={
           <>
             <Button kind="ghost" renderIcon={ArrowLeft} onClick={() => navigate('/demands')}>Voltar</Button>
+            <Button kind="ghost" renderIcon={Email} onClick={() => void copyDispatchEmail()}>Copiar e-mail</Button>
+            <Button kind="ghost" renderIcon={Email} onClick={() => void copyClientEmail()}>Copiar e-mail cliente</Button>
             {canManage && <Button renderIcon={Edit} onClick={openEdit}>Editar</Button>}
             {canManage && <Button kind="danger--ghost" renderIcon={TrashCan} onClick={() => setDeleteOpen(true)}>Excluir</Button>}
           </>
@@ -312,6 +389,8 @@ export function DemandDetailPage() {
               <div><dt>Solicitante</dt><dd>{demand.requester_name ?? '—'}</dd></div>
               <div><dt>Responsável</dt><dd>{demand.assignee_name ?? '—'}</dd></div>
               <div><dt>E-mail</dt><dd>{demand.assignee_email ?? '—'}</dd></div>
+              <div><dt>Cliente</dt><dd>{demand.client_name ?? '—'}</dd></div>
+              <div><dt>E-mail do cliente</dt><dd>{demand.client_email ?? '—'}</dd></div>
               <div><dt>Prazo</dt><dd>{demand.due_at ?? '—'}</dd></div>
               <div><dt>Criada em</dt><dd>{relativeTime(demand.created_at)}</dd></div>
               <div><dt>Atualizada em</dt><dd>{relativeTime(demand.updated_at)}</dd></div>
@@ -355,6 +434,10 @@ export function DemandDetailPage() {
         <div className="modal-form">
           <TextInput id="demand-detail-title" labelText="Título *" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} required />
           <TextArea id="demand-detail-description" labelText="Descrição" rows={4} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} />
+          <div className="form-row">
+            <TextInput id="demand-detail-client-name" labelText="Cliente" value={form.client_name} onChange={(event) => setForm({ ...form, client_name: event.target.value })} />
+            <TextInput id="demand-detail-client-email" type="email" labelText="E-mail do cliente" value={form.client_email} onChange={(event) => setForm({ ...form, client_email: event.target.value })} />
+          </div>
           <div className="form-row">
             <Select id="demand-detail-assignee" labelText="Responsável *" value={form.assignee_id} onChange={(event) => setForm({ ...form, assignee_id: event.target.value })}>
               <SelectItem value="" text="Selecione" />

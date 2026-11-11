@@ -791,6 +791,10 @@ var migrations = [][]string{
 			CONSTRAINT fk_demand_attachments_user FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE SET NULL
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 	},
+	{
+		`ALTER TABLE demands ADD COLUMN client_name VARCHAR(255) NULL`,
+		`ALTER TABLE demands ADD COLUMN client_email VARCHAR(255) NULL`,
+	},
 }
 
 // CleanupSessions removes expired sessions and tokens. It is safe to call at
