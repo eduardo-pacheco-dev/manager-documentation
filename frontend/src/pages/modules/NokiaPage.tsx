@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Add, ArrowDown, ArrowUp, Download, Edit, Settings, TrashCan, Upload, Warning } from '@carbon/icons-react';
+import { Add, ArrowDown, ArrowUp, Edit, OverflowMenuVertical, Settings, TrashCan, Warning } from '@carbon/icons-react';
 import {
   Button,
   Checkbox,
   ComboBox,
   InlineLoading,
   Modal,
+  OverflowMenu,
+  OverflowMenuItem,
   Search,
   Select,
   SelectItem,
@@ -233,6 +235,25 @@ export function NokiaPage() {
     setSettingsOpen(true);
   }
 
+  function importSites() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.csv,.xlsx';
+    input.onchange = async () => {
+      if (!input.files?.[0]) return;
+      const formData = new FormData();
+      formData.append('file', input.files[0]);
+      try {
+        const response = await api.upload<{ message: string }>('/nokia/sites/import', formData);
+        toast.success(response.message);
+        await load();
+      } catch (error) {
+        toast.error('Falha na importação', errorMessage(error));
+      }
+    };
+    input.click();
+  }
+
   async function reloadNokiaSettings() {
     const response = await api.get<{ data: { roms: ROM[]; tasks: Task[] } }>('/nokia/settings');
     setSettings(response.data);
@@ -298,10 +319,31 @@ export function NokiaPage() {
         ) : undefined}
         actions={
           <>
-            <Button kind="ghost" renderIcon={Download} onClick={() => window.open(`/api/v1/nokia/sites/export?search=${encodeURIComponent(search)}`, '_blank')}>Exportar</Button>
-            <Button kind="ghost" renderIcon={Download} onClick={() => window.open('/api/v1/nokia/sites/export/pending', '_blank')}>Pendências</Button>
-            <Button kind="ghost" renderIcon={Download} onClick={() => window.open('/api/v1/nokia/sites/template', '_blank')}>Modelo XLSX</Button>
-            <Button kind="ghost" renderIcon={Upload} onClick={() => { const input = document.createElement('input'); input.type = 'file'; input.accept = '.csv,.xlsx'; input.onchange = async () => { if (!input.files?.[0]) return; const formData = new FormData(); formData.append('file', input.files[0]); try { const response = await api.upload<{ message: string }>('/nokia/sites/import', formData); toast.success(response.message); await load(); } catch (error) { toast.error('Falha na importação', errorMessage(error)); } }; input.click(); }}>Importar</Button>
+            <OverflowMenu
+              aria-label="Ações de importação e exportação"
+              iconDescription="Mais ações"
+              renderIcon={OverflowMenuVertical}
+              size="md"
+              flipped
+            >
+              <OverflowMenuItem
+                itemText="Exportar"
+                onClick={() => window.open(`/api/v1/nokia/sites/export?search=${encodeURIComponent(search)}`, '_blank')}
+              />
+              <OverflowMenuItem
+                itemText="Pendências"
+                onClick={() => window.open('/api/v1/nokia/sites/export/pending', '_blank')}
+              />
+              <OverflowMenuItem
+                itemText="Modelo XLSX"
+                onClick={() => window.open('/api/v1/nokia/sites/template', '_blank')}
+              />
+              <OverflowMenuItem
+                itemText="Importar"
+                hasDivider
+                onClick={importSites}
+              />
+            </OverflowMenu>
             <Button renderIcon={Add} onClick={openCreate}>Novo site</Button>
           </>
         }
