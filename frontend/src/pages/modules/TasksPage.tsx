@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Add,
   Checkmark,
@@ -150,6 +151,7 @@ function colorFor(value: string): string {
 
 export function TasksPage() {
   const toast = useToast();
+  const [searchParams] = useSearchParams();
   const [data, setData] = useState<TasksData | null>(null);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState('my_day');
@@ -181,6 +183,15 @@ export function TasksPage() {
   }, [view, listId, sort, search, toast]);
 
   useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => {
+    const id = Number(searchParams.get('task'));
+    if (!Number.isFinite(id) || id <= 0) return;
+    api.get<{ data: { task: TodoTask } }>(`/tasks/${id}`)
+      .then((response) => openEditTask(response.data.task))
+      .catch((error) => toast.error('Não foi possível abrir a tarefa', errorMessage(error)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const lists = data?.lists ?? [];
   const activeList = lists.find((list) => list.id === listId);

@@ -74,6 +74,35 @@ func (n *Notifier) Notify(user models.User, title, body, link, level string) err
 	return nil
 }
 
+// NotifyOnce stores an in-app notification only once per dedupe key. It is
+// used by scheduled cross-module reminders.
+func (n *Notifier) NotifyOnce(user models.User, dedupeKey, title, body, link, level string) (bool, error) {
+	if !validLevels[level] {
+		level = "info"
+	}
+	key := strings.TrimSpace(dedupeKey)
+	notification := models.Notification{
+		ID:        uuid.NewString(),
+		UserID:    user.ID,
+		Title:     strings.TrimSpace(title),
+		Body:      strings.TrimSpace(body),
+		URL:       SafeURL(link),
+		Level:     level,
+		CreatedAt: time.Now().UTC(),
+	}
+	if key != "" {
+		notification.DedupeKey = &key
+	}
+	created, err := n.store.CreateNotificationOnce(&notification)
+	if err != nil || !created {
+		return false, err
+	}
+	if user.EmailNotifications {
+		go n.sendEmail(user.Email, notification)
+	}
+	return true, nil
+}
+
 func (n *Notifier) sendEmail(to string, notification models.Notification) {
 	if n.config.SMTPHost == "" {
 		return

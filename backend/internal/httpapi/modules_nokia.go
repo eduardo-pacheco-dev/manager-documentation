@@ -231,6 +231,7 @@ func (s *Server) nokiaCreateRejection(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "Não foi possível registrar a rejeição.", nil)
 		return
 	}
+	s.notifyNokiaRejection(currentUser(r).ID, id, payload.Reason)
 	writeJSON(w, http.StatusCreated, map[string]string{"message": "Rejeição registrada."})
 }
 

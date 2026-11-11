@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Add, Calendar, Download, Edit, Share, TrashCan, Upload } from '@carbon/icons-react';
 import {
   Button,
@@ -61,6 +62,7 @@ function colorHex(name: string, colors: Record<string, string>): string {
 
 export function AgendaPage() {
   const toast = useToast();
+  const [searchParams] = useSearchParams();
   const [calendars, setCalendars] = useState<AgendaCalendar[]>([]);
   const [occurrences, setOccurrences] = useState<Occurrence[]>([]);
   const [colors, setColors] = useState<Record<string, string>>({});
@@ -98,6 +100,14 @@ export function AgendaPage() {
   }
 
   useEffect(() => { void load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [date, view, search]);
+
+  useEffect(() => {
+    const id = Number(searchParams.get('event'));
+    if (Number.isFinite(id) && id > 0) {
+      void openEdit({ id, recurrence_id: null } as Occurrence);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const days = useMemo(() => monthDays(date), [date]);
   const filtered = occurrences.filter((occurrence) => visible.includes(occurrence.calendar_id));

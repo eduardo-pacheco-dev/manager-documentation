@@ -39,6 +39,14 @@ type RecentUsersData struct {
 
 var registry = []Widget{
 	{
+		ID:          "work.center",
+		Title:       "Central de trabalho",
+		Description: "Tarefas, follow-ups e compromissos que precisam da sua atenção.",
+		Icon:        "dashboard",
+		Order:       5,
+		DefaultSpan: 3,
+	},
+	{
 		ID:          "core.users",
 		Title:       "Usuários",
 		Description: "Total de contas cadastradas no sistema.",
@@ -99,6 +107,12 @@ func Available(s *store.Store, m *modules.Store, user models.User) ([]Widget, er
 			continue
 		}
 		switch widget.ID {
+		case "work.center":
+			data, err := m.WorkCenter(user.ID, user.Email)
+			if err != nil {
+				return nil, err
+			}
+			widget.Data = data
 		case "core.users":
 			total, err := s.UserCount()
 			if err != nil {

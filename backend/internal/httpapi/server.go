@@ -93,6 +93,10 @@ func (s *Server) Router() http.Handler {
 			auth.Put("/dashboard/widgets/order", s.updateWidgetOrder)
 			auth.Put("/dashboard/widgets/{id}", s.updateWidgetVisibility)
 			auth.Put("/dashboard/widgets/{id}/layout", s.updateWidgetLayout)
+			auth.Get("/work-context", s.workContext)
+			auth.Post("/work-links", s.createWorkLink)
+			auth.Delete("/work-links/{id}", s.deleteWorkLink)
+			auth.Post("/work-items", s.createWorkItem)
 
 			auth.Route("/agenda", func(agenda chi.Router) {
 				agenda.Get("/", s.agendaIndex)

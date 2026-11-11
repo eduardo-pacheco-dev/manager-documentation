@@ -11,6 +11,7 @@ type Notification struct {
 	Body      string     `db:"body" json:"body"`
 	URL       *string    `db:"url" json:"url"`
 	Level     string     `db:"level" json:"level"`
+	DedupeKey *string    `db:"dedupe_key" json:"-"`
 	ReadAt    *time.Time `db:"read_at" json:"read_at"`
 	CreatedAt time.Time  `db:"created_at" json:"created_at"`
 }

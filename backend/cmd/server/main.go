@@ -76,6 +76,8 @@ func main() {
 	}
 
 	server := httpapi.New(cfg, repository, cipher)
+	stopIntegration := server.StartIntegrationWorker(5 * time.Minute)
+	defer stopIntegration()
 	httpServer := &http.Server{
 		Addr:              cfg.Addr,
 		Handler:           server.Router(),

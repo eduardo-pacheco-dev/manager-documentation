@@ -346,6 +346,7 @@ func (s *Store) UpdateNokiaSiteBase(id int64, input NokiaSiteInput) (NokiaSite, 
 func (s *Store) DeleteNokiaSite(id int64) ([]string, error) {
 	paths := []string{}
 	_ = s.DB.Select(&paths, `SELECT path FROM nokia_site_attachments WHERE nokia_site_id = ?`, id)
+	s.DeleteResourceLinks("nokia_site", id)
 	_, err := s.DB.Exec(`DELETE FROM nokia_sites WHERE id = ?`, id)
 	return paths, err
 }

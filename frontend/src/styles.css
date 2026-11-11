@@ -2689,6 +2689,171 @@ p {
   .station-field-group dl {
     grid-template-columns: 1fr;
   }
+
+  .related-work__row {
+    flex-wrap: wrap;
+  }
+
+  .related-work__link {
+    flex: 1 1 100%;
+  }
+}
+
+.related-work__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  justify-content: flex-end;
+}
+
+.related-work__crosslink {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  margin-bottom: 1rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--cds-border-subtle-01);
+  background: var(--cds-layer-accent-01);
+  color: var(--cds-text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.related-work__crosslink span {
+  color: var(--cds-text-helper);
+  font-size: 0.7rem;
+}
+
+.related-work__crosslink strong {
+  font-size: 0.85rem;
+}
+
+.related-work__crosslink em {
+  color: var(--cds-text-secondary);
+  font-size: 0.72rem;
+  font-style: normal;
+}
+
+.related-work__crosslink svg {
+  margin-left: auto;
+}
+
+.related-work__summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+  color: var(--cds-text-secondary);
+  font-size: 0.75rem;
+}
+
+.related-work__summary strong {
+  color: var(--cds-text-primary);
+  font-size: 0.95rem;
+}
+
+.related-work__groups {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.related-work__group {
+  min-width: 0;
+}
+
+.related-work__row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0;
+  border-top: 1px solid var(--cds-border-subtle-01);
+}
+
+.related-work__row:first-of-type {
+  border-top: 0;
+}
+
+.related-work__link {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--cds-text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.related-work__link strong {
+  font-size: 0.8rem;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.related-work__link span {
+  color: var(--cds-text-helper);
+  font-size: 0.68rem;
+}
+
+.work-center__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.work-center__grid section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.work-center__grid header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+}
+
+.work-center__grid header span {
+  color: var(--cds-text-helper);
+  font-size: 0.68rem;
+}
+
+.work-center__row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.5rem 0;
+  border: 0;
+  border-top: 1px solid var(--cds-border-subtle-01);
+  background: transparent;
+  color: var(--cds-text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.work-center__row strong {
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.work-center__row span {
+  color: var(--cds-text-helper);
+  font-size: 0.68rem;
+}
+
+@media (max-width: 980px) {
+  .related-work__groups,
+  .work-center__grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .nokia-aside-actions {

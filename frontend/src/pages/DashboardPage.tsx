@@ -101,6 +101,8 @@ function RecentUsersWidget({ widget, onOpen }: { widget: DashboardWidget; onOpen
 
 function WidgetBody({ widget, onOpen }: { widget: DashboardWidget; onOpen: () => void }) {
   switch (widget.id) {
+    case 'work.center':
+      return <WorkCenterWidget widget={widget} />;
     case 'core.users':
       return <UserCountWidget widget={widget} onOpen={onOpen} />;
     case 'core.users.recent':
@@ -116,6 +118,68 @@ function WidgetBody({ widget, onOpen }: { widget: DashboardWidget; onOpen: () =>
     default:
       return <Tile className="widget-generic">{widget.description}</Tile>;
   }
+}
+
+function WorkCenterWidget({ widget }: { widget: DashboardWidget }) {
+  const navigate = useNavigate();
+  const data = (widget.data ?? {}) as {
+    tasks?: Array<{ id: number; title: string; list_name: string; due_at: string | null }>;
+    follow_ups?: Array<{ id: number; title: string; status: string; due_date: string | null; assignee_name: string | null; overdue: boolean }>;
+    events?: Array<{ id: number; title: string; start_at: string; calendar_name: string }>;
+    counts?: { tasks_open?: number; tasks_overdue?: number; follow_ups_open?: number; follow_ups_overdue?: number; events_today?: number; events_upcoming?: number };
+  };
+  const tasks = data.tasks ?? [];
+  const followUps = data.follow_ups ?? [];
+  const events = data.events ?? [];
+  const counts = data.counts ?? {};
+  const overdue = (counts.tasks_overdue ?? 0) + (counts.follow_ups_overdue ?? 0);
+  return (
+    <div className="widget-recent work-center">
+      <div className="widget-recent__header">
+        <div>
+          <h3>{widget.title}</h3>
+          <p>{widget.description}</p>
+        </div>
+        <div className="tag-row">
+          <Tag type={overdue > 0 ? 'red' : 'green'} size="sm">{overdue > 0 ? `${overdue} atrasado(s)` : 'Em dia'}</Tag>
+          <Tag type="blue" size="sm">{counts.events_today ?? 0} hoje</Tag>
+        </div>
+      </div>
+      <div className="work-center__grid">
+        <section>
+          <header><strong>Follow-ups</strong><span>{counts.follow_ups_open ?? 0} abertos</span></header>
+          {followUps.length === 0 ? <p className="muted">Nada atribuído a você.</p> : followUps.map((item) => (
+            <button key={item.id} type="button" className="work-center__row" onClick={() => navigate(`/follow-ups?followup=${item.id}`)}>
+              <strong>{item.title}</strong>
+              <span>{item.assignee_name ?? 'Não atribuído'} · {item.due_date ?? 'sem prazo'}</span>
+              {item.overdue && <Tag type="red" size="sm">Atrasado</Tag>}
+            </button>
+          ))}
+          <Button kind="ghost" size="sm" onClick={() => navigate('/follow-ups')}>Abrir follow-ups</Button>
+        </section>
+        <section>
+          <header><strong>Tarefas</strong><span>{counts.tasks_open ?? 0} pendentes</span></header>
+          {tasks.length === 0 ? <p className="muted">Nenhuma tarefa com prazo próximo.</p> : tasks.map((item) => (
+            <button key={item.id} type="button" className="work-center__row" onClick={() => navigate(`/tasks?task=${item.id}`)}>
+              <strong>{item.title}</strong>
+              <span>{item.list_name} · vence {item.due_at ? new Date(`${item.due_at}T12:00:00`).toLocaleDateString('pt-BR') : 'sem prazo'}</span>
+            </button>
+          ))}
+          <Button kind="ghost" size="sm" onClick={() => navigate('/tasks')}>Abrir tarefas</Button>
+        </section>
+        <section>
+          <header><strong>Agenda</strong><span>{counts.events_upcoming ?? 0} próximos</span></header>
+          {events.length === 0 ? <p className="muted">Nenhum compromisso nos próximos dias.</p> : events.map((item) => (
+            <button key={item.id} type="button" className="work-center__row" onClick={() => navigate(`/agenda?event=${item.id}`)}>
+              <strong>{item.title}</strong>
+              <span>{new Date(item.start_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} · {item.calendar_name}</span>
+            </button>
+          ))}
+          <Button kind="ghost" size="sm" onClick={() => navigate('/agenda')}>Abrir agenda</Button>
+        </section>
+      </div>
+    </div>
+  );
 }
 
 function StationsWidget({ widget }: { widget: DashboardWidget }) {

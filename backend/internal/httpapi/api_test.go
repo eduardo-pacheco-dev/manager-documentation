@@ -456,6 +456,50 @@ func TestNativeModules(t *testing.T) {
 		}
 	}
 
+	// Cross-module integration: quick create linked work items and read the
+	// related work context back.
+	workLinkIDs := []int64{}
+	for _, item := range []map[string]any{
+		{"kind": "follow_up", "title": "Vistoria vinculada", "priority": "alta", "due_date": "2026-11-20"},
+		{"kind": "task", "title": "Conferir documentação", "due_date": "2026-11-18"},
+		{"kind": "agenda_event", "title": "Visita técnica", "start_at": "2026-11-19T09:00", "duration_minutes": 90},
+	} {
+		item["resource_type"] = "station"
+		item["resource_id"] = stationID
+		res, payload = app.request(http.MethodPost, "/api/v1/work-items", item, app.csrf, nil)
+		if res.StatusCode != http.StatusCreated {
+			t.Fatalf("work item %v status = %d payload=%v", item["kind"], res.StatusCode, payload)
+		}
+		link := payload["data"].(map[string]any)["link"].(map[string]any)
+		workLinkIDs = append(workLinkIDs, int64(link["id"].(float64)))
+	}
+	res, payload = app.request(http.MethodGet, fmt.Sprintf("/api/v1/work-context?resource_type=station&resource_id=%d", stationID), nil, "", nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("work context status = %d payload=%v", res.StatusCode, payload)
+	}
+	context := payload["data"].(map[string]any)
+	if len(context["follow_ups"].([]any)) != 1 || len(context["tasks"].([]any)) != 1 || len(context["events"].([]any)) != 1 {
+		t.Fatalf("work context missing linked items: %v", context)
+	}
+	res, payload = app.request(http.MethodPost, "/api/v1/follow-ups", map[string]any{
+		"title": "Follow-up vinculado manualmente", "status": "pendente", "priority": "media",
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("create linked follow-up status = %d payload=%v", res.StatusCode, payload)
+	}
+	followUpID := int64(payload["data"].(map[string]any)["follow_up"].(map[string]any)["id"].(float64))
+	res, payload = app.request(http.MethodPost, "/api/v1/work-links", map[string]any{
+		"module": "follow_up", "entity_id": followUpID, "resource_type": "station", "resource_id": stationID,
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("manual work link status = %d payload=%v", res.StatusCode, payload)
+	}
+	workLinkIDs = append(workLinkIDs, int64(payload["data"].(map[string]any)["link"].(map[string]any)["id"].(float64)))
+	res, _ = app.request(http.MethodDelete, fmt.Sprintf("/api/v1/work-links/%d", workLinkIDs[len(workLinkIDs)-1]), nil, app.csrf, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("delete work link status = %d", res.StatusCode)
+	}
+
 	res, payload = app.request(http.MethodPost, "/api/v1/nokia/sites", map[string]any{
 		"site_id": "NKTESTE01", "oc": "OC-TESTE-01", "regional": "TSP",
 	}, app.csrf, nil)

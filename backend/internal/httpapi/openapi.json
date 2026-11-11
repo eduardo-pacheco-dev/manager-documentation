@@ -196,6 +196,26 @@
     "/dashboard/widgets/{id}/layout": {
       "put": { "tags": ["Dashboard"], "summary": "Redimensiona um widget (1 a 3 colunas)", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Largura salva" } } }
     },
+    "/work-context": {
+      "get": {
+        "tags": ["Integrações"],
+        "summary": "Trabalho relacionado a uma estação ou site Nokia",
+        "parameters": [
+          { "name": "resource_type", "in": "query", "required": true, "schema": { "type": "string", "enum": ["station", "nokia_site"] } },
+          { "name": "resource_id", "in": "query", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Tarefas, follow-ups, eventos e vínculo cruzado" }, "404": { "description": "Recurso não encontrado" } }
+      }
+    },
+    "/work-links": {
+      "post": { "tags": ["Integrações"], "summary": "Vincula uma tarefa, follow-up ou evento a uma estação/site Nokia", "responses": { "201": { "description": "Vínculo criado" }, "404": { "description": "Item ou recurso não encontrado" } } }
+    },
+    "/work-links/{id}": {
+      "delete": { "tags": ["Integrações"], "summary": "Remove um vínculo", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Vínculo removido" } } }
+    },
+    "/work-items": {
+      "post": { "tags": ["Integrações"], "summary": "Cria e vincula tarefa, follow-up ou evento em uma única chamada", "responses": { "201": { "description": "Item criado e vinculado" }, "422": { "description": "Validação" } } }
+    },
     "/settings": {
       "get": { "tags": ["Settings"], "summary": "Configurações do usuário, módulos, fuso e armazenamento", "responses": { "200": { "description": "Configurações" } } }
     },

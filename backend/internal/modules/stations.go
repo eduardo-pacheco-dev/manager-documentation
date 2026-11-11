@@ -225,6 +225,7 @@ func (s *Store) UpdateStation(id int64, input StationInput) (Station, error) {
 func (s *Store) DeleteStation(id int64) ([]string, error) {
 	paths := []string{}
 	_ = s.DB.Select(&paths, `SELECT path FROM station_attachments WHERE station_id = ?`, id)
+	s.DeleteResourceLinks("station", id)
 	_, err := s.DB.Exec(`DELETE FROM stations WHERE id = ?`, id)
 	return paths, err
 }

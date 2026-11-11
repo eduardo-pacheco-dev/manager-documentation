@@ -132,11 +132,27 @@ func (s *Store) DeleteAPITokenByID(id int64) error {
 
 func (s *Store) CreateNotification(notification *models.Notification) error {
 	_, err := s.DB.Exec(`
-		INSERT INTO notifications (id, user_id, title, body, url, level, read_at, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		INSERT INTO notifications (id, user_id, title, body, url, level, dedupe_key, read_at, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		notification.ID, notification.UserID, notification.Title, notification.Body,
-		notification.URL, notification.Level, notification.ReadAt, notification.CreatedAt)
+		notification.URL, notification.Level, notification.DedupeKey, notification.ReadAt, notification.CreatedAt)
 	return err
+}
+
+// CreateNotificationOnce inserts a notification and reports whether it was
+// actually created. It is used by cross-module reminders to avoid repeating
+// the same notification for the same entity and period.
+func (s *Store) CreateNotificationOnce(notification *models.Notification) (bool, error) {
+	result, err := s.DB.Exec(`
+		INSERT OR IGNORE INTO notifications (id, user_id, title, body, url, level, dedupe_key, read_at, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		notification.ID, notification.UserID, notification.Title, notification.Body,
+		notification.URL, notification.Level, notification.DedupeKey, notification.ReadAt, notification.CreatedAt)
+	if err != nil {
+		return false, err
+	}
+	affected, _ := result.RowsAffected()
+	return affected > 0, nil
 }
 
 func (s *Store) ListNotifications(userID int64, page, perPage int) ([]models.Notification, int, int, error) {

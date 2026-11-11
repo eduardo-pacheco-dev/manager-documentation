@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Add, Download, Edit, Send, Settings, TrashCan, Upload } from '@carbon/icons-react';
 import {
   Button,
@@ -39,6 +40,7 @@ const statusType = (value: string) => value === 'concluido' ? 'green' : value ==
 export function FollowUpsPage() {
   const { user } = useAuth();
   const toast = useToast();
+  const [searchParams] = useSearchParams();
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -81,6 +83,21 @@ export function FollowUpsPage() {
 
   useEffect(() => { void load(); }, [load]);
 
+  async function openDetailById(id: number) {
+    try {
+      const response = await api.get<{ data: { follow_up: FollowUp } }>(`/follow-ups/${id}`);
+      setDetail(response.data.follow_up);
+    } catch (error) {
+      toast.error('Não foi possível abrir o follow-up', errorMessage(error));
+    }
+  }
+
+  useEffect(() => {
+    const deepLink = Number(searchParams.get('followup'));
+    if (Number.isFinite(deepLink) && deepLink > 0) void openDetailById(deepLink);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   function openCreate() {
     setEditing(null);
     setForm({ title: '', code: '', description: '', client_id: '', project_id: '', status: 'pendente', priority: 'media', due_date: '', completed_at: '', assignee_id: '' });
@@ -118,12 +135,7 @@ export function FollowUpsPage() {
   }
 
   async function openDetail(item: FollowUp) {
-    try {
-      const response = await api.get<{ data: { follow_up: FollowUp } }>(`/follow-ups/${item.id}`);
-      setDetail(response.data.follow_up);
-    } catch (error) {
-      toast.error('Não foi possível abrir o follow-up', errorMessage(error));
-    }
+    await openDetailById(item.id);
   }
 
   async function addUpdate() {

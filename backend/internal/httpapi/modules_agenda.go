@@ -138,6 +138,7 @@ func (s *Server) agendaCreateEvent(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnprocessableEntity, "Não foi possível criar o evento.", nil)
 		return
 	}
+	s.notifyAgendaInvite(currentUser(r).ID, event)
 	writeJSON(w, http.StatusCreated, map[string]any{"message": "Evento criado.", "data": map[string]any{"event": event}})
 }
 
@@ -174,6 +175,7 @@ func (s *Server) agendaDeleteEvent(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusForbidden, "Não foi possível excluir o evento.", nil)
 		return
 	}
+	s.Modules.DeleteEntityLinks("agenda_event", id)
 	writeJSON(w, http.StatusOK, map[string]string{"message": "Evento excluído."})
 }
 

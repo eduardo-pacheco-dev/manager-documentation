@@ -514,6 +514,21 @@ var migrations = [][]string{
 		`ALTER TABLE stations ADD COLUMN nokia_site_id INTEGER`,
 		`CREATE UNIQUE INDEX idx_stations_nokia_site ON stations(nokia_site_id) WHERE nokia_site_id IS NOT NULL`,
 	},
+	{
+		`CREATE TABLE entity_links (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			module TEXT NOT NULL,
+			entity_id INTEGER NOT NULL,
+			resource_type TEXT NOT NULL,
+			resource_id INTEGER NOT NULL,
+			created_at DATETIME NOT NULL,
+			UNIQUE(module, entity_id, resource_type, resource_id)
+		)`,
+		`CREATE INDEX idx_entity_links_resource ON entity_links(resource_type, resource_id)`,
+		`CREATE INDEX idx_entity_links_entity ON entity_links(module, entity_id)`,
+		`ALTER TABLE notifications ADD COLUMN dedupe_key TEXT`,
+		`CREATE UNIQUE INDEX idx_notifications_dedupe ON notifications(user_id, dedupe_key) WHERE dedupe_key IS NOT NULL`,
+	},
 }
 
 // CleanupSessions removes expired sessions and tokens. It is safe to call at

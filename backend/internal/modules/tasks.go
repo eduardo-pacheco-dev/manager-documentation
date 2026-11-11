@@ -528,6 +528,7 @@ func (s *Store) MoveTodoTask(userID, id int64, listID int64, direction string) (
 }
 
 func (s *Store) DeleteTodoTask(userID, id int64) error {
+	s.DeleteEntityLinks("task", id)
 	_, err := s.DB.Exec(`DELETE FROM todo_tasks WHERE id = ? AND user_id = ?`, id, userID)
 	return err
 }

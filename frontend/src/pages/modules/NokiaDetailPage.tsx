@@ -23,6 +23,7 @@ import {
 } from '@carbon/react';
 import { PageHeader } from '../../components/PageHeader';
 import { ConfirmModal } from '../../components/ConfirmModal';
+import { RelatedWork } from '../../components/RelatedWork';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { api } from '../../lib/api';
@@ -576,6 +577,8 @@ export function NokiaDetailPage() {
               );
             })}
           </Tile>
+
+          <RelatedWork resourceType="nokia_site" resourceId={site.id} />
 
           <Tile className="nokia-detail-section">
             <div className="nokia-section-header">

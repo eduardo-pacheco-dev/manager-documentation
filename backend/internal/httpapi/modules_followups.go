@@ -121,6 +121,7 @@ func (s *Server) followUpsCreate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnprocessableEntity, "Não foi possível criar o follow-up.", nil)
 		return
 	}
+	s.notifyFollowUpAssignment(currentUser(r).ID, item)
 	writeJSON(w, http.StatusCreated, map[string]any{"message": "Follow-up criado com sucesso.", "data": map[string]any{"follow_up": item}})
 }
 
@@ -142,6 +143,7 @@ func (s *Server) followUpsUpdate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	previous, _ := s.Modules.FindFollowUp(id)
 	item, err := s.Modules.UpdateFollowUp(id, currentUser(r).ID, modules.FollowUpInput{
 		Title: payload.Title, Code: payload.Code, Description: payload.Description, ClientID: payload.ClientID,
 		ProjectID: payload.ProjectID, Status: payload.Status, Priority: payload.Priority, DueDate: payload.DueDate,
@@ -151,6 +153,11 @@ func (s *Server) followUpsUpdate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnprocessableEntity, "Não foi possível atualizar o follow-up.", nil)
 		return
 	}
+	actorID := currentUser(r).ID
+	if previous.AssigneeID == nil || item.AssigneeID == nil || *previous.AssigneeID != *item.AssigneeID {
+		s.notifyFollowUpAssignment(actorID, item)
+	}
+	s.notifyFollowUpStatusChange(actorID, item, previous.Status)
 	writeJSON(w, http.StatusOK, map[string]any{"message": "Follow-up atualizado com sucesso.", "data": map[string]any{"follow_up": item}})
 }
 
@@ -160,6 +167,7 @@ func (s *Server) followUpsDelete(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "Não foi possível excluir o follow-up.", nil)
 		return
 	}
+	s.Modules.DeleteEntityLinks("follow_up", id)
 	writeJSON(w, http.StatusOK, map[string]string{"message": "Follow-up excluído com sucesso."})
 }
 
@@ -179,6 +187,9 @@ func (s *Server) followUpsAddUpdate(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Não foi possível registrar a atualização.", nil)
 		return
+	}
+	if item, findErr := s.Modules.FindFollowUp(id); findErr == nil {
+		s.notifyFollowUpComment(currentUser(r).ID, item, payload.Body)
 	}
 	writeJSON(w, http.StatusCreated, map[string]any{"message": "Atualização registrada com sucesso.", "data": map[string]any{"update": update}})
 }
