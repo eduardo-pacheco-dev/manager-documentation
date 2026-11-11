@@ -314,10 +314,13 @@ Em **Settings → Secrets and variables → Actions**:
 | Secret | `VPS_HOST` | sim | IP ou domínio da VPS |
 | Secret | `VPS_USER` | sim | Usuário do PM2 (o mesmo `SUDO_USER` do setup) |
 | Secret | `VPS_SSH_KEY` | sim | Chave privada SSH de deploy |
+| Secret | `ADMIN_PASSWORD` | não | Senha inicial do administrador (se omitida, é gerada na VPS) |
 | Variable | `VPS_PORT` | não | Porta SSH (padrão `22`) |
 | Variable | `VPS_APP_DIR` | não | Diretório da app (padrão `~/app/manager-documentation`; no servidor atual `/root/app/manager-documentation`) |
 | Variable | `APP_PORT` | não | Porta HTTP (padrão `8080`) |
 | Variable | `APP_BIND` | não | Bind HTTP (padrão `0.0.0.0`) |
+| Variable | `PUBLIC_URL` | não | URL pública (padrão `https://afldoc.com.br`) |
+| Variable | `ADMIN_EMAIL` | não | E-mail do admin inicial (padrão `admin@afldoc.com.br`) |
 
 A chave pública correspondente deve estar em `~/.ssh/authorized_keys` do usuário `VPS_USER`. O usuário precisa permissão para executar `pm2`. No servidor atual: `VPS_USER=root` e o caminho padrão já resolve para `~/app/manager-documentation`.
 
@@ -329,8 +332,15 @@ Basta fazer merge/push na `main`. O fluxo é:
 2. `Deploy` compila os pacotes Linux amd64/arm64.
 3. O runner identifica a arquitetura da VPS via `uname -m`.
 4. O pacote e o `deploy.sh` são enviados por SCP.
-5. O `deploy.sh` extrai a release, atualiza o symlink `current`, executa `pm2 startOrReload` e valida `GET /healthz`.
-6. Em caso de falha no health check, a release anterior é restaurada automaticamente.
+5. Se for o primeiro deploy (sem `shared/.env`), o `deploy.sh` executa o setup automaticamente (MySQL, Node.js, PM2, `.env`).
+6. O `deploy.sh` extrai a release, atualiza o symlink `current`, executa `pm2 startOrReload` e valida `GET /healthz`.
+7. Em caso de falha no health check, a release anterior é restaurada automaticamente.
+
+Se a senha inicial for gerada pelo setup, ela fica em `shared/INITIAL-ADMIN-PASSWORD.txt` (permissão `600`) e não aparece nos logs do Actions:
+
+```bash
+cat ~/app/manager-documentation/shared/INITIAL-ADMIN-PASSWORD.txt
+```
 
 Também é possível disparar manualmente em **Actions → Deploy → Run workflow**.
 

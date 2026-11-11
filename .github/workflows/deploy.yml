@@ -111,6 +111,9 @@ jobs:
           VPS_APP_DIR: ${{ vars.VPS_APP_DIR || '' }}
           APP_PORT: ${{ vars.APP_PORT || '8080' }}
           APP_BIND: ${{ vars.APP_BIND || '0.0.0.0' }}
+          PUBLIC_URL: ${{ vars.PUBLIC_URL || 'https://afldoc.com.br' }}
+          ADMIN_EMAIL: ${{ vars.ADMIN_EMAIL || 'admin@afldoc.com.br' }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
           SOURCE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
         run: |
           set -euo pipefail
@@ -136,5 +139,7 @@ jobs:
           ssh "${SSH_OPTS[@]}" "$VPS_USER@$VPS_HOST" \
             "chmod +x '$REMOTE_APP_DIR/deploy.sh.upload' && mv -f '$REMOTE_APP_DIR/deploy.sh.upload' '$REMOTE_APP_DIR/deploy.sh' && \
              cd '$REMOTE_APP_DIR' && \
+             PUBLIC_URL=$(printf '%q' "$PUBLIC_URL") ADMIN_EMAIL=$(printf '%q' "$ADMIN_EMAIL") \
+             ADMIN_PASSWORD=$(printf '%q' "$ADMIN_PASSWORD") NO_PRINT_SECRETS=1 \
              APP_DIR='$REMOTE_APP_DIR' APP_USER='$VPS_USER' APP_PORT='$APP_PORT' APP_BIND='$APP_BIND' PM2_APP_NAME='documentation-center' \
              ./deploy.sh --artifact '/tmp/documentation-center-${TAG}.tar.gz' --tag '$TAG' --port '$APP_PORT'"

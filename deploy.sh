@@ -353,6 +353,9 @@ SMTP_FROM=no-reply@localhost
 EOF
 		chown "$APP_USER":"$APP_USER" "$APP_DIR/shared/.env"
 		chmod 600 "$APP_DIR/shared/.env"
+		printf '%s\n' "$ADMIN_PASSWORD" > "$APP_DIR/shared/INITIAL-ADMIN-PASSWORD.txt"
+		chown "$APP_USER":"$APP_USER" "$APP_DIR/shared/INITIAL-ADMIN-PASSWORD.txt"
+		chmod 600 "$APP_DIR/shared/INITIAL-ADMIN-PASSWORD.txt"
 		log "Arquivo .env criado em $APP_DIR/shared/.env"
 	else
 		log "Mantendo .env existente em $APP_DIR/shared/.env"
@@ -420,8 +423,12 @@ EOF
 		echo
 		log "Setup concluído."
 		log "Administrador: ${ADMIN_EMAIL}"
-		log "Senha inicial: ${ADMIN_PASSWORD}"
-		warn "Guarde essa senha agora; ela não será exibida novamente."
+		if [[ "${NO_PRINT_SECRETS:-0}" == "1" ]]; then
+			log "Senha inicial salva em: $APP_DIR/shared/INITIAL-ADMIN-PASSWORD.txt"
+		else
+			log "Senha inicial: ${ADMIN_PASSWORD}"
+			warn "Guarde essa senha agora; ela não será exibida novamente."
+		fi
 	else
 		log "Setup concluído. Configurações existentes preservadas em $APP_DIR/shared/.env"
 	fi
@@ -519,6 +526,11 @@ cleanup_releases() {
 
 deploy() {
 	[[ -d "$APP_DIR" ]] || die "Diretório não encontrado: $APP_DIR. Execute o setup primeiro."
+	if [[ ! -f "$APP_DIR/shared/.env" ]]; then
+		[[ "$(id -u)" -eq 0 ]] || die "Primeiro deploy: execute 'bash deploy.sh setup' como root."
+		log "Primeira execução detectada; executando setup automático..."
+		NO_PRINT_SECRETS="${NO_PRINT_SECRETS:-1}" setup
+	fi
 	[[ -f "$APP_DIR/shared/.env" ]] || die "Arquivo $APP_DIR/shared/.env não encontrado. Execute o setup primeiro."
 	command -v pm2 >/dev/null 2>&1 || die "PM2 não encontrado. Execute o setup primeiro."
 	[[ "$(id -un)" == "$APP_USER" ]] || warn "Executando como $(id -un); o PM2 será controlado como $APP_USER."
