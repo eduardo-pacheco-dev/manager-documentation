@@ -58,12 +58,16 @@ func main() {
 	if err := seed.Run(repository, cfg); err != nil {
 		log.Fatalf("seed: %v", err)
 	}
+	moduleStore := modules.New(db)
 	if cfg.SeedDemoData {
 		if admin, findErr := repository.FindUserByEmail(cfg.SeedAdminEmail); findErr == nil {
-			if moduleErr := seed.ModuleData(modules.New(db), admin); moduleErr != nil {
+			if moduleErr := seed.ModuleData(moduleStore, admin); moduleErr != nil {
 				log.Printf("seed modules: %v", moduleErr)
 			}
 		}
+	}
+	if err := moduleStore.SyncAllNokiaSitesToStations(); err != nil {
+		log.Printf("nokia/stations sync: %v", err)
 	}
 
 	cipher, err := crypto.New(cfg.AppKey)

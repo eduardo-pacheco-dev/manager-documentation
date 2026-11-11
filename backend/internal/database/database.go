@@ -510,6 +510,10 @@ var migrations = [][]string{
 			updated_at DATETIME NOT NULL
 		)`,
 	},
+	{
+		`ALTER TABLE stations ADD COLUMN nokia_site_id INTEGER`,
+		`CREATE UNIQUE INDEX idx_stations_nokia_site ON stations(nokia_site_id) WHERE nokia_site_id IS NOT NULL`,
+	},
 }
 
 // CleanupSessions removes expired sessions and tokens. It is safe to call at

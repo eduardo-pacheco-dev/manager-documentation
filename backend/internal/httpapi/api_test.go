@@ -456,6 +456,10 @@ func TestNativeModules(t *testing.T) {
 		t.Fatalf("create nokia site status = %d payload=%v", res.StatusCode, payload)
 	}
 	siteID := int64(payload["data"].(map[string]any)["site"].(map[string]any)["id"].(float64))
+	res, payload = app.request(http.MethodGet, "/api/v1/stations?search=NKTESTE01", nil, "", nil)
+	if res.StatusCode != http.StatusOK || int(payload["meta"].(map[string]any)["total"].(float64)) != 1 {
+		t.Fatalf("nokia site was not synced to stations: %d %v", res.StatusCode, payload)
+	}
 	res, _ = app.request(http.MethodPut, fmt.Sprintf("/api/v1/nokia/sites/%d/checklist/checklist_fam_entrega", siteID), map[string]any{"status": "analysis"}, app.csrf, nil)
 	if res.StatusCode != http.StatusOK {
 		t.Fatalf("checklist status = %d", res.StatusCode)

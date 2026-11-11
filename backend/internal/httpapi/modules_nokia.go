@@ -89,6 +89,7 @@ func (s *Server) nokiaCreate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "Não foi possível cadastrar o site.", nil)
 		return
 	}
+	_ = s.Modules.SyncNokiaSiteToStation(site.ID)
 	writeJSON(w, http.StatusCreated, map[string]any{"message": "Site cadastrado com sucesso.", "data": map[string]any{"site": site}})
 }
 
@@ -107,6 +108,7 @@ func (s *Server) nokiaUpdate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "Não foi possível atualizar o site.", nil)
 		return
 	}
+	_ = s.Modules.SyncNokiaSiteToStation(site.ID)
 	writeJSON(w, http.StatusOK, map[string]any{"message": "Site atualizado com sucesso.", "data": map[string]any{"site": site}})
 }
 
@@ -783,6 +785,7 @@ func (s *Server) nokiaImport(w http.ResponseWriter, r *http.Request) {
 		for taskID, completed := range row.tasks {
 			_ = s.Modules.SetNokiaTaskState(site.ID, taskID, completed)
 		}
+		_ = s.Modules.SyncNokiaSiteToStation(site.ID)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"message": fmt.Sprintf("%d site(s) criado(s) e %d atualizado(s) com sucesso.", created, updated),

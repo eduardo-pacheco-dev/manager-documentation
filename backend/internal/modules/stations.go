@@ -39,6 +39,7 @@ type Station struct {
 	Status           *string             `db:"status" json:"status"`
 	TipoDaTorre      *string             `db:"tipo_da_torre" json:"tipo_da_torre"`
 	StationID        *string             `db:"station_id" json:"station_id"`
+	NokiaSiteID      *int64              `db:"nokia_site_id" json:"nokia_site_id"`
 	CreatedAt        time.Time           `db:"created_at" json:"created_at"`
 	UpdatedAt        time.Time           `db:"updated_at" json:"updated_at"`
 	Attachments      []StationAttachment `db:"-" json:"attachments"`
@@ -226,6 +227,52 @@ func (s *Store) DeleteStation(id int64) ([]string, error) {
 	_ = s.DB.Select(&paths, `SELECT path FROM station_attachments WHERE station_id = ?`, id)
 	_, err := s.DB.Exec(`DELETE FROM stations WHERE id = ?`, id)
 	return paths, err
+}
+
+// SyncNokiaSiteToStation keeps the Stations inventory in sync with the Nokia
+// project sites. It links by nokia_site_id, falling back to an existing station
+// with the same site_id, and only updates the shared identity/location fields.
+func (s *Store) SyncNokiaSiteToStation(nokiaSiteID int64) error {
+	site, err := s.FindNokiaSite(nokiaSiteID)
+	if err != nil {
+		return err
+	}
+	var stationID int64
+	err = s.DB.Get(&stationID, `SELECT id FROM stations WHERE nokia_site_id = ?`, nokiaSiteID)
+	if errors.Is(err, sql.ErrNoRows) {
+		err = s.DB.Get(&stationID, `SELECT id FROM stations WHERE site_id = ? ORDER BY id ASC LIMIT 1`, site.SiteID)
+	}
+	timestamp := now()
+	if errors.Is(err, sql.ErrNoRows) {
+		_, err = s.DB.Exec(`
+			INSERT INTO stations (site_id, endereco_id, tipo_de_elemento, tecnologia, regional, status,
+				station_id, nokia_site_id, created_at, updated_at)
+			VALUES (?, ?, 'Site Nokia', 'Nokia', ?, 'Projeto Nokia', ?, ?, ?, ?)`,
+			site.SiteID, nullString(deref(site.EndID)), nullString(deref(site.Regional)),
+			nullString(site.SiteID), nokiaSiteID, timestamp, timestamp)
+		return err
+	}
+	if err != nil {
+		return err
+	}
+	_, err = s.DB.Exec(`
+		UPDATE stations SET site_id = ?, endereco_id = ?, regional = ?, nokia_site_id = ?, updated_at = ?
+		WHERE id = ?`,
+		site.SiteID, nullString(deref(site.EndID)), nullString(deref(site.Regional)), nokiaSiteID, timestamp, stationID)
+	return err
+}
+
+func (s *Store) SyncAllNokiaSitesToStations() error {
+	sites, _, _, _, err := s.ListNokiaSites(NokiaSiteFilter{Page: 1, PerPage: 10000})
+	if err != nil {
+		return err
+	}
+	for _, site := range sites {
+		if err := s.SyncNokiaSiteToStation(site.ID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Store) CreateStationAttachment(stationID int64, userID int64, category, originalName, path, disk, mimeType string, size int64) (StationAttachment, error) {

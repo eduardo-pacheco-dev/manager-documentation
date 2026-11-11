@@ -30,7 +30,7 @@ Reescrita do **Documentation Center** em **Go + React + IBM Carbon Design System
 - **Tarefas**: listas, tarefas, etapas, Meu Dia, importantes, planejado, recorrência, movimentação e exportação CSV.
 - **Follow-ups**: status, prioridade, prazos, responsáveis, clientes/projetos, histórico, configurações, importação/exportação e widget.
 - **Estações**: inventário de 23 campos, busca/filtros, anexos, comentários, importação/exportação CSV e widget de sites.
-- **Projetos Nokia**: sites, ROMs, tarefas, checklist de FAMs, datas, interrupções, rejeições, anexos, comentários e widget.
+- **Projetos Nokia**: sites, ROMs, tarefas, checklist de FAMs, datas, interrupções, rejeições, anexos, comentários e widget. Os sites Nokia são sincronizados automaticamente com o cadastro de Estações.
 - **Responsividade**: sidebar em gaveta no mobile, grids adaptáveis, tabelas com rolagem e ações empilhadas.
 - **Administração inicial**: seed idempotente com administrador e wiki de exemplo.
 
