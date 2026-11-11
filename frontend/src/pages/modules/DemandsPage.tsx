@@ -20,6 +20,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { api } from '../../lib/api';
 import { errorMessage, relativeTime } from '../../lib/format';
+import { StationSearch } from '../../components/StationSearch';
 
 interface Collaborator { id: number; name: string; email: string }
 interface Demand {
@@ -27,6 +28,9 @@ interface Demand {
   description: string | null; status: string; priority: string; due_at: string | null;
   completed_at: string | null; created_at: string; updated_at: string;
   client_name: string | null; client_email: string | null;
+  station_id: number | null; station_site_id: string | null; station_municipio: string | null; station_estado: string | null;
+  operadora: string | null; demand_type: string | null; oc_tim: string | null;
+  client_os: string | null; key_number: string | null; activity_scope: string | null;
   requester_name: string | null; assignee_name: string | null; assignee_email: string | null;
   overdue: boolean; update_count: number;
 }
@@ -54,7 +58,8 @@ export const demandPriorityType = (value: string) => value === 'urgente' ? 'red'
 
 const EMPTY_FORM = {
   title: '', description: '', assignee_id: '', priority: 'media', due_at: '', status: 'aberta',
-  client_name: '', client_email: '',
+  client_name: '', client_email: '', station_id: '', operadora: '', demand_type: '',
+  oc_tim: '', client_os: '', key_number: '', activity_scope: '',
 };
 
 export function DemandsPage() {
@@ -116,6 +121,10 @@ export function DemandsPage() {
       title: demand.title, description: demand.description ?? '', assignee_id: String(demand.assignee_id),
       priority: demand.priority, due_at: demand.due_at ?? '', status: demand.status,
       client_name: demand.client_name ?? '', client_email: demand.client_email ?? '',
+      station_id: demand.station_id ? String(demand.station_id) : '',
+      operadora: demand.operadora ?? '', demand_type: demand.demand_type ?? '',
+      oc_tim: demand.oc_tim ?? '', client_os: demand.client_os ?? '',
+      key_number: demand.key_number ?? '', activity_scope: demand.activity_scope ?? '',
     });
     setModalOpen(true);
   }
@@ -126,6 +135,7 @@ export function DemandsPage() {
       const payload = {
         ...form,
         assignee_id: form.assignee_id ? Number(form.assignee_id) : 0,
+        station_id: form.station_id ? Number(form.station_id) : null,
         due_at: form.due_at || '',
       };
       if (editing) {
@@ -303,6 +313,22 @@ export function DemandsPage() {
             <TextInput id="demand-client-name" labelText="Cliente" value={form.client_name} onChange={(event) => setForm({ ...form, client_name: event.target.value })} />
             <TextInput id="demand-client-email" type="email" labelText="E-mail do cliente" value={form.client_email} onChange={(event) => setForm({ ...form, client_email: event.target.value })} />
           </div>
+          <StationSearch
+            id="demand-station"
+            value={form.station_id ? Number(form.station_id) : null}
+            valueLabel={editing?.station_site_id}
+            onChange={(stationId) => setForm({ ...form, station_id: stationId ? String(stationId) : '' })}
+          />
+          <div className="form-row">
+            <TextInput id="demand-operadora" labelText="Operadora" value={form.operadora} onChange={(event) => setForm({ ...form, operadora: event.target.value })} />
+            <TextInput id="demand-type" labelText="Tipo de demanda" value={form.demand_type} onChange={(event) => setForm({ ...form, demand_type: event.target.value })} />
+          </div>
+          <div className="form-row">
+            <TextInput id="demand-oc-tim" labelText="Número OC TIM" value={form.oc_tim} onChange={(event) => setForm({ ...form, oc_tim: event.target.value })} />
+            <TextInput id="demand-client-os" labelText="Número OS do Cliente" value={form.client_os} onChange={(event) => setForm({ ...form, client_os: event.target.value })} />
+          </div>
+          <TextInput id="demand-key" labelText="Número da chave" value={form.key_number} onChange={(event) => setForm({ ...form, key_number: event.target.value })} />
+          <TextArea id="demand-activity-scope" labelText="Escopo da atividade" rows={3} value={form.activity_scope} onChange={(event) => setForm({ ...form, activity_scope: event.target.value })} />
           <div className="form-row">
             <Select id="demand-form-assignee" labelText="Responsável *" value={form.assignee_id} onChange={(event) => setForm({ ...form, assignee_id: event.target.value })}>
               <SelectItem value="" text="Selecione" />

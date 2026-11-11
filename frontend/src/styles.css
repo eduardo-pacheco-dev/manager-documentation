@@ -3058,11 +3058,50 @@ p {
   flex-wrap: wrap;
 }
 
+.demand-actions-menu {
+  display: inline-flex;
+  align-items: center;
+}
+
+.demand-actions-menu .cds--overflow-menu-options,
+.cds--overflow-menu-options[aria-label="Ações da demanda"] {
+  min-width: 18rem;
+  max-width: 22rem;
+}
+
+.cds--overflow-menu-options[aria-label="Ações da demanda"] {
+  transform: translateX(calc(-100% + 3rem));
+}
+
 .demand-detail__meta {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.75rem;
   margin: 1rem 0;
+}
+
+.demand-info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.demand-info-grid > div {
+  padding: 0.6rem;
+  background: var(--cds-layer-accent-01);
+}
+
+.demand-info-grid dt {
+  color: var(--cds-text-helper);
+  font-size: 0.7rem;
+}
+
+.demand-info-grid dd {
+  margin: 0.1rem 0 0;
+  font-size: 0.82rem;
+  font-weight: 500;
+  overflow-wrap: anywhere;
 }
 
 .demand-detail__meta > div {
@@ -3128,6 +3167,10 @@ p {
 @media (max-width: 780px) {
   .demand-detail__meta {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .demand-info-grid {
+    grid-template-columns: 1fr;
   }
 
   .demand-status-actions {

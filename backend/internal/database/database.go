@@ -795,6 +795,17 @@ var migrations = [][]string{
 		`ALTER TABLE demands ADD COLUMN client_name VARCHAR(255) NULL`,
 		`ALTER TABLE demands ADD COLUMN client_email VARCHAR(255) NULL`,
 	},
+	{
+		`ALTER TABLE demands ADD COLUMN station_id BIGINT NULL`,
+		`ALTER TABLE demands ADD COLUMN operadora VARCHAR(100) NULL`,
+		`ALTER TABLE demands ADD COLUMN demand_type VARCHAR(100) NULL`,
+		`ALTER TABLE demands ADD COLUMN oc_tim VARCHAR(100) NULL`,
+		`ALTER TABLE demands ADD COLUMN client_os VARCHAR(100) NULL`,
+		`ALTER TABLE demands ADD COLUMN key_number VARCHAR(100) NULL`,
+		`ALTER TABLE demands ADD COLUMN activity_scope TEXT NULL`,
+		`CREATE INDEX idx_demands_station ON demands(station_id)`,
+		`ALTER TABLE demands ADD CONSTRAINT fk_demands_station FOREIGN KEY (station_id) REFERENCES stations(id) ON DELETE SET NULL`,
+	},
 }
 
 // CleanupSessions removes expired sessions and tokens. It is safe to call at

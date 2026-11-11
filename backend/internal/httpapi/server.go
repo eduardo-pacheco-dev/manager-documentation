@@ -201,6 +201,7 @@ func (s *Server) Router() http.Handler {
 				demands.Post("/", s.demandsCreate)
 				demands.Get("/export", s.demandsExport)
 				demands.Get("/collaborators", s.demandsCollaborators)
+				demands.Get("/stations", s.demandsStations)
 				demands.Get("/{id}", s.demandsShow)
 				demands.Put("/{id}", s.demandsUpdate)
 				demands.Delete("/{id}", s.demandsDelete)

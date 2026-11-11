@@ -706,10 +706,25 @@ func TestShortLinks(t *testing.T) {
 func TestDemands(t *testing.T) {
 	app := newTestApp(t)
 
-	res, payload := app.request(http.MethodPost, "/api/v1/demands", map[string]any{
+	res, payload := app.request(http.MethodPost, "/api/v1/stations", map[string]any{
+		"site_id": "DEMANDA001", "municipio": "São Paulo", "estado": "SP",
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("create demand station status = %d payload=%v", res.StatusCode, payload)
+	}
+	stationID := int64(payload["data"].(map[string]any)["station"].(map[string]any)["id"].(float64))
+	res, payload = app.request(http.MethodGet, "/api/v1/demands/stations?search=DEMANDA001", nil, "", nil)
+	if res.StatusCode != http.StatusOK || len(payload["data"].([]any)) != 1 {
+		t.Fatalf("demand station search failed: %d %v", res.StatusCode, payload)
+	}
+
+	res, payload = app.request(http.MethodPost, "/api/v1/demands", map[string]any{
 		"assignee_id": app.userID, "title": "Atualizar documentação do site", "description": "Revisar o procedimento.",
 		"priority": "alta", "due_at": "2026-11-20", "status": "aberta",
 		"client_name": "Cliente Teste", "client_email": "cliente@test.local",
+		"station_id": stationID, "operadora": "TIM", "demand_type": "Instalação",
+		"oc_tim": "OC-123", "client_os": "OS-456", "key_number": "CHAVE-789",
+		"activity_scope": "Instalar equipamentos e validar integração.",
 	}, app.csrf, nil)
 	if res.StatusCode != http.StatusCreated {
 		t.Fatalf("create demand status = %d payload=%v", res.StatusCode, payload)
@@ -717,7 +732,8 @@ func TestDemands(t *testing.T) {
 	demand := payload["data"].(map[string]any)["demand"].(map[string]any)
 	demandID := int64(demand["id"].(float64))
 	if demand["status"] != "aberta" || demand["assignee_id"].(float64) != float64(app.userID) ||
-		demand["client_email"] != "cliente@test.local" {
+		demand["client_email"] != "cliente@test.local" || demand["oc_tim"] != "OC-123" ||
+		demand["station_site_id"] != "DEMANDA001" {
 		t.Fatalf("unexpected demand: %v", demand)
 	}
 

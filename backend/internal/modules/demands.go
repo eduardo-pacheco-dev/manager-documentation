@@ -47,6 +47,16 @@ type Demand struct {
 	Description   *string            `db:"description" json:"description"`
 	ClientName    *string            `db:"client_name" json:"client_name"`
 	ClientEmail   *string            `db:"client_email" json:"client_email"`
+	StationID     *int64             `db:"station_id" json:"station_id"`
+	StationSiteID *string            `db:"station_site_id" json:"station_site_id"`
+	StationCity   *string            `db:"station_municipio" json:"station_municipio"`
+	StationState  *string            `db:"station_estado" json:"station_estado"`
+	Operadora     *string            `db:"operadora" json:"operadora"`
+	DemandType    *string            `db:"demand_type" json:"demand_type"`
+	OCTIM         *string            `db:"oc_tim" json:"oc_tim"`
+	ClientOS      *string            `db:"client_os" json:"client_os"`
+	KeyNumber     *string            `db:"key_number" json:"key_number"`
+	ActivityScope *string            `db:"activity_scope" json:"activity_scope"`
 	Status        string             `db:"status" json:"status"`
 	Priority      string             `db:"priority" json:"priority"`
 	DueAt         *string            `db:"due_at" json:"due_at"`
@@ -120,6 +130,41 @@ func validDemandPriority(value string) bool {
 		}
 	}
 	return false
+}
+
+type DemandStationOption struct {
+	ID         int64   `db:"id" json:"id"`
+	SiteID     string  `db:"site_id" json:"site_id"`
+	StationID  *string `db:"station_id" json:"station_id"`
+	EnderecoID *string `db:"endereco_id" json:"endereco_id"`
+	Logradouro *string `db:"logradouro" json:"logradouro"`
+	Municipio  *string `db:"municipio" json:"municipio"`
+	Estado     *string `db:"estado" json:"estado"`
+}
+
+func (s *Store) SearchDemandStations(search string, limit int) ([]DemandStationOption, error) {
+	if limit <= 0 || limit > 50 {
+		limit = 20
+	}
+	search = strings.TrimSpace(search)
+	items := []DemandStationOption{}
+	query := `SELECT id, site_id, station_id, endereco_id, logradouro, municipio, estado
+		FROM stations`
+	args := []any{}
+	if search != "" {
+		like := "%" + search + "%"
+		query += ` WHERE (site_id LIKE ? OR COALESCE(station_id, '') LIKE ? OR COALESCE(endereco_id, '') LIKE ?
+			OR COALESCE(logradouro, '') LIKE ? OR COALESCE(bairro, '') LIKE ? OR COALESCE(municipio, '') LIKE ?)`
+		args = append(args, like, like, like, like, like, like)
+	}
+	if search != "" {
+		query += ` ORDER BY site_id ASC LIMIT ?`
+	} else {
+		query += ` ORDER BY updated_at DESC LIMIT ?`
+	}
+	args = append(args, limit)
+	err := s.DB.Select(&items, query, args...)
+	return items, err
 }
 
 func (s *Store) DemandCollaborators() ([]Collaborator, error) {
@@ -225,10 +270,12 @@ const demandSelect = `SELECT d.*,
 	TRIM(CONCAT(r.name, ' ', COALESCE(r.surname, ''))) AS requester_name,
 	TRIM(CONCAT(a.name, ' ', COALESCE(a.surname, ''))) AS assignee_name,
 	a.email AS assignee_email,
+	s.site_id AS station_site_id, s.municipio AS station_municipio, s.estado AS station_estado,
 	(SELECT COUNT(*) FROM demand_updates u WHERE u.demand_id = d.id) AS update_count
 	FROM demands d
 	JOIN users r ON r.id = d.requester_id
-	JOIN users a ON a.id = d.assignee_id`
+	JOIN users a ON a.id = d.assignee_id
+	LEFT JOIN stations s ON s.id = d.station_id`
 
 func (s *Store) FindDemand(id int64) (Demand, error) {
 	var item Demand
@@ -252,14 +299,21 @@ func (s *Store) FindDemand(id int64) (Demand, error) {
 }
 
 type DemandInput struct {
-	AssigneeID  int64
-	Title       string
-	Description string
-	ClientName  string
-	ClientEmail string
-	Status      string
-	Priority    string
-	DueAt       string
+	AssigneeID    int64
+	Title         string
+	Description   string
+	ClientName    string
+	ClientEmail   string
+	StationID     *int64
+	Operadora     string
+	DemandType    string
+	OCTIM         string
+	ClientOS      string
+	KeyNumber     string
+	ActivityScope string
+	Status        string
+	Priority      string
+	DueAt         string
 }
 
 func (s *Store) CreateDemand(requesterID int64, input DemandInput) (Demand, error) {
@@ -275,10 +329,14 @@ func (s *Store) CreateDemand(requesterID int64, input DemandInput) (Demand, erro
 		completedAt = timestamp
 	}
 	result, err := s.DB.Exec(`INSERT INTO demands
-		(requester_id, assignee_id, title, description, client_name, client_email, status, priority, due_at, completed_at, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		(requester_id, assignee_id, title, description, client_name, client_email,
+		 station_id, operadora, demand_type, oc_tim, client_os, key_number, activity_scope,
+		 status, priority, due_at, completed_at, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		requesterID, input.AssigneeID, strings.TrimSpace(input.Title), nullString(input.Description),
 		nullString(input.ClientName), nullString(strings.ToLower(strings.TrimSpace(input.ClientEmail))),
+		input.StationID, nullString(input.Operadora), nullString(input.DemandType), nullString(input.OCTIM),
+		nullString(input.ClientOS), nullString(input.KeyNumber), nullString(input.ActivityScope),
 		input.Status, input.Priority, nullDate(input.DueAt), completedAt, timestamp, timestamp)
 	if err != nil {
 		return Demand{}, err
@@ -310,9 +368,13 @@ func (s *Store) UpdateDemand(id, userID int64, input DemandInput) (Demand, error
 		completedAt = nil
 	}
 	_, err = s.DB.Exec(`UPDATE demands SET assignee_id = ?, title = ?, description = ?,
-		client_name = ?, client_email = ?, status = ?, priority = ?, due_at = ?, completed_at = ?, updated_at = ? WHERE id = ?`,
+		client_name = ?, client_email = ?, station_id = ?, operadora = ?, demand_type = ?,
+		oc_tim = ?, client_os = ?, key_number = ?, activity_scope = ?,
+		status = ?, priority = ?, due_at = ?, completed_at = ?, updated_at = ? WHERE id = ?`,
 		input.AssigneeID, strings.TrimSpace(input.Title), nullString(input.Description),
 		nullString(input.ClientName), nullString(strings.ToLower(strings.TrimSpace(input.ClientEmail))),
+		input.StationID, nullString(input.Operadora), nullString(input.DemandType), nullString(input.OCTIM),
+		nullString(input.ClientOS), nullString(input.KeyNumber), nullString(input.ActivityScope),
 		input.Status, input.Priority, nullDate(input.DueAt), completedAt, now(), id)
 	if err != nil {
 		return current, err

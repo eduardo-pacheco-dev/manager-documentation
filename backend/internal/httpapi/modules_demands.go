@@ -13,20 +13,29 @@ import (
 )
 
 type demandPayload struct {
-	AssigneeID  int64  `json:"assignee_id"`
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	ClientName  string `json:"client_name"`
-	ClientEmail string `json:"client_email"`
-	Status      string `json:"status"`
-	Priority    string `json:"priority"`
-	DueAt       string `json:"due_at"`
+	AssigneeID    int64  `json:"assignee_id"`
+	Title         string `json:"title"`
+	Description   string `json:"description"`
+	ClientName    string `json:"client_name"`
+	ClientEmail   string `json:"client_email"`
+	StationID     *int64 `json:"station_id"`
+	Operadora     string `json:"operadora"`
+	DemandType    string `json:"demand_type"`
+	OCTIM         string `json:"oc_tim"`
+	ClientOS      string `json:"client_os"`
+	KeyNumber     string `json:"key_number"`
+	ActivityScope string `json:"activity_scope"`
+	Status        string `json:"status"`
+	Priority      string `json:"priority"`
+	DueAt         string `json:"due_at"`
 }
 
 func (p demandPayload) input() modules.DemandInput {
 	return modules.DemandInput{
 		AssigneeID: p.AssigneeID, Title: p.Title, Description: p.Description,
-		ClientName: p.ClientName, ClientEmail: p.ClientEmail,
+		ClientName: p.ClientName, ClientEmail: p.ClientEmail, StationID: p.StationID,
+		Operadora: p.Operadora, DemandType: p.DemandType, OCTIM: p.OCTIM, ClientOS: p.ClientOS,
+		KeyNumber: p.KeyNumber, ActivityScope: p.ActivityScope,
 		Status: p.Status, Priority: p.Priority, DueAt: p.DueAt,
 	}
 }
@@ -61,6 +70,17 @@ func validateDemand(payload demandPayload) validationErrors {
 	if email := strings.TrimSpace(payload.ClientEmail); email != "" && !validateEmail(email) {
 		fields["client_email"] = "Informe um e-mail de cliente válido."
 	}
+	for key, value := range map[string]string{
+		"operadora": payload.Operadora, "demand_type": payload.DemandType, "oc_tim": payload.OCTIM,
+		"client_os": payload.ClientOS, "key_number": payload.KeyNumber,
+	} {
+		if len([]rune(strings.TrimSpace(value))) > 100 {
+			fields[key] = "Use no máximo 100 caracteres."
+		}
+	}
+	if len([]rune(payload.ActivityScope)) > 10000 {
+		fields["activity_scope"] = "O escopo deve ter no máximo 10.000 caracteres."
+	}
 	return fields
 }
 
@@ -88,6 +108,24 @@ func (s *Server) demandAssigneeExists(id int64) bool {
 		return false
 	}
 	return count > 0
+}
+
+func (s *Server) demandStationExists(id int64) bool {
+	var count int
+	if err := s.Modules.DB.Get(&count, `SELECT COUNT(*) FROM stations WHERE id = ?`, id); err != nil {
+		return false
+	}
+	return count > 0
+}
+
+func (s *Server) demandsStations(w http.ResponseWriter, r *http.Request) {
+	limit := parsePositiveInt(r.URL.Query().Get("limit"), 20)
+	items, err := s.Modules.SearchDemandStations(r.URL.Query().Get("search"), limit)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Não foi possível buscar as estações.", nil)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": items})
 }
 
 func canManageDemand(admin bool, userID int64, demand modules.Demand) bool {
@@ -140,6 +178,10 @@ func (s *Server) demandsCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	if !s.demandAssigneeExists(payload.AssigneeID) {
 		writeValidation(w, validationErrors{"assignee_id": "Colaborador não encontrado ou inativo."})
+		return
+	}
+	if payload.StationID != nil && *payload.StationID > 0 && !s.demandStationExists(*payload.StationID) {
+		writeValidation(w, validationErrors{"station_id": "Estação não encontrada."})
 		return
 	}
 	if payload.Status == "" {
@@ -199,6 +241,10 @@ func (s *Server) demandsUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	if !s.demandAssigneeExists(payload.AssigneeID) {
 		writeValidation(w, validationErrors{"assignee_id": "Colaborador não encontrado ou inativo."})
+		return
+	}
+	if payload.StationID != nil && *payload.StationID > 0 && !s.demandStationExists(*payload.StationID) {
+		writeValidation(w, validationErrors{"station_id": "Estação não encontrada."})
 		return
 	}
 	previousAssignee := demand.AssigneeID
@@ -464,7 +510,9 @@ func (s *Server) demandsExport(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="demandas-%s.csv"`, time.Now().Format("2006-01-02")))
 	writer := csv.NewWriter(w)
 	writer.Comma = ';'
-	_ = writer.Write([]string{"ID", "Título", "Solicitante", "Responsável", "Cliente", "E-mail do cliente", "Status", "Prioridade", "Prazo", "Atrasada", "Criada em", "Concluída em"})
+	_ = writer.Write([]string{"ID", "Título", "Solicitante", "Responsável", "Cliente", "E-mail do cliente",
+		"Estação", "Operadora", "Tipo de demanda", "OC TIM", "OS do cliente", "Chave", "Escopo",
+		"Status", "Prioridade", "Prazo", "Atrasada", "Criada em", "Concluída em"})
 	for _, item := range items {
 		overdue := "Não"
 		if item.Overdue {
@@ -476,7 +524,9 @@ func (s *Server) demandsExport(w http.ResponseWriter, r *http.Request) {
 		}
 		_ = writer.Write([]string{
 			strconv.FormatInt(item.ID, 10), item.Title, derefString(item.RequesterName), derefString(item.AssigneeName),
-			derefString(item.ClientName), derefString(item.ClientEmail),
+			derefString(item.ClientName), derefString(item.ClientEmail), derefString(item.StationSiteID),
+			derefString(item.Operadora), derefString(item.DemandType), derefString(item.OCTIM),
+			derefString(item.ClientOS), derefString(item.KeyNumber), derefString(item.ActivityScope),
 			modules.DemandStatusLabel(item.Status), item.Priority, derefString(item.DueAt), overdue,
 			item.CreatedAt.Format("02/01/2006 15:04"), completed,
 		})
