@@ -27,6 +27,7 @@ interface Props {
 
 export function StationSearch({ id, value, valueLabel, onChange, disabled }: Props) {
   const [options, setOptions] = useState<StationOption[]>([]);
+  const [selectedStation, setSelectedStation] = useState<StationOption | null>(null);
   const [loading, setLoading] = useState(false);
   const timer = useRef<number | undefined>(undefined);
 
@@ -47,18 +48,24 @@ export function StationSearch({ id, value, valueLabel, onChange, disabled }: Pro
     return () => { if (timer.current) window.clearTimeout(timer.current); };
   }, [load]);
 
-  const selected = (() => {
-    if (!value) return null;
-    const found = options.find((station) => station.id === value);
-    if (found) return found;
-    if (valueLabel) {
-      return {
-        id: value, site_id: valueLabel, station_id: null, endereco_id: null,
-        logradouro: null, municipio: null, estado: null,
-      };
+  useEffect(() => {
+    if (!value) {
+      setSelectedStation(null);
+      return;
     }
-    return null;
-  })();
+    setSelectedStation((current) => {
+      if (current?.id === value) return current;
+      const found = options.find((station) => station.id === value);
+      if (found) return found;
+      if (valueLabel) {
+        return {
+          id: value, site_id: valueLabel, station_id: null, endereco_id: null,
+          logradouro: null, municipio: null, estado: null,
+        };
+      }
+      return current;
+    });
+  }, [value, valueLabel, options]);
 
   return (
     <ComboBox
@@ -67,12 +74,20 @@ export function StationSearch({ id, value, valueLabel, onChange, disabled }: Pro
       placeholder={loading ? 'Buscando estações…' : 'Buscar por Site ID, estação, endereço ou município'}
       items={options}
       itemToString={(item) => (item ? stationLabel(item) : '')}
-      selectedItem={selected}
+      selectedItem={selectedStation}
       onInputChange={(input) => {
+        if (selectedStation && input !== stationLabel(selectedStation)) {
+          setSelectedStation(null);
+          onChange(null);
+        }
         if (timer.current) window.clearTimeout(timer.current);
         timer.current = window.setTimeout(() => { void load(input); }, 300);
       }}
-      onChange={({ selectedItem }) => onChange(selectedItem?.id ?? null, selectedItem ?? undefined)}
+      onChange={({ selectedItem }) => {
+        const station = selectedItem ?? null;
+        setSelectedStation(station);
+        onChange(station?.id ?? null, station ?? undefined);
+      }}
       disabled={disabled}
       helperText="Digite para buscar entre as estações cadastradas."
     />

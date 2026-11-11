@@ -3,6 +3,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
   Checkmark,
+  Copy,
+  Launch,
   OverflowMenuVertical,
   Pause,
   Play,
@@ -46,7 +48,7 @@ interface Update {
 }
 interface AttachmentFile {
   id: number; original_name: string; mime_type: string | null; size: number;
-  created_at: string; uploader_name: string | null; download_url: string;
+  created_at: string; uploader_name: string | null; uploaded_by_name: string | null; download_url: string;
 }
 interface Demand {
   id: number; requester_id: number; assignee_id: number; title: string;
@@ -58,6 +60,7 @@ interface Demand {
   client_os: string | null; key_number: string | null; activity_scope: string | null;
   requester_name: string | null; assignee_name: string | null; assignee_email: string | null;
   overdue: boolean; update_count: number; updates: Update[]; attachments: AttachmentFile[];
+  upload_url?: string; download_url?: string;
 }
 
 const EMPTY_FORM = {
@@ -277,6 +280,15 @@ export function DemandDetailPage() {
     }
   }
 
+  async function copyText(value: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success('Link copiado.');
+    } catch {
+      toast.error('Não foi possível copiar o link', value);
+    }
+  }
+
   if (loading) return <InlineLoading description="Carregando demanda…" />;
   if (notFound || !demand) {
     return (
@@ -399,7 +411,7 @@ export function DemandDetailPage() {
                 {demand.attachments.map((file) => (
                   <div key={file.id} className="attachment-row">
                     <a href={file.download_url} target="_blank" rel="noreferrer">{file.original_name}</a>
-                    <span>{formatBytes(file.size)} · {file.uploader_name ?? 'Usuário removido'} · {relativeTime(file.created_at)}</span>
+                    <span>{formatBytes(file.size)} · {file.uploader_name ?? file.uploaded_by_name ?? 'Link público'} · {relativeTime(file.created_at)}</span>
                     {canParticipate && (
                       <Button kind="danger--ghost" size="xs" hasIconOnly renderIcon={TrashCan} iconDescription="Remover arquivo" onClick={() => void deleteAttachment(file)} />
                     )}
@@ -452,6 +464,33 @@ export function DemandDetailPage() {
               {demand.completed_at && <div><dt>Concluída em</dt><dd>{relativeTime(demand.completed_at)}</dd></div>}
             </dl>
           </Tile>
+
+          {canManage && (
+            <Tile className="nokia-detail-aside__card">
+              <h2>Links externos</h2>
+              <p className="muted">Compartilhe o link de envio com o colaborador e o de download com o cliente.</p>
+              {demand.upload_url && (
+                <div className="demand-public-link">
+                  <span>Upload do colaborador</span>
+                  <code>{demand.upload_url}</code>
+                  <div>
+                    <Button kind="ghost" size="xs" hasIconOnly renderIcon={Copy} iconDescription="Copiar link de upload" onClick={() => void copyText(demand.upload_url!)} />
+                    <Button kind="ghost" size="xs" hasIconOnly renderIcon={Launch} iconDescription="Abrir link de upload" onClick={() => window.open(demand.upload_url, '_blank')} />
+                  </div>
+                </div>
+              )}
+              {demand.download_url && (
+                <div className="demand-public-link">
+                  <span>Download do cliente</span>
+                  <code>{demand.download_url}</code>
+                  <div>
+                    <Button kind="ghost" size="xs" hasIconOnly renderIcon={Copy} iconDescription="Copiar link de download" onClick={() => void copyText(demand.download_url!)} />
+                    <Button kind="ghost" size="xs" hasIconOnly renderIcon={Launch} iconDescription="Abrir link de download" onClick={() => window.open(demand.download_url, '_blank')} />
+                  </div>
+                </div>
+              )}
+            </Tile>
+          )}
 
           {canParticipate && (
             <Tile className="nokia-detail-aside__card">

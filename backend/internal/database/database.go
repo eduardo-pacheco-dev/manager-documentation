@@ -806,6 +806,15 @@ var migrations = [][]string{
 		`CREATE INDEX idx_demands_station ON demands(station_id)`,
 		`ALTER TABLE demands ADD CONSTRAINT fk_demands_station FOREIGN KEY (station_id) REFERENCES stations(id) ON DELETE SET NULL`,
 	},
+	{
+		`ALTER TABLE demands ADD COLUMN upload_token VARCHAR(64) NULL`,
+		`ALTER TABLE demands ADD COLUMN download_token VARCHAR(64) NULL`,
+		`ALTER TABLE demand_attachments ADD COLUMN uploaded_by_name VARCHAR(255) NULL`,
+		`UPDATE demands SET upload_token = REPLACE(UUID(), '-', ''), download_token = REPLACE(UUID(), '-', '')
+			WHERE upload_token IS NULL OR download_token IS NULL`,
+		`CREATE UNIQUE INDEX uq_demands_upload_token ON demands(upload_token)`,
+		`CREATE UNIQUE INDEX uq_demands_download_token ON demands(download_token)`,
+	},
 }
 
 // CleanupSessions removes expired sessions and tokens. It is safe to call at

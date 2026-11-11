@@ -796,6 +796,73 @@ func TestDemands(t *testing.T) {
 		t.Fatalf("demand attachment download status = %d body=%q", download.StatusCode, downloadBody)
 	}
 
+	publicClient := &http.Client{
+		Jar: app.client.Jar,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	uploadPath := strings.TrimPrefix(demand["upload_url"].(string), "http://example.test")
+	downloadPath := strings.TrimPrefix(demand["download_url"].(string), "http://example.test")
+	uploadPage, err := publicClient.Get(app.server.URL + uploadPath)
+	if err != nil {
+		t.Fatalf("demand public upload page: %v", err)
+	}
+	uploadPageBody, _ := io.ReadAll(uploadPage.Body)
+	uploadPage.Body.Close()
+	if uploadPage.StatusCode != http.StatusOK || !strings.Contains(string(uploadPageBody), "Enviar arquivos") {
+		t.Fatalf("demand public upload page status = %d body=%s", uploadPage.StatusCode, uploadPageBody)
+	}
+
+	var publicUpload bytes.Buffer
+	publicWriter := multipart.NewWriter(&publicUpload)
+	_ = publicWriter.WriteField("name", "Colaborador Externo")
+	publicPart, _ := publicWriter.CreateFormFile("files", "evidencia-publica.txt")
+	_, _ = publicPart.Write([]byte("arquivo enviado pelo link publico"))
+	_ = publicWriter.Close()
+	publicReq, _ := http.NewRequest(http.MethodPost, app.server.URL+uploadPath, &publicUpload)
+	publicReq.Header.Set("Content-Type", publicWriter.FormDataContentType())
+	publicRes, err := publicClient.Do(publicReq)
+	if err != nil || publicRes.StatusCode != http.StatusSeeOther {
+		t.Fatalf("demand public upload failed: %v %d", err, publicRes.StatusCode)
+	}
+	_ = publicRes.Body.Close()
+
+	downloadPage, err := publicClient.Get(app.server.URL + downloadPath)
+	if err != nil {
+		t.Fatalf("demand public download page: %v", err)
+	}
+	downloadPageBody, _ := io.ReadAll(downloadPage.Body)
+	downloadPage.Body.Close()
+	if downloadPage.StatusCode != http.StatusOK || !strings.Contains(string(downloadPageBody), "evidencia-publica.txt") {
+		t.Fatalf("demand public download page status = %d body=%s", downloadPage.StatusCode, downloadPageBody)
+	}
+
+	res, payload = app.request(http.MethodGet, fmt.Sprintf("/api/v1/demands/%d", demandID), nil, "", nil)
+	attachments = payload["data"].(map[string]any)["demand"].(map[string]any)["attachments"].([]any)
+	var publicFileID int64
+	for _, item := range attachments {
+		attachment := item.(map[string]any)
+		if attachment["original_name"] == "evidencia-publica.txt" {
+			publicFileID = int64(attachment["id"].(float64))
+			if attachment["uploaded_by_name"] != "Colaborador Externo" {
+				t.Fatalf("public uploader name missing: %v", attachment)
+			}
+		}
+	}
+	if publicFileID == 0 {
+		t.Fatalf("public attachment missing: %v", attachments)
+	}
+	publicDownload, err := app.client.Get(app.server.URL + fmt.Sprintf("%s/files/%d", downloadPath, publicFileID))
+	if err != nil {
+		t.Fatalf("demand public file download: %v", err)
+	}
+	publicDownloadBody, _ := io.ReadAll(publicDownload.Body)
+	publicDownload.Body.Close()
+	if publicDownload.StatusCode != http.StatusOK || string(publicDownloadBody) != "arquivo enviado pelo link publico" {
+		t.Fatalf("demand public file download status = %d body=%q", publicDownload.StatusCode, publicDownloadBody)
+	}
+
 	res, _ = app.request(http.MethodGet, "/api/v1/demands/export", nil, "", nil)
 	if res.StatusCode != http.StatusOK || !strings.Contains(res.Header.Get("Content-Type"), "text/csv") {
 		t.Fatalf("demand export status = %d content-type=%q", res.StatusCode, res.Header.Get("Content-Type"))

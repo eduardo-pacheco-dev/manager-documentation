@@ -141,12 +141,15 @@ export function DemandsPage() {
       if (editing) {
         await api.put(`/demands/${editing.id}`, payload);
         toast.success('Demanda atualizada com sucesso.');
+        setModalOpen(false);
+        await load();
       } else {
-        await api.post('/demands', payload);
+        const response = await api.post<{ data: { demand: Demand } }>('/demands', payload);
         toast.success('Demanda criada e encaminhada.');
+        setModalOpen(false);
+        navigate(`/demands/${response.data.demand.id}`);
+        return;
       }
-      setModalOpen(false);
-      await load();
     } catch (error) {
       toast.error('Não foi possível salvar a demanda', errorMessage(error));
     } finally {
@@ -304,48 +307,69 @@ export function DemandsPage() {
         primaryButtonDisabled={saving || !form.title.trim() || !form.assignee_id}
         onRequestSubmit={() => void save()}
         onRequestClose={() => setModalOpen(false)}
-        size="md"
+        size="lg"
+        hasScrollingContent
+        className="demand-modal"
       >
-        <div className="modal-form">
-          <TextInput id="demand-title" labelText="Título *" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} required />
-          <TextArea id="demand-description" labelText="Descrição" rows={4} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} />
-          <div className="form-row">
-            <TextInput id="demand-client-name" labelText="Cliente" value={form.client_name} onChange={(event) => setForm({ ...form, client_name: event.target.value })} />
-            <TextInput id="demand-client-email" type="email" labelText="E-mail do cliente" value={form.client_email} onChange={(event) => setForm({ ...form, client_email: event.target.value })} />
-          </div>
-          <StationSearch
-            id="demand-station"
-            value={form.station_id ? Number(form.station_id) : null}
-            valueLabel={editing?.station_site_id}
-            onChange={(stationId) => setForm({ ...form, station_id: stationId ? String(stationId) : '' })}
-          />
-          <div className="form-row">
-            <TextInput id="demand-operadora" labelText="Operadora" value={form.operadora} onChange={(event) => setForm({ ...form, operadora: event.target.value })} />
-            <TextInput id="demand-type" labelText="Tipo de demanda" value={form.demand_type} onChange={(event) => setForm({ ...form, demand_type: event.target.value })} />
-          </div>
-          <div className="form-row">
-            <TextInput id="demand-oc-tim" labelText="Número OC TIM" value={form.oc_tim} onChange={(event) => setForm({ ...form, oc_tim: event.target.value })} />
-            <TextInput id="demand-client-os" labelText="Número OS do Cliente" value={form.client_os} onChange={(event) => setForm({ ...form, client_os: event.target.value })} />
-          </div>
-          <TextInput id="demand-key" labelText="Número da chave" value={form.key_number} onChange={(event) => setForm({ ...form, key_number: event.target.value })} />
-          <TextArea id="demand-activity-scope" labelText="Escopo da atividade" rows={3} value={form.activity_scope} onChange={(event) => setForm({ ...form, activity_scope: event.target.value })} />
-          <div className="form-row">
-            <Select id="demand-form-assignee" labelText="Responsável *" value={form.assignee_id} onChange={(event) => setForm({ ...form, assignee_id: event.target.value })}>
-              <SelectItem value="" text="Selecione" />
-              {collaborators.map((collaborator) => <SelectItem key={collaborator.id} value={String(collaborator.id)} text={`${collaborator.name} — ${collaborator.email}`} />)}
-            </Select>
-            <Select id="demand-form-priority" labelText="Prioridade" value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value })}>
-              {Object.entries(DEMAND_PRIORITY).map(([value, label]) => <SelectItem key={value} value={value} text={label} />)}
-            </Select>
-          </div>
-          <div className="form-row">
-            <TextInput id="demand-due" type="date" labelText="Prazo" value={form.due_at} onChange={(event) => setForm({ ...form, due_at: event.target.value })} />
-            {editing && (
-              <Select id="demand-form-status" labelText="Status" value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value })}>
-                {Object.entries(DEMAND_STATUS).map(([value, label]) => <SelectItem key={value} value={value} text={label} />)}
+        <div className="modal-form demand-form">
+          <section className="demand-form-section">
+            <p className="demand-form-section__title">Identificação</p>
+            <TextInput id="demand-title" labelText="Título *" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} required />
+            <StationSearch
+              id="demand-station"
+              value={form.station_id ? Number(form.station_id) : null}
+              valueLabel={editing?.station_site_id}
+              onChange={(stationId) => setForm({ ...form, station_id: stationId ? String(stationId) : '' })}
+            />
+            <div className="form-row">
+              <TextInput id="demand-operadora" labelText="Operadora" value={form.operadora} onChange={(event) => setForm({ ...form, operadora: event.target.value })} />
+              <TextInput id="demand-type" labelText="Tipo de demanda" value={form.demand_type} onChange={(event) => setForm({ ...form, demand_type: event.target.value })} />
+            </div>
+          </section>
+
+          <section className="demand-form-section">
+            <p className="demand-form-section__title">Referências do acionamento</p>
+            <div className="form-row">
+              <TextInput id="demand-oc-tim" labelText="Número OC TIM" value={form.oc_tim} onChange={(event) => setForm({ ...form, oc_tim: event.target.value })} />
+              <TextInput id="demand-client-os" labelText="Número OS do Cliente" value={form.client_os} onChange={(event) => setForm({ ...form, client_os: event.target.value })} />
+            </div>
+            <TextInput id="demand-key" labelText="Número da chave" value={form.key_number} onChange={(event) => setForm({ ...form, key_number: event.target.value })} />
+          </section>
+
+          <section className="demand-form-section">
+            <p className="demand-form-section__title">Cliente</p>
+            <div className="form-row">
+              <TextInput id="demand-client-name" labelText="Cliente" value={form.client_name} onChange={(event) => setForm({ ...form, client_name: event.target.value })} />
+              <TextInput id="demand-client-email" type="email" labelText="E-mail do cliente" value={form.client_email} onChange={(event) => setForm({ ...form, client_email: event.target.value })} />
+            </div>
+          </section>
+
+          <section className="demand-form-section">
+            <p className="demand-form-section__title">Acionamento</p>
+            <div className="form-row">
+              <Select id="demand-form-assignee" labelText="Responsável *" value={form.assignee_id} onChange={(event) => setForm({ ...form, assignee_id: event.target.value })}>
+                <SelectItem value="" text="Selecione" />
+                {collaborators.map((collaborator) => <SelectItem key={collaborator.id} value={String(collaborator.id)} text={`${collaborator.name} — ${collaborator.email}`} />)}
               </Select>
-            )}
-          </div>
+              <Select id="demand-form-priority" labelText="Prioridade" value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value })}>
+                {Object.entries(DEMAND_PRIORITY).map(([value, label]) => <SelectItem key={value} value={value} text={label} />)}
+              </Select>
+            </div>
+            <div className="form-row">
+              <TextInput id="demand-due" type="date" labelText="Prazo" value={form.due_at} onChange={(event) => setForm({ ...form, due_at: event.target.value })} />
+              {editing && (
+                <Select id="demand-form-status" labelText="Status" value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value })}>
+                  {Object.entries(DEMAND_STATUS).map(([value, label]) => <SelectItem key={value} value={value} text={label} />)}
+                </Select>
+              )}
+            </div>
+          </section>
+
+          <section className="demand-form-section">
+            <p className="demand-form-section__title">Detalhamento</p>
+            <TextArea id="demand-description" labelText="Descrição" rows={3} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} />
+            <TextArea id="demand-activity-scope" labelText="Escopo da atividade" rows={3} value={form.activity_scope} onChange={(event) => setForm({ ...form, activity_scope: event.target.value })} />
+          </section>
         </div>
       </Modal>
 

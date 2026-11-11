@@ -1,7 +1,9 @@
 package modules
 
 import (
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"strings"
 	"time"
@@ -24,19 +26,20 @@ type DemandUpdate struct {
 }
 
 type DemandAttachment struct {
-	ID           int64     `db:"id" json:"id"`
-	DemandID     int64     `db:"demand_id" json:"-"`
-	UploadedBy   *int64    `db:"uploaded_by" json:"uploaded_by"`
-	OriginalName string    `db:"original_name" json:"original_name"`
-	Path         string    `db:"path" json:"-"`
-	URL          string    `db:"url" json:"-"`
-	Disk         string    `db:"disk" json:"disk"`
-	MimeType     *string   `db:"mime_type" json:"mime_type"`
-	Size         int64     `db:"size" json:"size"`
-	CreatedAt    time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt    time.Time `db:"updated_at" json:"updated_at"`
-	UploaderName *string   `db:"uploader_name" json:"uploader_name"`
-	DownloadURL  string    `db:"-" json:"download_url"`
+	ID             int64     `db:"id" json:"id"`
+	DemandID       int64     `db:"demand_id" json:"-"`
+	UploadedBy     *int64    `db:"uploaded_by" json:"uploaded_by"`
+	OriginalName   string    `db:"original_name" json:"original_name"`
+	Path           string    `db:"path" json:"-"`
+	URL            string    `db:"url" json:"-"`
+	Disk           string    `db:"disk" json:"disk"`
+	MimeType       *string   `db:"mime_type" json:"mime_type"`
+	Size           int64     `db:"size" json:"size"`
+	CreatedAt      time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt      time.Time `db:"updated_at" json:"updated_at"`
+	UploaderName   *string   `db:"uploader_name" json:"uploader_name"`
+	UploadedByName *string   `db:"uploaded_by_name" json:"uploaded_by_name"`
+	DownloadURL    string    `db:"-" json:"download_url"`
 }
 
 type Demand struct {
@@ -63,6 +66,10 @@ type Demand struct {
 	CompletedAt   *time.Time         `db:"completed_at" json:"completed_at"`
 	CreatedAt     time.Time          `db:"created_at" json:"created_at"`
 	UpdatedAt     time.Time          `db:"updated_at" json:"updated_at"`
+	UploadToken   *string            `db:"upload_token" json:"-"`
+	DownloadToken *string            `db:"download_token" json:"-"`
+	UploadURL     string             `db:"-" json:"upload_url,omitempty"`
+	DownloadURL   string             `db:"-" json:"download_url,omitempty"`
 	RequesterName *string            `db:"requester_name" json:"requester_name"`
 	AssigneeName  *string            `db:"assignee_name" json:"assignee_name"`
 	AssigneeEmail *string            `db:"assignee_email" json:"assignee_email"`
@@ -323,6 +330,14 @@ func (s *Store) CreateDemand(requesterID int64, input DemandInput) (Demand, erro
 	if input.Priority == "" {
 		input.Priority = "media"
 	}
+	uploadToken, err := demandPublicToken()
+	if err != nil {
+		return Demand{}, err
+	}
+	downloadToken, err := demandPublicToken()
+	if err != nil {
+		return Demand{}, err
+	}
 	timestamp := now()
 	var completedAt any
 	if input.Status == "concluida" {
@@ -331,13 +346,13 @@ func (s *Store) CreateDemand(requesterID int64, input DemandInput) (Demand, erro
 	result, err := s.DB.Exec(`INSERT INTO demands
 		(requester_id, assignee_id, title, description, client_name, client_email,
 		 station_id, operadora, demand_type, oc_tim, client_os, key_number, activity_scope,
-		 status, priority, due_at, completed_at, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		 upload_token, download_token, status, priority, due_at, completed_at, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		requesterID, input.AssigneeID, strings.TrimSpace(input.Title), nullString(input.Description),
 		nullString(input.ClientName), nullString(strings.ToLower(strings.TrimSpace(input.ClientEmail))),
 		input.StationID, nullString(input.Operadora), nullString(input.DemandType), nullString(input.OCTIM),
 		nullString(input.ClientOS), nullString(input.KeyNumber), nullString(input.ActivityScope),
-		input.Status, input.Priority, nullDate(input.DueAt), completedAt, timestamp, timestamp)
+		uploadToken, downloadToken, input.Status, input.Priority, nullDate(input.DueAt), completedAt, timestamp, timestamp)
 	if err != nil {
 		return Demand{}, err
 	}
@@ -345,6 +360,43 @@ func (s *Store) CreateDemand(requesterID int64, input DemandInput) (Demand, erro
 	_, _ = s.DB.Exec(`INSERT INTO demand_updates (demand_id, user_id, body, status_from, status_to, created_at, updated_at)
 		VALUES (?, ?, ?, NULL, ?, ?, ?)`, id, requesterID, "Demanda criada e encaminhada.", input.Status, timestamp, timestamp)
 	return s.FindDemand(id)
+}
+
+func demandPublicToken() (string, error) {
+	buffer := make([]byte, 32)
+	if _, err := rand.Read(buffer); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(buffer), nil
+}
+
+func (s *Store) FindDemandByUploadToken(token string) (Demand, error) {
+	return s.findDemandByToken("upload_token", token)
+}
+
+func (s *Store) FindDemandByDownloadToken(token string) (Demand, error) {
+	return s.findDemandByToken("download_token", token)
+}
+
+func (s *Store) findDemandByToken(column, token string) (Demand, error) {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return Demand{}, ErrNotFound
+	}
+	var id int64
+	if err := s.DB.Get(&id, `SELECT id FROM demands WHERE `+column+` = ?`, token); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return Demand{}, ErrNotFound
+		}
+		return Demand{}, err
+	}
+	return s.FindDemand(id)
+}
+
+func (s *Store) AddDemandSystemUpdate(id int64, body string) {
+	timestamp := now()
+	_, _ = s.DB.Exec(`INSERT INTO demand_updates (demand_id, user_id, body, created_at, updated_at)
+		VALUES (?, NULL, ?, ?, ?)`, id, strings.TrimSpace(body), timestamp, timestamp)
 }
 
 func (s *Store) UpdateDemand(id, userID int64, input DemandInput) (Demand, error) {
@@ -433,12 +485,16 @@ func (s *Store) DeleteDemand(id int64) ([]string, error) {
 	return paths, err
 }
 
-func (s *Store) CreateDemandAttachment(demandID, userID int64, originalName, path, url, disk, mimeType string, size int64) (DemandAttachment, error) {
+func (s *Store) CreateDemandAttachment(demandID, userID int64, originalName, path, url, disk, mimeType string, size int64, uploadedByName string) (DemandAttachment, error) {
 	timestamp := now()
+	var uploadedBy any
+	if userID > 0 {
+		uploadedBy = userID
+	}
 	result, err := s.DB.Exec(`INSERT INTO demand_attachments
-		(demand_id, uploaded_by, original_name, path, url, disk, mime_type, size, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		demandID, userID, originalName, path, url, disk, nullString(mimeType), size, timestamp, timestamp)
+		(demand_id, uploaded_by, uploaded_by_name, original_name, path, url, disk, mime_type, size, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		demandID, uploadedBy, nullString(uploadedByName), originalName, path, url, disk, nullString(mimeType), size, timestamp, timestamp)
 	if err != nil {
 		return DemandAttachment{}, err
 	}

@@ -197,6 +197,7 @@ func (s *Server) demandsCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	s.notifyDemandParticipants(currentUser(r).ID, demand, "Nova demanda atribuída a você",
 		demand.Title+" · Prazo "+derefString(demand.DueAt), "info")
+	s.presentDemand(&demand)
 	writeJSON(w, http.StatusCreated, map[string]any{"message": "Demanda criada e encaminhada.", "data": map[string]any{"demand": demand}})
 }
 
@@ -422,7 +423,7 @@ func (s *Server) demandsUploadAttachment(w http.ResponseWriter, r *http.Request)
 			return
 		}
 		if _, err := s.Modules.CreateDemandAttachment(id, user.ID, header.Filename, result.Path, result.URL, disk,
-			header.Header.Get("Content-Type"), header.Size); err == nil {
+			header.Header.Get("Content-Type"), header.Size, ""); err == nil {
 			created++
 		}
 	}
@@ -537,6 +538,13 @@ func (s *Server) demandsExport(w http.ResponseWriter, r *http.Request) {
 func (s *Server) presentDemand(demand *modules.Demand) {
 	demand.Overdue = demand.DueAt != nil && demand.Status != "concluida" && demand.Status != "cancelada" &&
 		*demand.DueAt < time.Now().Format("2006-01-02")
+	baseURL := strings.TrimRight(s.Config.PublicURL, "/")
+	if demand.UploadToken != nil {
+		demand.UploadURL = baseURL + "/u/" + *demand.UploadToken
+	}
+	if demand.DownloadToken != nil {
+		demand.DownloadURL = baseURL + "/d/" + *demand.DownloadToken
+	}
 	for i := range demand.Attachments {
 		demand.Attachments[i].DownloadURL = fmt.Sprintf("/api/v1/demands/%d/attachments/%d", demand.ID, demand.Attachments[i].ID)
 	}
