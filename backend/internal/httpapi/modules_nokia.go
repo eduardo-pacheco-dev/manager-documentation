@@ -260,6 +260,10 @@ func (s *Server) nokiaUploadAttachment(w http.ResponseWriter, r *http.Request) {
 	}
 	created := 0
 	for _, header := range files {
+		if header.Size > 40<<20 {
+			writeValidation(w, validationErrors{"files": "Cada arquivo deve ter no máximo 40 MB."})
+			return
+		}
 		file, err := header.Open()
 		if err != nil {
 			continue

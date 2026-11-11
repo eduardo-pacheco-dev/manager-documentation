@@ -438,7 +438,7 @@ export function NokiaPage() {
               <Select id="nk-category" labelText="Categoria" value={attachmentCategory} onChange={(event) => setAttachmentCategory(event.target.value)}>
                 {ATTACHMENT_CATEGORIES.map((category) => <SelectItem key={category.value} value={category.value} text={category.label} />)}
               </Select>
-              <TextInput id="nk-files" type="file" labelText="Arquivos (até 20 MB cada)" multiple onChange={async (event) => {
+              <TextInput id="nk-files" type="file" labelText="Arquivos (até 40 MB cada)" multiple onChange={async (event) => {
                 const files = event.target.files;
                 if (!files || !detail) return;
                 const payload = new FormData();

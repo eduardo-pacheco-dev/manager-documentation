@@ -554,7 +554,7 @@ export function NokiaDetailPage() {
               <TextInput
                 id="detail-attachment-files"
                 type="file"
-                labelText="Arquivos (até 20 MB cada)"
+                labelText="Arquivos (até 40 MB cada)"
                 multiple
                 onChange={(event) => void uploadAttachments(event.target.files)}
               />
