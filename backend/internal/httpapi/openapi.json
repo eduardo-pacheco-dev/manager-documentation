@@ -216,6 +216,34 @@
     "/work-items": {
       "post": { "tags": ["Integrações"], "summary": "Cria e vincula tarefa, follow-up ou evento em uma única chamada", "responses": { "201": { "description": "Item criado e vinculado" }, "422": { "description": "Validação" } } }
     },
+    "/links": {
+      "get": {
+        "tags": ["Links curtos"],
+        "summary": "Lista links curtos com estatísticas",
+        "parameters": [
+          { "name": "search", "in": "query", "schema": { "type": "string" } },
+          { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["active", "inactive", "expired"] } },
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Links e estatísticas" } }
+      },
+      "post": { "tags": ["Links curtos"], "summary": "Cria um link curto", "responses": { "201": { "description": "Link criado" }, "422": { "description": "Validação" } } }
+    },
+    "/links/export": {
+      "get": { "tags": ["Links curtos"], "summary": "Exporta os links em CSV", "responses": { "200": { "description": "Arquivo CSV" } } }
+    },
+    "/links/{id}": {
+      "get": { "tags": ["Links curtos"], "summary": "Detalhes, acessos, origens e série diária", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Detalhes do link" }, "404": { "description": "Não encontrado" } } },
+      "put": { "tags": ["Links curtos"], "summary": "Atualiza um link curto", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Link atualizado" }, "422": { "description": "Validação" } } },
+      "delete": { "tags": ["Links curtos"], "summary": "Exclui um link curto", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Link excluído" } } }
+    },
+    "/links/{id}/toggle": {
+      "patch": { "tags": ["Links curtos"], "summary": "Ativa ou desativa um link curto", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Link atualizado" } } }
+    },
+    "/links/{id}/qr": {
+      "get": { "tags": ["Links curtos"], "summary": "Gera o QR Code PNG do link curto", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Imagem PNG" } } }
+    },
     "/settings": {
       "get": { "tags": ["Settings"], "summary": "Configurações do usuário, módulos, fuso e armazenamento", "responses": { "200": { "description": "Configurações" } } }
     },

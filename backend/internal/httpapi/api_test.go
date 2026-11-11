@@ -145,8 +145,8 @@ func TestAuthenticationAndCSRF(t *testing.T) {
 	if data["user"].(map[string]any)["email"] != "admin@test.local" {
 		t.Fatalf("unexpected user payload: %v", data["user"])
 	}
-	if len(data["modules"].([]any)) != 8 {
-		t.Fatalf("expected 8 modules, got %v", data["modules"])
+	if len(data["modules"].([]any)) != 9 {
+		t.Fatalf("expected 9 modules, got %v", data["modules"])
 	}
 
 	res, _ = app.request(http.MethodPost, "/api/v1/users", map[string]any{
@@ -587,6 +587,78 @@ func TestNativeModules(t *testing.T) {
 	res, payload = app.request(http.MethodGet, "/api/v1/dashboard", nil, "", nil)
 	if res.StatusCode != http.StatusOK || len(payload["data"].(map[string]any)["widgets"].([]any)) < 6 {
 		t.Fatalf("module widgets missing: %v", payload)
+	}
+}
+
+func TestShortLinks(t *testing.T) {
+	app := newTestApp(t)
+
+	res, payload := app.request(http.MethodPost, "/api/v1/links", map[string]any{
+		"code": "teste-link", "target_url": "https://example.com/docs", "title": "Documentação",
+		"is_active": true,
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("create short link status = %d payload=%v", res.StatusCode, payload)
+	}
+	link := payload["data"].(map[string]any)["link"].(map[string]any)
+	linkID := int64(link["id"].(float64))
+	if link["code"] != "teste-link" || link["short_url"] != "http://example.test/s/teste-link" {
+		t.Fatalf("unexpected short link: %v", link)
+	}
+	res, payload = app.request(http.MethodGet, "/api/v1/links", nil, "", nil)
+	if res.StatusCode != http.StatusOK || int(payload["meta"].(map[string]any)["total"].(float64)) != 1 {
+		t.Fatalf("short links list failed: %d %v", res.StatusCode, payload)
+	}
+
+	noRedirect := &http.Client{
+		Jar: app.client.Jar,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	publicRes, err := noRedirect.Get(app.server.URL + "/s/teste-link")
+	if err != nil {
+		t.Fatalf("public short link request: %v", err)
+	}
+	publicRes.Body.Close()
+	if publicRes.StatusCode != http.StatusFound || publicRes.Header.Get("Location") != "https://example.com/docs" {
+		t.Fatalf("public redirect status = %d location = %q", publicRes.StatusCode, publicRes.Header.Get("Location"))
+	}
+
+	res, payload = app.request(http.MethodGet, fmt.Sprintf("/api/v1/links/%d", linkID), nil, "", nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("short link show status = %d payload=%v", res.StatusCode, payload)
+	}
+	details := payload["data"].(map[string]any)
+	link = details["link"].(map[string]any)
+	if int64(link["click_count"].(float64)) != 1 || int64(link["unique_clicks"].(float64)) != 1 {
+		t.Fatalf("short link click metrics not recorded: %v", link)
+	}
+	if len(details["clicks"].([]any)) != 1 || len(details["daily"].([]any)) != 1 {
+		t.Fatalf("short link analytics missing: %v", details)
+	}
+
+	res, _ = app.request(http.MethodGet, fmt.Sprintf("/api/v1/links/%d/qr", linkID), nil, "", nil)
+	if res.StatusCode != http.StatusOK || !strings.Contains(res.Header.Get("Content-Type"), "image/png") {
+		t.Fatalf("short link qr status = %d content-type=%q", res.StatusCode, res.Header.Get("Content-Type"))
+	}
+
+	res, payload = app.request(http.MethodPatch, fmt.Sprintf("/api/v1/links/%d/toggle", linkID), nil, app.csrf, nil)
+	if res.StatusCode != http.StatusOK || payload["data"].(map[string]any)["link"].(map[string]any)["is_active"] != false {
+		t.Fatalf("short link toggle failed: %d %v", res.StatusCode, payload)
+	}
+	publicRes, err = noRedirect.Get(app.server.URL + "/s/teste-link")
+	if err != nil {
+		t.Fatalf("disabled short link request: %v", err)
+	}
+	publicRes.Body.Close()
+	if publicRes.StatusCode != http.StatusGone {
+		t.Fatalf("disabled short link status = %d", publicRes.StatusCode)
+	}
+
+	res, _ = app.request(http.MethodDelete, fmt.Sprintf("/api/v1/links/%d", linkID), nil, app.csrf, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("short link delete status = %d", res.StatusCode)
 	}
 }
 

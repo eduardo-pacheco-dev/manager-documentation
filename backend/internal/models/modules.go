@@ -91,6 +91,14 @@ var CoreModules = []Module{
 		Toggleable:     true,
 		DefaultSection: SectionModules,
 	},
+	{
+		Key:            "links",
+		Label:          "Links curtos",
+		Icon:           "link",
+		Path:           "/links",
+		Toggleable:     true,
+		DefaultSection: SectionModules,
+	},
 }
 
 func AvailableModules(user User) []Module {

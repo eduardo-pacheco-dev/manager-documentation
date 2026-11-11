@@ -2856,6 +2856,159 @@ p {
   }
 }
 
+.link-target a {
+  display: block;
+  max-width: 320px;
+  overflow: hidden;
+  color: var(--cds-link-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.link-form-check {
+  display: flex;
+  align-items: flex-end;
+  padding-bottom: 0.5rem;
+}
+
+.link-qr {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.link-qr img {
+  width: 240px;
+  max-width: 100%;
+  padding: 0.75rem;
+  background: #fff;
+  border: 1px solid var(--cds-border-subtle-01);
+}
+
+.link-qr code {
+  font-family: var(--cds-font-mono);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.link-qr__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.link-detail__summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.link-detail__summary > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.6rem;
+  background: var(--cds-layer-accent-01);
+}
+
+.link-detail__summary span {
+  color: var(--cds-text-helper);
+  font-size: 0.7rem;
+}
+
+.link-detail__summary strong,
+.link-detail__summary a {
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+.link-detail__summary .cds--tag {
+  align-self: flex-start;
+}
+
+.link-detail__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.link-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.35rem;
+  min-height: 150px;
+  padding: 1rem 0 0;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--cds-border-subtle-01);
+}
+
+.link-chart__bar {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  height: 130px;
+}
+
+.link-chart__bar i {
+  width: 100%;
+  max-width: 30px;
+  background: var(--cds-interactive);
+  border-radius: 2px 2px 0 0;
+}
+
+.link-chart__bar span {
+  color: var(--cds-text-helper);
+  font-size: 0.6rem;
+  white-space: nowrap;
+}
+
+.link-detail__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.link-source-row,
+.link-click-row {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: space-between;
+  padding: 0.35rem 0;
+  border-top: 1px solid var(--cds-border-subtle-01);
+  font-size: 0.72rem;
+}
+
+.link-click-row em {
+  max-width: 60%;
+  overflow: hidden;
+  color: var(--cds-text-helper);
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 780px) {
+  .link-detail__summary,
+  .link-detail__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .link-chart {
+    overflow-x: auto;
+  }
+
+  .link-chart__bar {
+    min-width: 26px;
+  }
+}
+
 .nokia-aside-actions {
   display: flex;
   flex-direction: column;

@@ -689,6 +689,37 @@ var migrations = [][]string{
 			CONSTRAINT fk_nokia_agenda_event FOREIGN KEY (agenda_event_id) REFERENCES agenda_events(id) ON DELETE CASCADE
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 	},
+	{
+		`CREATE TABLE short_links (
+			id BIGINT NOT NULL AUTO_INCREMENT,
+			user_id BIGINT NOT NULL,
+			code VARCHAR(32) NOT NULL,
+			target_url VARCHAR(2048) NOT NULL,
+			title VARCHAR(255),
+			description TEXT,
+			is_active TINYINT(1) NOT NULL DEFAULT 1,
+			expires_at DATETIME,
+			click_count BIGINT NOT NULL DEFAULT 0,
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL,
+			PRIMARY KEY (id),
+			UNIQUE KEY uq_short_links_code (code),
+			KEY idx_short_links_user (user_id),
+			KEY idx_short_links_created (created_at),
+			CONSTRAINT fk_short_links_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+		`CREATE TABLE short_link_clicks (
+			id BIGINT NOT NULL AUTO_INCREMENT,
+			short_link_id BIGINT NOT NULL,
+			visitor_hash VARCHAR(64),
+			referrer VARCHAR(1024),
+			user_agent VARCHAR(512),
+			clicked_at DATETIME NOT NULL,
+			PRIMARY KEY (id),
+			KEY idx_short_link_clicks_link (short_link_id, clicked_at),
+			CONSTRAINT fk_short_link_clicks_link FOREIGN KEY (short_link_id) REFERENCES short_links(id) ON DELETE CASCADE
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+	},
 }
 
 // CleanupSessions removes expired sessions and tokens. It is safe to call at

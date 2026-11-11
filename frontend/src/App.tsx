@@ -19,6 +19,7 @@ import { StationsPage } from './pages/modules/StationsPage';
 import { StationDetailPage } from './pages/modules/StationDetailPage';
 import { NokiaPage } from './pages/modules/NokiaPage';
 import { NokiaDetailPage } from './pages/modules/NokiaDetailPage';
+import { LinksPage } from './pages/modules/LinksPage';
 import { NotFoundPage, ForbiddenPage } from './pages/StatusPages';
 
 function Splash() {
@@ -73,6 +74,7 @@ export default function App() {
         <Route path="/stations/:id" element={<StationDetailPage />} />
         <Route path="/nokia" element={<NokiaPage />} />
         <Route path="/nokia/:id" element={<NokiaDetailPage />} />
+        <Route path="/links" element={<LinksPage />} />
         <Route element={<AdminRoute />}>
           <Route path="/users" element={<UsersPage />} />
           <Route path="/dev-docs" element={<DevDocsPage />} />

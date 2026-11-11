@@ -10,6 +10,7 @@ import {
   Home,
   Light,
   List,
+  Link,
   Logout,
   Menu,
   Notification,
@@ -54,6 +55,8 @@ function iconFor(key: string) {
     case 'stations':
     case 'nokia':
       return SignalStrength;
+    case 'links':
+      return Link;
     default:
       return Home;
   }
