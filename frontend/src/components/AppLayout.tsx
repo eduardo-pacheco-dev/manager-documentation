@@ -16,6 +16,7 @@ import {
   Notification,
   Settings,
   SignalStrength,
+  Task,
   UserMultiple,
   UserProfile,
 } from '@carbon/icons-react';
@@ -57,6 +58,8 @@ function iconFor(key: string) {
       return SignalStrength;
     case 'links':
       return Link;
+    case 'demands':
+      return Task;
     default:
       return Home;
   }

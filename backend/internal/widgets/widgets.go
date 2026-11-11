@@ -81,6 +81,14 @@ var registry = []Widget{
 		DefaultSpan: 2,
 	},
 	{
+		ID:          "demands.mine",
+		Title:       "Minhas demandas",
+		Description: "Demandas acionadas para você e prazos próximos.",
+		Icon:        "task",
+		Order:       47,
+		DefaultSpan: 2,
+	},
+	{
 		ID:          "follow-up.charts",
 		Title:       "Painel de follow-ups",
 		Description: "Distribuição por status, prioridade e totais.",
@@ -151,6 +159,12 @@ func Available(s *store.Store, m *modules.Store, user models.User) ([]Widget, er
 			widget.Data = data
 		case "follow-up.charts":
 			data, err := m.FollowUpChartsWidget()
+			if err != nil {
+				return nil, err
+			}
+			widget.Data = data
+		case "demands.mine":
+			data, err := m.DemandMineWidget(user.ID, 5)
 			if err != nil {
 				return nil, err
 			}

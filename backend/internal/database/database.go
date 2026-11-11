@@ -739,6 +739,58 @@ var migrations = [][]string{
 			CONSTRAINT fk_short_link_files_user FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE SET NULL
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 	},
+	{
+		`CREATE TABLE demands (
+			id BIGINT NOT NULL AUTO_INCREMENT,
+			requester_id BIGINT NOT NULL,
+			assignee_id BIGINT NOT NULL,
+			title VARCHAR(255) NOT NULL,
+			description TEXT,
+			status VARCHAR(32) NOT NULL DEFAULT 'aberta',
+			priority VARCHAR(32) NOT NULL DEFAULT 'media',
+			due_at VARCHAR(10),
+			completed_at DATETIME,
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL,
+			PRIMARY KEY (id),
+			KEY idx_demands_assignee_status (assignee_id, status),
+			KEY idx_demands_requester (requester_id),
+			KEY idx_demands_due (due_at),
+			CONSTRAINT fk_demands_requester FOREIGN KEY (requester_id) REFERENCES users(id) ON DELETE CASCADE,
+			CONSTRAINT fk_demands_assignee FOREIGN KEY (assignee_id) REFERENCES users(id) ON DELETE CASCADE
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+		`CREATE TABLE demand_updates (
+			id BIGINT NOT NULL AUTO_INCREMENT,
+			demand_id BIGINT NOT NULL,
+			user_id BIGINT,
+			body TEXT NOT NULL,
+			status_from VARCHAR(32),
+			status_to VARCHAR(32),
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL,
+			PRIMARY KEY (id),
+			KEY idx_demand_updates_demand (demand_id, created_at),
+			CONSTRAINT fk_demand_updates_demand FOREIGN KEY (demand_id) REFERENCES demands(id) ON DELETE CASCADE,
+			CONSTRAINT fk_demand_updates_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+		`CREATE TABLE demand_attachments (
+			id BIGINT NOT NULL AUTO_INCREMENT,
+			demand_id BIGINT NOT NULL,
+			uploaded_by BIGINT,
+			original_name VARCHAR(512) NOT NULL,
+			path VARCHAR(1024) NOT NULL,
+			url VARCHAR(2048) NOT NULL,
+			disk VARCHAR(32) NOT NULL DEFAULT 'local',
+			mime_type VARCHAR(255),
+			size BIGINT NOT NULL DEFAULT 0,
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL,
+			PRIMARY KEY (id),
+			KEY idx_demand_attachments_demand (demand_id),
+			CONSTRAINT fk_demand_attachments_demand FOREIGN KEY (demand_id) REFERENCES demands(id) ON DELETE CASCADE,
+			CONSTRAINT fk_demand_attachments_user FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE SET NULL
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+	},
 }
 
 // CleanupSessions removes expired sessions and tokens. It is safe to call at

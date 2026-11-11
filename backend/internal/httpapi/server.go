@@ -196,6 +196,21 @@ func (s *Server) Router() http.Handler {
 				links.Delete("/{id}/files/{fileId}", s.linksDeleteFile)
 			})
 
+			auth.Route("/demands", func(demands chi.Router) {
+				demands.Get("/", s.demandsIndex)
+				demands.Post("/", s.demandsCreate)
+				demands.Get("/export", s.demandsExport)
+				demands.Get("/collaborators", s.demandsCollaborators)
+				demands.Get("/{id}", s.demandsShow)
+				demands.Put("/{id}", s.demandsUpdate)
+				demands.Delete("/{id}", s.demandsDelete)
+				demands.Patch("/{id}/status", s.demandsStatus)
+				demands.Post("/{id}/updates", s.demandsAddUpdate)
+				demands.Post("/{id}/attachments", s.demandsUploadAttachment)
+				demands.Get("/{id}/attachments/{attachmentId}", s.demandsDownloadAttachment)
+				demands.Delete("/{id}/attachments/{attachmentId}", s.demandsDeleteAttachment)
+			})
+
 			auth.Route("/nokia", func(nokia chi.Router) {
 				nokia.Get("/sites", s.nokiaIndex)
 				nokia.Get("/roms", s.nokiaROMList)

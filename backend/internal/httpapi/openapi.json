@@ -251,6 +251,46 @@
     "/links/{id}/files/{fileId}": {
       "delete": { "tags": ["Links curtos"], "summary": "Remove um arquivo do link", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "fileId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Arquivo removido" } } }
     },
+    "/demands": {
+      "get": {
+        "tags": ["Demandas"],
+        "summary": "Lista demandas com estatísticas e colaboradores",
+        "parameters": [
+          { "name": "search", "in": "query", "schema": { "type": "string" } },
+          { "name": "status", "in": "query", "schema": { "type": "string" } },
+          { "name": "priority", "in": "query", "schema": { "type": "string" } },
+          { "name": "assignee_id", "in": "query", "schema": { "type": "integer" } },
+          { "name": "scope", "in": "query", "schema": { "type": "string", "enum": ["mine", "created"] } },
+          { "name": "page", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Demandas" } }
+      },
+      "post": { "tags": ["Demandas"], "summary": "Cria e encaminha uma demanda", "responses": { "201": { "description": "Demanda criada" }, "422": { "description": "Validação" } } }
+    },
+    "/demands/export": {
+      "get": { "tags": ["Demandas"], "summary": "Exporta demandas em CSV", "responses": { "200": { "description": "Arquivo CSV" } } }
+    },
+    "/demands/collaborators": {
+      "get": { "tags": ["Demandas"], "summary": "Lista colaboradores ativos", "responses": { "200": { "description": "Colaboradores" } } }
+    },
+    "/demands/{id}": {
+      "get": { "tags": ["Demandas"], "summary": "Detalhes, histórico e anexos da demanda", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Demanda" }, "404": { "description": "Não encontrada" } } },
+      "put": { "tags": ["Demandas"], "summary": "Atualiza uma demanda", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Demanda atualizada" }, "422": { "description": "Validação" } } },
+      "delete": { "tags": ["Demandas"], "summary": "Exclui uma demanda", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Demanda excluída" } } }
+    },
+    "/demands/{id}/status": {
+      "patch": { "tags": ["Demandas"], "summary": "Altera o status da demanda", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Status atualizado" } } }
+    },
+    "/demands/{id}/updates": {
+      "post": { "tags": ["Demandas"], "summary": "Adiciona comentário ao histórico", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "201": { "description": "Comentário criado" } } }
+    },
+    "/demands/{id}/attachments": {
+      "post": { "tags": ["Demandas"], "summary": "Anexa arquivos à demanda", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "201": { "description": "Arquivos anexados" }, "422": { "description": "Validação" } } }
+    },
+    "/demands/{id}/attachments/{attachmentId}": {
+      "get": { "tags": ["Demandas"], "summary": "Baixa um anexo da demanda", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "attachmentId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Arquivo" } } },
+      "delete": { "tags": ["Demandas"], "summary": "Remove um anexo da demanda", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "attachmentId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Anexo removido" } } }
+    },
     "/settings": {
       "get": { "tags": ["Settings"], "summary": "Configurações do usuário, módulos, fuso e armazenamento", "responses": { "200": { "description": "Configurações" } } }
     },

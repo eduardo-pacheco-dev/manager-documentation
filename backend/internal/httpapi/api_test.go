@@ -145,8 +145,8 @@ func TestAuthenticationAndCSRF(t *testing.T) {
 	if data["user"].(map[string]any)["email"] != "admin@test.local" {
 		t.Fatalf("unexpected user payload: %v", data["user"])
 	}
-	if len(data["modules"].([]any)) != 9 {
-		t.Fatalf("expected 9 modules, got %v", data["modules"])
+	if len(data["modules"].([]any)) != 10 {
+		t.Fatalf("expected 10 modules, got %v", data["modules"])
 	}
 
 	res, _ = app.request(http.MethodPost, "/api/v1/users", map[string]any{
@@ -700,6 +700,92 @@ func TestShortLinks(t *testing.T) {
 	res, _ = app.request(http.MethodDelete, fmt.Sprintf("/api/v1/links/%d", linkID), nil, app.csrf, nil)
 	if res.StatusCode != http.StatusOK {
 		t.Fatalf("short link delete status = %d", res.StatusCode)
+	}
+}
+
+func TestDemands(t *testing.T) {
+	app := newTestApp(t)
+
+	res, payload := app.request(http.MethodPost, "/api/v1/demands", map[string]any{
+		"assignee_id": app.userID, "title": "Atualizar documentação do site", "description": "Revisar o procedimento.",
+		"priority": "alta", "due_at": "2026-11-20", "status": "aberta",
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("create demand status = %d payload=%v", res.StatusCode, payload)
+	}
+	demand := payload["data"].(map[string]any)["demand"].(map[string]any)
+	demandID := int64(demand["id"].(float64))
+	if demand["status"] != "aberta" || demand["assignee_id"].(float64) != float64(app.userID) {
+		t.Fatalf("unexpected demand: %v", demand)
+	}
+
+	res, payload = app.request(http.MethodGet, "/api/v1/demands?scope=mine", nil, "", nil)
+	if res.StatusCode != http.StatusOK || int(payload["meta"].(map[string]any)["total"].(float64)) != 1 {
+		t.Fatalf("demands list failed: %d %v", res.StatusCode, payload)
+	}
+	stats := payload["stats"].(map[string]any)
+	if int(stats["open"].(float64)) != 1 || int(stats["mine"].(float64)) != 1 {
+		t.Fatalf("demand stats incorrect: %v", stats)
+	}
+	if len(payload["collaborators"].([]any)) == 0 {
+		t.Fatalf("demand collaborators missing: %v", payload)
+	}
+
+	res, payload = app.request(http.MethodPatch, fmt.Sprintf("/api/v1/demands/%d/status", demandID), map[string]any{"status": "em_andamento"}, app.csrf, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("demand status update = %d payload=%v", res.StatusCode, payload)
+	}
+	res, payload = app.request(http.MethodPost, fmt.Sprintf("/api/v1/demands/%d/updates", demandID), map[string]any{"body": "Iniciando a revisão."}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("demand comment status = %d payload=%v", res.StatusCode, payload)
+	}
+
+	var uploadBuffer bytes.Buffer
+	uploadWriter := multipart.NewWriter(&uploadBuffer)
+	uploadPart, _ := uploadWriter.CreateFormFile("files", "evidencia.txt")
+	_, _ = uploadPart.Write([]byte("evidencia da demanda"))
+	_ = uploadWriter.Close()
+	uploadReq, _ := http.NewRequest(http.MethodPost, app.server.URL+fmt.Sprintf("/api/v1/demands/%d/attachments", demandID), &uploadBuffer)
+	uploadReq.Header.Set("Content-Type", uploadWriter.FormDataContentType())
+	uploadReq.Header.Set("X-CSRF-Token", app.csrf)
+	uploadRes, err := app.client.Do(uploadReq)
+	if err != nil || uploadRes.StatusCode != http.StatusCreated {
+		raw, _ := io.ReadAll(uploadRes.Body)
+		t.Fatalf("demand attachment upload failed: %v %d %s", err, uploadRes.StatusCode, raw)
+	}
+	_ = uploadRes.Body.Close()
+
+	res, payload = app.request(http.MethodGet, fmt.Sprintf("/api/v1/demands/%d", demandID), nil, "", nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("demand show status = %d payload=%v", res.StatusCode, payload)
+	}
+	detail := payload["data"].(map[string]any)["demand"].(map[string]any)
+	if len(detail["updates"].([]any)) < 2 {
+		t.Fatalf("demand history missing: %v", detail["updates"])
+	}
+	attachments := detail["attachments"].([]any)
+	if len(attachments) != 1 {
+		t.Fatalf("demand attachment missing: %v", attachments)
+	}
+	attachmentID := int64(attachments[0].(map[string]any)["id"].(float64))
+	download, err := app.client.Get(app.server.URL + fmt.Sprintf("/api/v1/demands/%d/attachments/%d", demandID, attachmentID))
+	if err != nil {
+		t.Fatalf("demand attachment download: %v", err)
+	}
+	downloadBody, _ := io.ReadAll(download.Body)
+	download.Body.Close()
+	if download.StatusCode != http.StatusOK || string(downloadBody) != "evidencia da demanda" {
+		t.Fatalf("demand attachment download status = %d body=%q", download.StatusCode, downloadBody)
+	}
+
+	res, _ = app.request(http.MethodGet, "/api/v1/demands/export", nil, "", nil)
+	if res.StatusCode != http.StatusOK || !strings.Contains(res.Header.Get("Content-Type"), "text/csv") {
+		t.Fatalf("demand export status = %d content-type=%q", res.StatusCode, res.Header.Get("Content-Type"))
+	}
+
+	res, _ = app.request(http.MethodDelete, fmt.Sprintf("/api/v1/demands/%d", demandID), nil, app.csrf, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("demand delete status = %d", res.StatusCode)
 	}
 }
 

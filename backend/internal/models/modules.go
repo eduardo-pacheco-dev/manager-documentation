@@ -99,6 +99,14 @@ var CoreModules = []Module{
 		Toggleable:     true,
 		DefaultSection: SectionModules,
 	},
+	{
+		Key:            "demands",
+		Label:          "Demandas",
+		Icon:           "task",
+		Path:           "/demands",
+		Toggleable:     true,
+		DefaultSection: SectionModules,
+	},
 }
 
 func AvailableModules(user User) []Module {

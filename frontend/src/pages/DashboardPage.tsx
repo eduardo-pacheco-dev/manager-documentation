@@ -111,6 +111,8 @@ function WidgetBody({ widget, onOpen }: { widget: DashboardWidget; onOpen: () =>
       return <StationsWidget widget={widget} />;
     case 'follow-up.overdue':
       return <FollowUpsWidget widget={widget} />;
+    case 'demands.mine':
+      return <DemandsWidget widget={widget} />;
     case 'follow-up.charts':
       return <FollowUpsChartWidget widget={widget} />;
     case 'nokia.charts':
@@ -225,8 +227,31 @@ function FollowUpsWidget({ widget }: { widget: DashboardWidget }) {
   );
 }
 
-function FollowUpsChartWidget({ widget }: { widget: DashboardWidget }) {
+function DemandsWidget({ widget }: { widget: DashboardWidget }) {
+  const navigate = useNavigate();
   const data = (widget.data as Record<string, unknown> | undefined) ?? {};
+  const items = (data.items as Array<Record<string, unknown>> | undefined) ?? [];
+  const stats = (data.stats as Record<string, unknown> | undefined) ?? {};
+  const overdue = Number(stats.overdue ?? 0);
+  return (
+    <div className="widget-recent">
+      <div className="widget-recent__header">
+        <div><h3>Minhas demandas</h3><p>{String(stats.mine ?? 0)} atribuída(s) em aberto</p></div>
+        <Tag type={overdue > 0 ? 'red' : 'green'} size="sm">{overdue > 0 ? `${overdue} atrasada(s)` : 'Em dia'}</Tag>
+      </div>
+      {items.length === 0 ? <p className="muted">Nenhuma demanda atribuída a você.</p> : items.map((item) => (
+        <button key={String(item.id)} type="button" className="work-center__row" onClick={() => navigate(`/demands/${item.id}`)}>
+          <strong>{String(item.title)}</strong>
+          <span>{String(item.requester_name ?? 'Solicitante')} · prazo {String(item.due_at ?? 'sem prazo')}</span>
+          {item.overdue === true && <Tag type="red" size="sm">Atrasada</Tag>}
+        </button>
+      ))}
+      <Button kind="ghost" size="sm" onClick={() => navigate('/demands?scope=mine')}>Abrir demandas</Button>
+    </div>
+  );
+}
+
+function FollowUpsChartWidget({ widget }: { widget: DashboardWidget }) {  const data = (widget.data as Record<string, unknown> | undefined) ?? {};
   const statuses = (data.statuses as Array<Record<string, unknown>> | undefined) ?? [];
   return (
     <div className="widget-recent">

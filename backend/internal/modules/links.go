@@ -68,12 +68,12 @@ type ShortLinkSource struct {
 }
 
 type ShortLinkStats struct {
-	Total        int   `json:"total"`
-	Active       int   `json:"active"`
-	Inactive     int   `json:"inactive"`
-	Expired      int   `json:"expired"`
-	Clicks       int64 `json:"clicks"`
-	UniqueClicks int64 `json:"unique_clicks"`
+	Total        int   `db:"total" json:"total"`
+	Active       int   `db:"active" json:"active"`
+	Inactive     int   `db:"inactive" json:"inactive"`
+	Expired      int   `db:"expired" json:"expired"`
+	Clicks       int64 `db:"clicks" json:"clicks"`
+	UniqueClicks int64 `db:"unique_clicks" json:"unique_clicks"`
 }
 
 type ShortLinkFilter struct {
