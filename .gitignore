@@ -2,6 +2,7 @@
 node_modules/
 frontend/dist/
 backend/data/
+backend/tmp/
 backend/documentation-center
 backend/documentation-center.exe
 *.exe

@@ -87,6 +87,16 @@ cp .env.example .env
 go run ./cmd/server
 ```
 
+Para desenvolvimento com **hot reload** (Air):
+
+```bash
+cd backend
+go install github.com/air-verse/air@latest
+air -c .air.toml
+```
+
+O Air recompila e reinicia o servidor automaticamente ao alterar arquivos em `backend/` (Go e Markdown dos seeds). O binário temporário e o banco local ficam em `backend/tmp/` e `backend/data/`, ambos ignorados pelo Git.
+
 O servidor inicia em `http://localhost:8080`. Na primeira execução:
 
 - cria o banco SQLite em `backend/data/app.db`;
