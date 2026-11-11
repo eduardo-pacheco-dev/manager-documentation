@@ -230,6 +230,22 @@ p {
   letter-spacing: -0.01em;
 }
 
+.page-header__title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.page-header__title-row h1 {
+  margin: 0;
+}
+
+.page-header__title-accessory {
+  display: inline-flex;
+  align-items: center;
+}
+
 .page-header__description {
   margin: 0.5rem 0 0;
   color: var(--cds-text-secondary);
@@ -241,6 +257,7 @@ p {
   gap: 0.5rem;
   flex-wrap: wrap;
   align-items: center;
+  margin-left: auto;
 }
 
 /* --------------------------------------------------------------------------

@@ -286,13 +286,22 @@ export function NokiaPage() {
         eyebrow="Projetos"
         title="Projetos Nokia"
         description="Sites, checklist de FAMs, tarefas, datas, rejeições e interrupções."
+        titleAccessory={user?.is_admin ? (
+          <Button
+            kind="ghost"
+            size="md"
+            hasIconOnly
+            renderIcon={Settings}
+            iconDescription="Configurações Nokia"
+            onClick={() => void openSettings()}
+          />
+        ) : undefined}
         actions={
           <>
             <Button kind="ghost" renderIcon={Download} onClick={() => window.open(`/api/v1/nokia/sites/export?search=${encodeURIComponent(search)}`, '_blank')}>Exportar</Button>
             <Button kind="ghost" renderIcon={Download} onClick={() => window.open('/api/v1/nokia/sites/export/pending', '_blank')}>Pendências</Button>
             <Button kind="ghost" renderIcon={Download} onClick={() => window.open('/api/v1/nokia/sites/template', '_blank')}>Modelo XLSX</Button>
             <Button kind="ghost" renderIcon={Upload} onClick={() => { const input = document.createElement('input'); input.type = 'file'; input.accept = '.csv,.xlsx'; input.onchange = async () => { if (!input.files?.[0]) return; const formData = new FormData(); formData.append('file', input.files[0]); try { const response = await api.upload<{ message: string }>('/nokia/sites/import', formData); toast.success(response.message); await load(); } catch (error) { toast.error('Falha na importação', errorMessage(error)); } }; input.click(); }}>Importar</Button>
-            {user?.is_admin && <Button kind="ghost" renderIcon={Settings} onClick={() => void openSettings()}>Configurações</Button>}
             <Button renderIcon={Add} onClick={openCreate}>Novo site</Button>
           </>
         }
