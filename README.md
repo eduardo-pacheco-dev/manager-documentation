@@ -86,15 +86,26 @@ cp .env.example .env
 go run ./cmd/server
 ```
 
-Para desenvolvimento com **hot reload** (Air):
+Para desenvolvimento com **hot reload** (Air), instale-o uma vez:
 
 ```bash
-cd backend
 go install github.com/air-verse/air@latest
+```
+
+Depois rode a partir da raiz:
+
+```bash
 air -c .air.toml
 ```
 
-O Air recompila e reinicia o servidor automaticamente ao alterar arquivos em `backend/` (Go e Markdown dos seeds). O binário temporário e o banco local ficam em `backend/tmp/` e `backend/data/`, ambos ignorados pelo Git.
+Ou de dentro de `backend/`:
+
+```bash
+cd backend
+air -c .air.toml
+```
+
+O Air recompila e reinicia o servidor automaticamente ao alterar arquivos em `backend/` (Go e Markdown dos seeds). Na raiz, o script `run-backend.cmd` garante que o binário rode com working directory em `backend/`, carregando `.env`, banco, uploads e seeds corretamente.
 
 O servidor inicia em `http://localhost:8080`. Na primeira execução:
 
