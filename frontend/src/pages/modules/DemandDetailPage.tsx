@@ -56,6 +56,7 @@ interface Demand {
   completed_at: string | null; created_at: string; updated_at: string;
   client_name: string | null; client_email: string | null;
   station_id: number | null; station_site_id: string | null; station_municipio: string | null; station_estado: string | null;
+  station_endereco_id: string | null; station_tecnologia: string | null; station_tipo_elemento: string | null; station_regional: string | null;
   operadora: string | null; demand_type: string | null; oc_tim: string | null;
   client_os: string | null; key_number: string | null; activity_scope: string | null;
   requester_name: string | null; assignee_name: string | null; assignee_email: string | null;
@@ -211,31 +212,59 @@ export function DemandDetailPage() {
 
   async function copyDispatchEmail() {
     if (!demand) return;
+    const project = (demand.demand_type || 'DEMANDA').toUpperCase();
+    const operator = demand.operadora || demand.client_name || 'ATIVIDADE';
+    const site = demand.station_site_id || '—';
+    const technology = demand.station_tecnologia ? ` ${demand.station_tecnologia}` : '';
+    const endID = demand.station_endereco_id ? ` / ${demand.station_endereco_id}` : '';
+    const subject = `DISPARO DE ATIVIDADE_${project} ${demand.oc_tim || '—'} ${site}${technology}${endID} :: ${operator.toUpperCase()}`;
+    const hour = new Date().getHours();
+    const greeting = hour < 12 ? 'Bom dia!' : hour < 18 ? 'Boa tarde!' : 'Boa noite!';
     const dueDate = demand.due_at
       ? new Date(`${demand.due_at}T12:00:00`).toLocaleDateString('pt-BR')
-      : 'não informado';
-    const status = DEMAND_STATUS[demand.status] ?? demand.status;
-    const priority = DEMAND_PRIORITY[demand.priority] ?? demand.priority;
-    const link = `${window.location.origin}/demands/${demand.id}`;
+      : 'a combinar';
+    const columns = ['OC', 'Status_OC', 'Tipo_Site', 'Site_ID', 'End_ID', 'Classe_Casa', 'Regional', 'Tecnologia', 'Escopo', 'Vendor_HW'];
+    const row = [
+      demand.oc_tim || '—',
+      DEMAND_STATUS[demand.status] ?? demand.status,
+      demand.station_tipo_elemento || '—',
+      demand.station_site_id || '—',
+      demand.station_endereco_id || '—',
+      '—',
+      demand.station_regional || '—',
+      demand.station_tecnologia || '—',
+      demand.demand_type || '—',
+      '—',
+    ];
     const lines = [
       `Para: ${demand.assignee_email ?? '—'}`,
-      `Assunto: [Demanda] ${demand.title}`,
+      `Assunto: ${subject}`,
       '',
-      `Olá, ${demand.assignee_name ?? 'colaborador(a)'},`,
+      greeting,
       '',
-      'Você foi acionado(a) para atender a seguinte demanda:',
+      `@${demand.assignee_name ?? 'equipe'} | ${demand.client_name || demand.operadora || 'equipe'} favor atender a demanda "${demand.title}" referente ao projeto ${project}.`,
       '',
-      `Demanda: ${demand.title}`,
-      `Solicitante: ${demand.requester_name ?? '—'}`,
-      `Responsável: ${demand.assignee_name ?? '—'}`,
-      `Prioridade: ${priority}`,
-      `Status: ${status}`,
-      `Prazo: ${dueDate}`,
     ];
     if (demand.description?.trim()) {
-      lines.push('', 'Descrição:', demand.description.trim());
+      lines.push('Descrição:', demand.description.trim(), '');
     }
-    lines.push('', 'Acesse a demanda:', link, '', 'Atenciosamente,', 'Documentation Center');
+    if (demand.activity_scope?.trim()) {
+      lines.push('Escopo da atividade:', demand.activity_scope.trim(), '');
+    }
+    lines.push(
+      `Seguir documentação padrão do projeto ${project}.`,
+      '',
+      'Prazo: ' + dueDate,
+      '',
+      columns.join('\t'),
+      row.join('\t'),
+      '',
+      'Acesse a demanda:',
+      `${window.location.origin}/demands/${demand.id}`,
+      '',
+      'Atenciosamente,',
+      'Documentation Center',
+    );
     try {
       await navigator.clipboard.writeText(lines.join('\n'));
       toast.success('E-mail de acionamento copiado.');

@@ -54,6 +54,10 @@ type Demand struct {
 	StationSiteID *string            `db:"station_site_id" json:"station_site_id"`
 	StationCity   *string            `db:"station_municipio" json:"station_municipio"`
 	StationState  *string            `db:"station_estado" json:"station_estado"`
+	StationEndID  *string            `db:"station_endereco_id" json:"station_endereco_id"`
+	StationTech   *string            `db:"station_tecnologia" json:"station_tecnologia"`
+	StationType   *string            `db:"station_tipo_elemento" json:"station_tipo_elemento"`
+	StationRegion *string            `db:"station_regional" json:"station_regional"`
 	Operadora     *string            `db:"operadora" json:"operadora"`
 	DemandType    *string            `db:"demand_type" json:"demand_type"`
 	OCTIM         *string            `db:"oc_tim" json:"oc_tim"`
@@ -278,6 +282,8 @@ const demandSelect = `SELECT d.*,
 	TRIM(CONCAT(a.name, ' ', COALESCE(a.surname, ''))) AS assignee_name,
 	a.email AS assignee_email,
 	s.site_id AS station_site_id, s.municipio AS station_municipio, s.estado AS station_estado,
+	s.endereco_id AS station_endereco_id, s.tecnologia AS station_tecnologia,
+	s.tipo_de_elemento AS station_tipo_elemento, s.regional AS station_regional,
 	(SELECT COUNT(*) FROM demand_updates u WHERE u.demand_id = d.id) AS update_count
 	FROM demands d
 	JOIN users r ON r.id = d.requester_id
