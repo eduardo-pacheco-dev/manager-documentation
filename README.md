@@ -234,6 +234,91 @@ npm run build
 
 Os testes do backend cobrem autenticação, CSRF, usuários, wiki, sanitização de Markdown, widgets, notificações, configurações, tokens de API e upload.
 
+O workflow [`ci.yml`](.github/workflows/ci.yml) executa automaticamente em pushes na `main` e pull requests:
+- backend: `go vet`, build, testes com race detector e cobertura;
+- frontend: instalação, typecheck e build de produção;
+- bundle de produção: compila o binário Linux e valida o frontend compilado.
+
+O workflow [`deploy.yml`](.github/workflows/deploy.yml) só publica depois que o CI termina com sucesso na `main`.
+
+## Deploy na VPS com PM2 e GitHub Actions
+
+O deploy usa **PM2** para manter o binário Go em execução, com releases versionadas e rollback. O GitHub Actions roda os testes, gera o binário Linux (amd64 ou arm64) com o frontend compilado, envia o pacote para a VPS e aciona o `deploy.sh`.
+
+### 1. Preparar a VPS (uma vez)
+
+Requisitos: Ubuntu/Debian ou Rocky/Alma Linux, acesso SSH e um usuário com `sudo` (não use root para o PM2). O setup instala Node.js 22, PM2, configura o início automático no boot, cria os diretórios, gera o `.env` e a senha inicial do administrador.
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/eduardo-pacheco-dev/manager-documentation/main/deploy.sh
+sudo bash deploy.sh setup \
+  --url https://docs.exemplo.com \
+  --admin-email admin@exemplo.com
+```
+
+O comando imprime a senha inicial do administrador. Guarde-a. Estrutura criada:
+
+```
+/opt/documentation-center/
+├── current -> releases/<tag>     # release ativa
+├── releases/                     # releases (mantém as 5 últimas)
+├── shared/.env                   # configuração persistente
+├── shared/data/app.db            # banco SQLite
+├── shared/data/uploads/          # anexos e imagens
+├── shared/logs/                  # logs do PM2
+└── ecosystem.config.cjs          # configuração do PM2
+```
+
+O `APP_KEY` e o `.env` são gerados apenas no setup e preservados nos deploys seguintes. Faça backup de `shared/.env` e `shared/data/`.
+
+> Use um proxy reverso (Caddy ou Nginx) com HTTPS na frente da porta `8080`. O `PUBLIC_URL` deve ser a URL pública com `https://` para que os cookies seguros sejam ativados.
+
+### 2. Configurar os secrets no GitHub
+
+Em **Settings → Secrets and variables → Actions**:
+
+| Tipo | Nome | Obrigatório | Descrição |
+| --- | --- | --- | --- |
+| Secret | `VPS_HOST` | sim | IP ou domínio da VPS |
+| Secret | `VPS_USER` | sim | Usuário do PM2 (o mesmo `SUDO_USER` do setup) |
+| Secret | `VPS_SSH_KEY` | sim | Chave privada SSH de deploy |
+| Variable | `VPS_PORT` | não | Porta SSH (padrão `22`) |
+| Variable | `VPS_APP_DIR` | não | Diretório da app (padrão `/opt/documentation-center`) |
+| Variable | `APP_PORT` | não | Porta HTTP (padrão `8080`) |
+| Variable | `APP_BIND` | não | Bind HTTP (padrão `0.0.0.0`) |
+
+A chave pública correspondente deve estar em `~/.ssh/authorized_keys` do usuário `VPS_USER`. O usuário precisa permissão para executar `pm2`.
+
+### 3. Publicar
+
+Basta fazer merge/push na `main`. O fluxo é:
+
+1. `CI` executa testes e build.
+2. `Deploy` compila os pacotes Linux amd64/arm64.
+3. O runner identifica a arquitetura da VPS via `uname -m`.
+4. O pacote e o `deploy.sh` são enviados por SCP.
+5. O `deploy.sh` extrai a release, atualiza o symlink `current`, executa `pm2 startOrReload` e valida `GET /healthz`.
+6. Em caso de falha no health check, a release anterior é restaurada automaticamente.
+
+Também é possível disparar manualmente em **Actions → Deploy → Run workflow**.
+
+### 4. Deploy e rollback manuais
+
+```bash
+# publicar um pacote já gerado
+./deploy.sh --artifact /tmp/documentation-center-linux-amd64.tar.gz --tag manual-001
+
+# voltar para a release anterior
+./deploy.sh rollback
+
+# logs e status
+pm2 status
+pm2 logs documentation-center
+```
+
+O `deploy.sh` mantém as 5 releases mais recentes. O rollback troca o symlink `current`, recarrega o PM2 e valida o health check novamente.
+
+
 ## Observações sobre a migração
 
 - O banco original era MySQL; esta versão usa SQLite por padrão para execução sem dependências externas. A camada de acesso fica isolada em `internal/store` e `internal/modules`.

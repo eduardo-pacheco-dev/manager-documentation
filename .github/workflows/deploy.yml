@@ -1,0 +1,138 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build release (${{ matrix.arch }})
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main')
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          cache-dependency-path: backend/go.sum
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Build frontend
+        working-directory: frontend
+        run: npm ci --no-audit --no-fund && npm run build
+      - name: Build backend
+        working-directory: backend
+        run: |
+          mkdir -p ../package
+          CGO_ENABLED=0 GOOS=linux GOARCH=${{ matrix.arch }} \
+            go build -trimpath -ldflags="-s -w" -o ../package/server ./cmd/server
+      - name: Package release
+        run: |
+          cp -r frontend/dist package/static
+          tar -czf "documentation-center-linux-${{ matrix.arch }}.tar.gz" -C package server static
+          ls -lh "documentation-center-linux-${{ matrix.arch }}.tar.gz"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: documentation-center-linux-${{ matrix.arch }}
+          path: documentation-center-linux-${{ matrix.arch }}.tar.gz
+          retention-days: 7
+
+  deploy:
+    name: Deploy to VPS (PM2)
+    runs-on: ubuntu-latest
+    needs: build
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+          pattern: documentation-center-linux-*
+          merge-multiple: true
+
+      - name: Validate deployment secrets
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          missing=0
+          for name in VPS_HOST VPS_USER VPS_SSH_KEY; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Secret $name não configurado no repositório."
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ vars.VPS_PORT || '22' }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "$VPS_PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          test -s ~/.ssh/known_hosts || { echo "::error::Não foi possível obter a chave do host VPS."; exit 1; }
+
+      - name: Upload and activate release
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ vars.VPS_PORT || '22' }}
+          VPS_APP_DIR: ${{ vars.VPS_APP_DIR || '/opt/documentation-center' }}
+          APP_PORT: ${{ vars.APP_PORT || '8080' }}
+          APP_BIND: ${{ vars.APP_BIND || '0.0.0.0' }}
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          set -euo pipefail
+          SSH_OPTS=(-i ~/.ssh/deploy_key -p "$VPS_PORT" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes)
+          TAG="${SOURCE_SHA:0:12}"
+          RAW_ARCH="$(ssh "${SSH_OPTS[@]}" "$VPS_USER@$VPS_HOST" 'uname -m')"
+          case "$RAW_ARCH" in
+            x86_64|amd64) ARCH=amd64 ;;
+            aarch64|arm64) ARCH=arm64 ;;
+            *) echo "::error::Arquitetura não suportada: $RAW_ARCH"; exit 1 ;;
+          esac
+          ARTIFACT="release-artifacts/documentation-center-linux-${ARCH}.tar.gz"
+          test -f "$ARTIFACT" || { echo "::error::Artefato não encontrado: $ARTIFACT"; exit 1; }
+
+          ssh "${SSH_OPTS[@]}" "$VPS_USER@$VPS_HOST" "mkdir -p '$VPS_APP_DIR/releases'"
+          scp -i ~/.ssh/deploy_key -P "$VPS_PORT" -o IdentitiesOnly=yes \
+            deploy.sh "$VPS_USER@$VPS_HOST:$VPS_APP_DIR/deploy.sh.upload"
+          scp -i ~/.ssh/deploy_key -P "$VPS_PORT" -o IdentitiesOnly=yes \
+            "$ARTIFACT" "$VPS_USER@$VPS_HOST:/tmp/documentation-center-${TAG}.tar.gz"
+
+          ssh "${SSH_OPTS[@]}" "$VPS_USER@$VPS_HOST" \
+            "chmod +x '$VPS_APP_DIR/deploy.sh.upload' && mv -f '$VPS_APP_DIR/deploy.sh.upload' '$VPS_APP_DIR/deploy.sh' && \
+             cd '$VPS_APP_DIR' && \
+             APP_DIR='$VPS_APP_DIR' APP_USER='$VPS_USER' APP_PORT='$APP_PORT' APP_BIND='$APP_BIND' PM2_APP_NAME='documentation-center' \
+             ./deploy.sh --artifact '/tmp/documentation-center-${TAG}.tar.gz' --tag '$TAG' --port '$APP_PORT'"
