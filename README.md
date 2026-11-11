@@ -303,7 +303,7 @@ No servidor atual, `<APP_DIR>` é `/root/app/manager-documentation`. O `deploy.s
 
 O `APP_KEY`, as credenciais do MySQL e o `.env` são gerados apenas no setup e preservados nos deploys seguintes. O banco fica no MySQL local da VPS (`DB_NAME`, `DB_USER` e `DB_PASSWORD` no `.env`).
 
-> Use um proxy reverso (Caddy ou Nginx) com HTTPS na frente da porta `8080`. O `PUBLIC_URL` deve ser a URL pública com `https://` para que os cookies seguros sejam ativados.
+> Use um proxy reverso (Caddy ou Nginx) com HTTPS na frente da porta `8080`. O `PUBLIC_URL` deve ser a URL pública com `https://` para que os cookies seguros sejam ativados. Para o domínio `afldoc.com.br`, use a configuração pronta em [`deploy/nginx`](deploy/nginx/README.md).
 
 ### 2. Configurar os secrets no GitHub
 
