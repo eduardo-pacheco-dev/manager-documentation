@@ -161,11 +161,11 @@ func (s *Store) FindStation(id int64) (Station, error) {
 	station.Attachments = []StationAttachment{}
 	station.Comments = []StationComment{}
 	_ = s.DB.Select(&station.Attachments, `
-		SELECT a.*, TRIM(u.name || ' ' || COALESCE(u.surname, '')) AS uploader_name
+		SELECT a.*, TRIM(CONCAT(u.name, ' ', COALESCE(u.surname, ''))) AS uploader_name
 		FROM station_attachments a LEFT JOIN users u ON u.id = a.uploaded_by
 		WHERE a.station_id = ? ORDER BY a.created_at DESC, a.id DESC`, id)
 	_ = s.DB.Select(&station.Comments, `
-		SELECT c.*, TRIM(u.name || ' ' || COALESCE(u.surname, '')) AS author_name
+		SELECT c.*, TRIM(CONCAT(u.name, ' ', COALESCE(u.surname, ''))) AS author_name
 		FROM station_comments c LEFT JOIN users u ON u.id = c.user_id
 		WHERE c.station_id = ? ORDER BY c.created_at DESC, c.id DESC`, id)
 	return station, nil
@@ -318,7 +318,7 @@ func (s *Store) CreateStationComment(stationID, userID int64, body string) (Stat
 	id, _ := result.LastInsertId()
 	var comment StationComment
 	err = s.DB.Get(&comment, `
-		SELECT c.*, TRIM(u.name || ' ' || COALESCE(u.surname, '')) AS author_name
+		SELECT c.*, TRIM(CONCAT(u.name, ' ', COALESCE(u.surname, ''))) AS author_name
 		FROM station_comments c LEFT JOIN users u ON u.id = c.user_id WHERE c.id = ?`, id)
 	return comment, err
 }
@@ -363,7 +363,7 @@ func (s *Store) StationSiteOptions(search string, excludeLinked bool) ([]Station
 		MIN(NULLIF(municipio, '')) AS municipio,
 		MIN(NULLIF(estado, '')) AS estado
 		FROM stations WHERE ` + strings.Join(conditions, " AND ") + `
-		GROUP BY site_id ORDER BY site_id COLLATE NOCASE ASC LIMIT 1000`
+		GROUP BY site_id ORDER BY site_id ASC LIMIT 1000`
 	options := []StationSiteOption{}
 	err := s.DB.Select(&options, query, args...)
 	return options, err

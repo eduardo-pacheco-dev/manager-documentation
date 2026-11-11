@@ -262,7 +262,7 @@ func (s *Store) ListDocs(filter DocFilter) ([]models.DevDocSummary, int, error) 
 			u.full_name AS author_name
 		FROM dev_docs d
 		LEFT JOIN (
-			SELECT id, TRIM(name || ' ' || COALESCE(surname, '')) AS full_name FROM users
+			SELECT id, TRIM(CONCAT(name, ' ', COALESCE(surname, ''))) AS full_name FROM users
 		) u ON u.id = d.user_id
 		WHERE ` + where + `
 		ORDER BY d.updated_at DESC, d.id DESC
@@ -284,9 +284,9 @@ func (s *Store) DocNavigation() ([]models.DevDocSummary, error) {
 			u.full_name AS author_name
 		FROM dev_docs d
 		LEFT JOIN (
-			SELECT id, TRIM(name || ' ' || COALESCE(surname, '')) AS full_name FROM users
+			SELECT id, TRIM(CONCAT(name, ' ', COALESCE(surname, ''))) AS full_name FROM users
 		) u ON u.id = d.user_id
-		ORDER BY d.title COLLATE NOCASE ASC`)
+		ORDER BY d.title ASC`)
 	return docs, err
 }
 
@@ -296,7 +296,7 @@ func (s *Store) FindDoc(id int64) (models.DevDoc, error) {
 		SELECT d.*, u.full_name AS author_name
 		FROM dev_docs d
 		LEFT JOIN (
-			SELECT id, TRIM(name || ' ' || COALESCE(surname, '')) AS full_name FROM users
+			SELECT id, TRIM(CONCAT(name, ' ', COALESCE(surname, ''))) AS full_name FROM users
 		) u ON u.id = d.user_id
 		WHERE d.id = ?`, id)
 	if errors.Is(err, sql.ErrNoRows) {

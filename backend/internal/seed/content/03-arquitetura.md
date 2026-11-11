@@ -2,7 +2,7 @@
 
 O projeto é dividido em dois diretórios independentes:
 
-- **backend**: API HTTP em Go, banco SQLite, autenticação, armazenamento e renderização de Markdown.
+- **backend**: API HTTP em Go, banco MySQL, autenticação, armazenamento e renderização de Markdown.
 - **frontend**: SPA React com Carbon Design System, consumindo a API JSON.
 
 ## Backend
@@ -10,7 +10,7 @@ O projeto é dividido em dois diretórios independentes:
 | Pacote | Responsabilidade |
 | --- | --- |
 | internal/config | Leitura e validação de variáveis de ambiente. |
-| internal/database | Conexão e migrações incrementais do SQLite. |
+| internal/database | Conexão e migrações incrementais do MySQL. |
 | internal/store | Repositórios e consultas SQL. |
 | internal/models | Entidades e catálogo de módulos/categorias. |
 | internal/httpapi | Rotas, middlewares e handlers. |

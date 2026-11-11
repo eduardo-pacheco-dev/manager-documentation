@@ -219,7 +219,7 @@ func (s *Store) CreateWorkLink(userID int64, module string, entityID int64, reso
 		return WorkLink{}, err
 	}
 	timestamp := now()
-	if _, err := s.DB.Exec(`INSERT OR IGNORE INTO entity_links
+	if _, err := s.DB.Exec(`INSERT IGNORE INTO entity_links
 		(module, entity_id, resource_type, resource_id, created_at) VALUES (?, ?, ?, ?, ?)`,
 		module, entityID, resourceType, resourceID, timestamp); err != nil {
 		return WorkLink{}, err

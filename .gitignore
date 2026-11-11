@@ -23,6 +23,13 @@ backend/data/*.db
 backend/data/*.db-*
 implementation/
 
+# Deployment artifacts (when deploy.sh runs inside the repository)
+/current
+/releases/
+/shared/
+/ecosystem.config.cjs
+/DEPLOY-INFO.txt
+
 # OS / editors
 .DS_Store
 Thumbs.db

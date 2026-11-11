@@ -34,7 +34,7 @@ type AgendaEventInput struct {
 
 func (s *Store) FindAgendaEvent(userID, id int64) (AgendaEvent, error) {
 	events, err := s.agendaEventsByQuery(`SELECT e.*, c.name AS calendar_name, c.color AS calendar_color,
-		TRIM(u.name || ' ' || COALESCE(u.surname, '')) AS organizer_name, u.email AS organizer_email
+		TRIM(CONCAT(u.name, ' ', COALESCE(u.surname, ''))) AS organizer_name, u.email AS organizer_email
 		FROM agenda_events e
 		JOIN agenda_calendars c ON c.id = e.agenda_calendar_id
 		JOIN users u ON u.id = e.user_id
@@ -156,7 +156,7 @@ func (s *Store) syncAgendaAttendees(eventID, organizerID int64, emails []string)
 	if err := s.DB.Get(&organizerEmail, `SELECT email FROM users WHERE id = ?`, organizerID); err == nil {
 		target[strings.ToLower(organizerEmail)] = true
 	}
-	_ = s.DB.Get(&organizerName, `SELECT TRIM(name || ' ' || COALESCE(surname, '')) FROM users WHERE id = ?`, organizerID)
+	_ = s.DB.Get(&organizerName, `SELECT TRIM(CONCAT(name, ' ', COALESCE(surname, ''))) FROM users WHERE id = ?`, organizerID)
 	for _, email := range emails {
 		email = strings.ToLower(strings.TrimSpace(email))
 		if email != "" {
@@ -185,7 +185,7 @@ func (s *Store) syncAgendaAttendees(eventID, organizerID int64, emails []string)
 		var foundName string
 		if err := s.DB.Get(&foundID, `SELECT id FROM users WHERE email = ?`, email); err == nil {
 			userID = &foundID
-			_ = s.DB.Get(&foundName, `SELECT TRIM(name || ' ' || COALESCE(surname, '')) FROM users WHERE id = ?`, foundID)
+			_ = s.DB.Get(&foundName, `SELECT TRIM(CONCAT(name, ' ', COALESCE(surname, ''))) FROM users WHERE id = ?`, foundID)
 			name = &foundName
 		}
 		status := "needs_action"
@@ -248,7 +248,7 @@ func (s *Store) UpdateAgendaEvent(userID, id int64, input AgendaEventInput, scop
 		encoded, _ := json.Marshal(overrides)
 		_, err := s.DB.Exec(`INSERT INTO agenda_event_exceptions (agenda_event_id, recurrence_id, is_cancelled, overrides, created_at, updated_at)
 			VALUES (?, ?, 0, ?, ?, ?)
-			ON CONFLICT(agenda_event_id, recurrence_id) DO UPDATE SET is_cancelled = 0, overrides = excluded.overrides, updated_at = excluded.updated_at`,
+			ON DUPLICATE KEY UPDATE is_cancelled = 0, overrides = VALUES(overrides), updated_at = VALUES(updated_at)`,
 			id, *recurrenceID, string(encoded), now(), now())
 		if err != nil {
 			return event, err
@@ -304,7 +304,7 @@ func (s *Store) DeleteAgendaEvent(userID, id int64, scope string, recurrenceID *
 	if event.RecurrenceData != nil && recurrenceID != nil && scope == "this" {
 		_, err := s.DB.Exec(`INSERT INTO agenda_event_exceptions (agenda_event_id, recurrence_id, is_cancelled, created_at, updated_at)
 			VALUES (?, ?, 1, ?, ?)
-			ON CONFLICT(agenda_event_id, recurrence_id) DO UPDATE SET is_cancelled = 1, updated_at = excluded.updated_at`,
+			ON DUPLICATE KEY UPDATE is_cancelled = 1, updated_at = VALUES(updated_at)`,
 			id, *recurrenceID, now(), now())
 		return err
 	}
@@ -388,7 +388,7 @@ func (s *Store) MoveAgendaEvent(userID, id int64, startRaw, endRaw string, scope
 		encoded, _ := json.Marshal(overrides)
 		_, err := s.DB.Exec(`INSERT INTO agenda_event_exceptions (agenda_event_id, recurrence_id, is_cancelled, overrides, created_at, updated_at)
 			VALUES (?, ?, 0, ?, ?, ?)
-			ON CONFLICT(agenda_event_id, recurrence_id) DO UPDATE SET overrides = excluded.overrides, updated_at = excluded.updated_at`,
+			ON DUPLICATE KEY UPDATE overrides = VALUES(overrides), updated_at = VALUES(updated_at)`,
 			id, *recurrenceID, string(encoded), now(), now())
 		return err
 	}
@@ -399,7 +399,7 @@ func (s *Store) MoveAgendaEvent(userID, id int64, startRaw, endRaw string, scope
 
 func (s *Store) AgendaEvent(id int64) (AgendaEvent, error) {
 	events, err := s.agendaEventsByQuery(`SELECT e.*, c.name AS calendar_name, c.color AS calendar_color,
-		TRIM(u.name || ' ' || COALESCE(u.surname, '')) AS organizer_name, u.email AS organizer_email
+		TRIM(CONCAT(u.name, ' ', COALESCE(u.surname, ''))) AS organizer_name, u.email AS organizer_email
 		FROM agenda_events e JOIN agenda_calendars c ON c.id = e.agenda_calendar_id
 		JOIN users u ON u.id = e.user_id WHERE e.id = ?`, id)
 	if err != nil {

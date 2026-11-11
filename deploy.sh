@@ -14,7 +14,7 @@
 set -Eeuo pipefail
 
 APP_NAME="${PM2_APP_NAME:-documentation-center}"
-APP_DIR="${APP_DIR:-/opt/documentation-center}"
+APP_DIR="${APP_DIR:-}"
 APP_USER="${APP_USER:-}"
 APP_PORT="${APP_PORT:-8080}"
 APP_BIND="${APP_BIND:-0.0.0.0}"
@@ -27,6 +27,9 @@ PUBLIC_URL_INPUT="${PUBLIC_URL:-}"
 ADMIN_EMAIL="${ADMIN_EMAIL:-admin@example.com}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-}"
 ADMIN_NAME="${ADMIN_NAME:-Administrador}"
+DB_NAME="${DB_NAME:-documentation_center_go}"
+DB_USER="${DB_USER:-documentation}"
+DB_PASSWORD="${DB_PASSWORD:-}"
 KEEP_ARTIFACT=0
 SKIP_HEALTH=0
 
@@ -49,6 +52,10 @@ Modo setup (uma vez, como root/sudo):
   --user USER               Usuário Linux que executará o PM2 (padrão: SUDO_USER)
   --port PORTA              Porta HTTP (padrão: 8080)
   --bind ENDEREÇO           Endereço de bind (padrão: 0.0.0.0)
+
+  Variáveis opcionais do MySQL: DB_NAME (documentation_center_go), DB_USER
+  (documentation), DB_PASSWORD (gerada) e MYSQL_ROOT_PASSWORD (quando o root
+  não usa autenticação por socket).
 
 Deploy de um artefato gerado pelo GitHub Actions:
   ./deploy.sh --artifact ARQUIVO.tar.gz --tag TAG [--port 8080]
@@ -88,6 +95,14 @@ done
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
+if [[ -z "$APP_DIR" ]]; then
+	if [[ -d "$SCRIPT_DIR/.git" || -f "$SCRIPT_DIR/ecosystem.config.cjs" ]]; then
+		APP_DIR="$SCRIPT_DIR"
+	else
+		APP_DIR="/opt/documentation-center"
+	fi
+fi
+
 if [[ -z "$APP_USER" ]]; then
 	APP_USER="${SUDO_USER:-$(id -un)}"
 fi
@@ -117,6 +132,81 @@ install_packages() {
 	else
 		warn "Gerenciador de pacotes não reconhecido; verifique curl, git, openssl, tar e sudo."
 	fi
+}
+
+install_mysql_server() {
+	if command -v mysql >/dev/null 2>&1 && { command -v mysqld >/dev/null 2>&1 || systemctl list-unit-files 2>/dev/null | grep -qE '^(mysql|mariadb)\.service'; }; then
+		log "MySQL já instalado."
+	else
+		log "Instalando MySQL..."
+		if command -v apt-get >/dev/null 2>&1; then
+			DEBIAN_FRONTEND=noninteractive apt-get install -y mysql-server || \
+				DEBIAN_FRONTEND=noninteractive apt-get install -y mariadb-server
+		elif command -v dnf >/dev/null 2>&1; then
+			dnf install -y mysql-server || dnf install -y mariadb-server
+		elif command -v yum >/dev/null 2>&1; then
+			yum install -y mysql-server || yum install -y mariadb-server
+		else
+			die "Instale o MySQL 8+ manualmente e execute novamente."
+		fi
+	fi
+	if systemctl list-unit-files 2>/dev/null | grep -q '^mysql.service'; then
+		systemctl enable --now mysql
+	elif systemctl list-unit-files 2>/dev/null | grep -q '^mariadb.service'; then
+		systemctl enable --now mariadb
+	fi
+	for _ in $(seq 1 30); do
+		if mysql_exec -e 'SELECT 1' >/dev/null 2>&1; then
+			break
+		fi
+		sleep 1
+	done
+}
+
+mysql_exec() {
+	if mysql --protocol=socket -uroot -e 'SELECT 1' >/dev/null 2>&1; then
+		mysql --protocol=socket -uroot "$@"
+	else
+		mysql -uroot -p"${MYSQL_ROOT_PASSWORD:-}" "$@"
+	fi
+}
+
+read_env_value() {
+	local key="$1"
+	[[ -f "$APP_DIR/shared/.env" ]] || return 0
+	grep -E "^${key}=" "$APP_DIR/shared/.env" | head -n1 | cut -d= -f2- || true
+}
+
+provision_mysql() {
+	log "Configurando banco MySQL..."
+	local existing_name existing_user existing_password
+	existing_name="$(read_env_value DB_NAME)"
+	existing_user="$(read_env_value DB_USER)"
+	existing_password="$(read_env_value DB_PASSWORD)"
+	if [[ -n "$existing_name" ]]; then DB_NAME="$existing_name"; fi
+	if [[ -n "$existing_user" ]]; then DB_USER="$existing_user"; fi
+	if [[ -z "$DB_NAME" ]]; then DB_NAME="documentation_center_go"; fi
+	if [[ -z "$DB_USER" ]]; then DB_USER="documentation"; fi
+	if [[ -z "$DB_PASSWORD" ]]; then DB_PASSWORD="$existing_password"; fi
+	if [[ -z "$DB_PASSWORD" ]]; then DB_PASSWORD="$(gen_password)"; fi
+
+	local password_sql="${DB_PASSWORD//\'/\'\'}"
+	local sql
+	sql=$(cat <<EOF
+CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '${password_sql}';
+CREATE USER IF NOT EXISTS '${DB_USER}'@'127.0.0.1' IDENTIFIED BY '${password_sql}';
+ALTER USER '${DB_USER}'@'localhost' IDENTIFIED BY '${password_sql}';
+ALTER USER '${DB_USER}'@'127.0.0.1' IDENTIFIED BY '${password_sql}';
+GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${DB_USER}'@'localhost';
+GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${DB_USER}'@'127.0.0.1';
+FLUSH PRIVILEGES;
+EOF
+)
+	if ! printf '%s\n' "$sql" | mysql_exec >/dev/null 2>&1; then
+		die "Não foi possível configurar o MySQL. Verifique se o root usa autenticação por socket ou defina MYSQL_ROOT_PASSWORD."
+	fi
+	log "Banco ${DB_NAME} e usuário ${DB_USER} prontos."
 }
 
 install_node_pm2() {
@@ -177,7 +267,7 @@ module.exports = {
       instances: 1,
       autorestart: true,
       restart_delay: 3000,
-      max_restarts: 10,
+      max_restarts: 100,
       max_memory_restart: '512M',
       kill_timeout: 5000,
       time: true,
@@ -197,7 +287,9 @@ EOF
 
 setup() {
 	[[ "$(id -u)" -eq 0 ]] || die "Execute o setup como root: sudo bash deploy.sh setup ..."
-	[[ "$APP_USER" != "root" ]] || die "Informe um usuário não-root com --user ou execute via sudo a partir dele."
+	if [[ "$APP_USER" == "root" ]]; then
+		warn "O PM2 será executado como root. Para maior isolamento, crie um usuário de deploy e use --user."
+	fi
 
 	if [[ -z "$PUBLIC_URL_INPUT" ]]; then
 		local ip
@@ -213,11 +305,14 @@ setup() {
 	esac
 
 	install_packages
+	install_mysql_server
 	install_node_pm2
 
 	log "Preparando ${APP_DIR}..."
 	mkdir -p "$APP_DIR/shared/data" "$APP_DIR/shared/logs" "$APP_DIR/releases"
 	chown -R "$APP_USER":"$APP_USER" "$APP_DIR"
+
+	provision_mysql
 
 	local env_created=0
 	if [[ ! -f "$APP_DIR/shared/.env" ]]; then
@@ -235,10 +330,15 @@ SECURE_COOKIES=${secure_cookies}
 APP_TIMEZONE=America/Sao_Paulo
 APP_KEY=${app_key}
 
-DATABASE_PATH=${APP_DIR}/shared/data/app.db
 UPLOAD_DIR=${APP_DIR}/shared/data/uploads
 UPLOAD_MAX_MB=40
 SESSION_TTL_HOURS=168
+
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_NAME=${DB_NAME}
+DB_USER=${DB_USER}
+DB_PASSWORD=${DB_PASSWORD}
 
 SEED_ADMIN_NAME=${ADMIN_NAME}
 SEED_ADMIN_EMAIL=${ADMIN_EMAIL}
@@ -256,6 +356,17 @@ EOF
 		log "Arquivo .env criado em $APP_DIR/shared/.env"
 	else
 		log "Mantendo .env existente em $APP_DIR/shared/.env"
+		if ! grep -q '^DB_HOST=' "$APP_DIR/shared/.env"; then
+			cat >> "$APP_DIR/shared/.env" <<EOF
+
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_NAME=${DB_NAME}
+DB_USER=${DB_USER}
+DB_PASSWORD=${DB_PASSWORD}
+EOF
+			log "Variáveis do MySQL adicionadas ao .env existente."
+		fi
 	fi
 
 	write_ecosystem "$APP_DIR/ecosystem.config.cjs"
@@ -289,10 +400,11 @@ Diretório: ${APP_DIR}
 Usuário do PM2: ${APP_USER}
 Porta: ${APP_PORT}
 URL pública: ${PUBLIC_URL_INPUT}
+Banco MySQL: ${DB_NAME} (usuário ${DB_USER})
 Env: ${APP_DIR}/shared/.env
-Banco: ${APP_DIR}/shared/data/app.db
 Uploads: ${APP_DIR}/shared/data/uploads
 Logs: ${APP_DIR}/shared/logs/
+Backup: mysqldump --single-transaction -u ${DB_USER} -p ${DB_NAME} > backup.sql
 
 Próximos passos:
 1. Configure os secrets do GitHub: VPS_HOST, VPS_USER (${APP_USER}), VPS_SSH_KEY
@@ -365,7 +477,9 @@ activate_release() {
 }
 
 wait_health() {
-	[[ "$SKIP_HEALTH" -eq 1 ]] && return 0
+	if [[ "$SKIP_HEALTH" -eq 1 ]]; then
+		return 0
+	fi
 	local url="http://127.0.0.1:${APP_PORT}${HEALTH_PATH}"
 	log "Aguardando health check em ${url}..."
 	for _ in $(seq 1 60); do

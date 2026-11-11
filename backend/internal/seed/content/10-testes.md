@@ -8,7 +8,7 @@ go test ./...
 go vet ./...
 ```
 
-Os testes usam um banco SQLite temporário e cobrem autenticação, usuários, wiki, widgets, notificações e uploads.
+Os testes usam um banco MySQL temporário por teste (criado e removido automaticamente) e cobrem autenticação, usuários, wiki, widgets, notificações e uploads.
 
 ## Frontend
 

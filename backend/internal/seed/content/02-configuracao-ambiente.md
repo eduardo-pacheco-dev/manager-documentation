@@ -4,7 +4,7 @@
 
 - Go 1.26 ou superior.
 - Node.js 20.19+ e npm.
-- Nenhum servidor de banco externo: o SQLite é criado automaticamente.
+- MySQL 8.0+ (ou MariaDB compatível) em execução. O banco é criado automaticamente se o usuário tiver permissão.
 
 ## Backend
 

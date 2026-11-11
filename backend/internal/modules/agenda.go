@@ -168,7 +168,7 @@ func (s *Store) AgendaCalendars(userID int64) ([]AgendaCalendar, error) {
 	err := s.DB.Select(&calendars, `
 		SELECT c.*,
 			(SELECT COUNT(*) FROM agenda_events e WHERE e.agenda_calendar_id = c.id) AS event_count,
-			TRIM(u.name || ' ' || COALESCE(u.surname, '')) AS owner_name
+			TRIM(CONCAT(u.name, ' ', COALESCE(u.surname, ''))) AS owner_name
 		FROM agenda_calendars c
 		JOIN users u ON u.id = c.user_id
 		WHERE c.user_id = ? OR c.id IN (SELECT agenda_calendar_id FROM agenda_calendar_shares WHERE user_id = ?)
@@ -180,7 +180,7 @@ func (s *Store) AgendaCalendars(userID int64) ([]AgendaCalendar, error) {
 		calendars[i].Role = s.agendaRole(userID, calendars[i])
 		calendars[i].Shares = []AgendaCalendarShare{}
 		_ = s.DB.Select(&calendars[i].Shares, `
-			SELECT s.*, u.email AS email, TRIM(u.name || ' ' || COALESCE(u.surname, '')) AS name
+			SELECT s.*, u.email AS email, TRIM(CONCAT(u.name, ' ', COALESCE(u.surname, ''))) AS name
 			FROM agenda_calendar_shares s JOIN users u ON u.id = s.user_id
 			WHERE s.agenda_calendar_id = ? ORDER BY u.name`, calendars[i].ID)
 	}
@@ -345,7 +345,7 @@ func (s *Store) ShareAgendaCalendar(userID, calendarID, targetUserID int64, role
 	}
 	_, err = s.DB.Exec(`INSERT INTO agenda_calendar_shares (agenda_calendar_id, user_id, role, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?)
-		ON CONFLICT(agenda_calendar_id, user_id) DO UPDATE SET role = excluded.role, updated_at = excluded.updated_at`,
+		ON DUPLICATE KEY UPDATE role = VALUES(role), updated_at = VALUES(updated_at)`,
 		calendarID, targetUserID, role, now(), now())
 	return err
 }
@@ -381,7 +381,7 @@ func (s *Store) AgendaEventsInRange(userID int64, calendarIDs []int64, from, to 
 		ids = append(ids, id)
 	}
 	query, args, err := sqlxIn(`SELECT e.*, c.name AS calendar_name, c.color AS calendar_color,
-		TRIM(u.name || ' ' || COALESCE(u.surname, '')) AS organizer_name, u.email AS organizer_email
+		TRIM(CONCAT(u.name, ' ', COALESCE(u.surname, ''))) AS organizer_name, u.email AS organizer_email
 		FROM agenda_events e
 		JOIN agenda_calendars c ON c.id = e.agenda_calendar_id
 		JOIN users u ON u.id = e.user_id

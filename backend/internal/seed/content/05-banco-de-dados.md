@@ -1,6 +1,6 @@
 # Banco de dados e migrações
 
-O banco padrão é SQLite, configurado por **DATABASE_PATH** (padrão **./data/app.db**).
+O banco padrão é **MySQL 8** (ou MariaDB compatível), configurado por **DB_HOST**, **DB_PORT**, **DB_NAME**, **DB_USER** e **DB_PASSWORD**. Também é possível usar **DB_DSN** com uma DSN completa.
 
 ## Tabelas
 
@@ -20,4 +20,8 @@ As migrações ficam em **internal/database/database.go** e são aplicadas em or
 
 ## Backup
 
-Com o servidor parado, copie **data/app.db**. Durante a execução, use a API de backup do SQLite ou faça uma cópia consistente com **VACUUM INTO**.
+Com o servidor em execução, use **mysqldump** para gerar um backup consistente:
+
+```bash
+mysqldump --single-transaction -u root -p documentation_center_go > backup.sql
+```

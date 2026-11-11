@@ -38,42 +38,49 @@ type testApp struct {
 func newTestApp(t *testing.T) *testApp {
 	t.Helper()
 	dir := t.TempDir()
-	db, err := database.Open(filepath.Join(dir, "test.db"))
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	cfg.Env = "test"
+	cfg.Addr = ":0"
+	cfg.DatabaseName = fmt.Sprintf("documentation_center_test_%d", time.Now().UnixNano())
+	cfg.UploadDir = filepath.Join(dir, "uploads")
+	cfg.StaticDir = filepath.Join(dir, "static")
+	cfg.PublicURL = "http://example.test"
+	cfg.AllowedOrigins = []string{"http://example.test"}
+	cfg.SessionTTL = time.Hour
+	cfg.UploadMaxMB = 20
+	cfg.AppKey = "test-key"
+	cfg.SeedAdminName = "Administrador"
+	cfg.SeedAdminEmail = "admin@test.local"
+	cfg.SeedAdminPass = "password"
+	cfg.SeedDemoData = true
+	cfg.Timezone = "UTC"
+
+	db, err := database.Open(cfg)
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
-	repo := store.New(db)
-	cfg := config.Config{
-		Env:            "test",
-		Addr:           ":0",
-		DatabasePath:   filepath.Join(dir, "test.db"),
-		UploadDir:      filepath.Join(dir, "uploads"),
-		StaticDir:      filepath.Join(dir, "static"),
-		PublicURL:      "http://example.test",
-		AllowedOrigins: []string{"http://example.test"},
-		SessionTTL:     time.Hour,
-		UploadMaxMB:    20,
-		AppKey:         "test-key",
-		SeedAdminName:  "Administrador",
-		SeedAdminEmail: "admin@test.local",
-		SeedAdminPass:  "password",
-		SeedDemoData:   true,
-		Timezone:       "UTC",
-	}
-	if err := seed.Run(repo, cfg); err != nil {
+	repository := store.New(db)
+	if err := seed.Run(repository, cfg); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 	cipher, err := crypto.New(cfg.AppKey)
 	if err != nil {
 		t.Fatalf("cipher: %v", err)
 	}
-	handler := httpapi.New(cfg, repo, cipher)
+	handler := httpapi.New(cfg, repository, cipher)
 	server := httptest.NewServer(handler.Router())
 	t.Cleanup(server.Close)
-	t.Cleanup(func() { _ = db.Close() })
-
+	t.Cleanup(func() {
+		_ = db.Close()
+		if err := database.DropDatabase(cfg, cfg.DatabaseName); err != nil {
+			t.Logf("drop test database: %v", err)
+		}
+	})
 	jar, _ := cookiejar.New(nil)
-	app := &testApp{t: t, server: server, client: &http.Client{Jar: jar}, store: repo}
+	app := &testApp{t: t, server: server, client: &http.Client{Jar: jar}, store: repository}
 	app.login("admin@test.local", "password")
 	return app
 }

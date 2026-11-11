@@ -264,15 +264,15 @@ func (s *Store) ListFollowUps(filter FollowUpFilter) ([]FollowUp, int, FollowUpS
 	order := "CASE WHEN f.due_date IS NULL THEN 1 ELSE 0 END, f.due_date"
 	switch filter.Sort {
 	case "title":
-		order = "f.title COLLATE NOCASE"
+		order = "f.title"
 	case "code":
-		order = "COALESCE(f.code, '') COLLATE NOCASE"
+		order = "COALESCE(f.code, '')"
 	case "status":
 		order = "CASE f.status WHEN 'pendente' THEN 0 WHEN 'em_andamento' THEN 1 WHEN 'concluido' THEN 2 ELSE 3 END"
 	case "priority":
 		order = "CASE f.priority WHEN 'baixa' THEN 0 WHEN 'media' THEN 1 WHEN 'alta' THEN 2 ELSE 3 END"
 	case "assignee":
-		order = "COALESCE(a.name, '') COLLATE NOCASE"
+		order = "COALESCE(a.name, '')"
 	case "completed_at":
 		order = "f.completed_at"
 	case "due_date":
@@ -283,7 +283,7 @@ func (s *Store) ListFollowUps(filter FollowUpFilter) ([]FollowUp, int, FollowUpS
 		direction = "DESC"
 	}
 	query := `SELECT f.*, c.name AS client_name, p.name AS project_name, a.name AS assignee_name,
-		a.email AS assignee_email, TRIM(u.name || ' ' || COALESCE(u.surname, '')) AS creator_name` +
+		a.email AS assignee_email, TRIM(CONCAT(u.name, ' ', COALESCE(u.surname, ''))) AS creator_name` +
 		base + ` ORDER BY ` + order + ` ` + direction + `, f.id ` + direction + ` LIMIT ? OFFSET ?`
 	items := []FollowUp{}
 	if err := s.DB.Select(&items, query, append(args, filter.PerPage, (filter.Page-1)*filter.PerPage)...); err != nil {
@@ -320,7 +320,7 @@ func (s *Store) FindFollowUp(id int64) (FollowUp, error) {
 	var item FollowUp
 	err := s.DB.Get(&item, `SELECT f.*, c.name AS client_name, p.name AS project_name,
 		a.name AS assignee_name, a.email AS assignee_email,
-		TRIM(u.name || ' ' || COALESCE(u.surname, '')) AS creator_name
+		TRIM(CONCAT(u.name, ' ', COALESCE(u.surname, ''))) AS creator_name
 		FROM follow_ups f
 		LEFT JOIN follow_up_clients c ON c.id = f.client_id
 		LEFT JOIN follow_up_projects p ON p.id = f.project_id
@@ -337,7 +337,7 @@ func (s *Store) FindFollowUp(id int64) (FollowUp, error) {
 	s.decorateFollowUps(items)
 	item = items[0]
 	item.Updates = []FollowUpUpdate{}
-	_ = s.DB.Select(&item.Updates, `SELECT u.*, TRIM(us.name || ' ' || COALESCE(us.surname, '')) AS author_name
+	_ = s.DB.Select(&item.Updates, `SELECT u.*, TRIM(CONCAT(us.name, ' ', COALESCE(us.surname, ''))) AS author_name
 		FROM follow_up_updates u LEFT JOIN users us ON us.id = u.user_id
 		WHERE u.follow_up_id = ? ORDER BY u.created_at DESC, u.id DESC`, id)
 	return item, nil
@@ -434,7 +434,7 @@ func (s *Store) AddFollowUpUpdate(followUpID, userID int64, body string) (Follow
 	}
 	id, _ := result.LastInsertId()
 	var update FollowUpUpdate
-	err = s.DB.Get(&update, `SELECT u.*, TRIM(us.name || ' ' || COALESCE(us.surname, '')) AS author_name
+	err = s.DB.Get(&update, `SELECT u.*, TRIM(CONCAT(us.name, ' ', COALESCE(us.surname, ''))) AS author_name
 		FROM follow_up_updates u LEFT JOIN users us ON us.id = u.user_id WHERE u.id = ?`, id)
 	return update, err
 }
@@ -460,7 +460,7 @@ func (s *Store) FollowUpOverdueWidget(userEmail string, limit int) (map[string]a
 	items := []FollowUp{}
 	err := s.DB.Select(&items, `SELECT f.*, c.name AS client_name, p.name AS project_name,
 		a.name AS assignee_name, a.email AS assignee_email,
-		TRIM(u.name || ' ' || COALESCE(u.surname, '')) AS creator_name
+		TRIM(CONCAT(u.name, ' ', COALESCE(u.surname, ''))) AS creator_name
 		FROM follow_ups f
 		LEFT JOIN follow_up_clients c ON c.id = f.client_id
 		LEFT JOIN follow_up_projects p ON p.id = f.project_id

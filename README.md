@@ -6,7 +6,7 @@ Reescrita do **Documentation Center** em **Go + React + IBM Carbon Design System
 
 | Camada | Tecnologia |
 | --- | --- |
-| Backend | Go 1.26+, chi, SQLite |
+| Backend | Go 1.26+, chi, MySQL |
 | Frontend | React 19, TypeScript, Vite |
 | Design system | IBM Carbon Design System (`@carbon/react`) |
 | Ícones | Carbon Icons React |
@@ -78,6 +78,18 @@ Todos os plugins (`Agenda`, `FollowUp`, `Nokia`, `Stations` e `Tasks`) foram por
 - Go 1.26+
 - Node.js 20.19+ (recomendado 22+ por causa do Carbon)
 - npm
+- MySQL 8.0+ (ou MariaDB compatível)
+
+### Banco de dados
+
+Crie o banco e o usuário (o usuário precisa de permissão de `CREATE DATABASE` na primeira execução, ou o banco pode ser criado manualmente):
+
+```sql
+CREATE DATABASE documentation_center_go
+  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+O padrão de desenvolvimento é `DB_USER=root` e `DB_PASSWORD=admin` em `127.0.0.1:3306`. Ajuste em `backend/.env` conforme seu ambiente.
 
 ### Backend
 
@@ -110,7 +122,7 @@ O Air recompila e reinicia o servidor automaticamente ao alterar arquivos em `ba
 
 O servidor inicia em `http://localhost:8080`. Na primeira execução:
 
-- cria o banco SQLite em `backend/data/app.db`;
+- conecta ao MySQL configurado e cria o banco `documentation_center_go` se necessário;
 - aplica as migrações;
 - cria o administrador definido por `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`;
 - cria o usuário demo `demo@example.com` / `password`;
@@ -155,7 +167,7 @@ cd ../backend
 STATIC_DIR=../frontend/dist go run ./cmd/server
 ```
 
-Ou use Docker:
+Ou use Docker (sobe a aplicação e o MySQL):
 
 ```bash
 docker compose up --build
@@ -177,7 +189,12 @@ Consulte [`backend/.env.example`](backend/.env.example). As principais:
 | Variável | Padrão | Descrição |
 | --- | --- | --- |
 | `ADDR` | `:8080` | Endereço HTTP |
-| `DATABASE_PATH` | `./data/app.db` | Banco SQLite |
+| `DB_HOST` | `127.0.0.1` | Host do MySQL |
+| `DB_PORT` | `3306` | Porta do MySQL |
+| `DB_NAME` | `documentation_center_go` | Nome do banco |
+| `DB_USER` | `root` | Usuário do MySQL |
+| `DB_PASSWORD` | `admin` | Senha do MySQL |
+| `DB_DSN` | vazio | DSN completa opcional (sobrepõe DB_*) |
 | `UPLOAD_DIR` | `./data/uploads` | Uploads locais |
 | `STATIC_DIR` | `../frontend/dist` | Build do frontend |
 | `PUBLIC_URL` | `http://localhost:8080` | URL pública usada em links |
@@ -235,7 +252,7 @@ npm run build
 Os testes do backend cobrem autenticação, CSRF, usuários, wiki, sanitização de Markdown, widgets, notificações, configurações, tokens de API e upload.
 
 O workflow [`ci.yml`](.github/workflows/ci.yml) executa automaticamente em pushes na `main` e pull requests:
-- backend: `go vet`, build, testes com race detector e cobertura;
+- backend: `go vet`, build, testes com race detector e cobertura em um serviço MySQL 8;
 - frontend: instalação, typecheck e build de produção;
 - bundle de produção: compila o binário Linux e valida o frontend compilado.
 
@@ -247,29 +264,44 @@ O deploy usa **PM2** para manter o binário Go em execução, com releases versi
 
 ### 1. Preparar a VPS (uma vez)
 
-Requisitos: Ubuntu/Debian ou Rocky/Alma Linux, acesso SSH e um usuário com `sudo` (não use root para o PM2). O setup instala Node.js 22, PM2, configura o início automático no boot, cria os diretórios, gera o `.env` e a senha inicial do administrador.
+Requisitos: Ubuntu/Debian ou Rocky/Alma Linux, acesso SSH e um usuário com `sudo`. O setup instala MySQL, Node.js 22 e PM2, configura o início automático no boot, cria os diretórios, provisiona o banco/usuário, gera o `.env` e a senha inicial do administrador.
+
+> Se o `deploy.sh` estiver dentro do repositório (com `.git`), o diretório da aplicação é o próprio repositório. Caso contrário, o padrão é `/opt/documentation-center`.
+
+No servidor atual (`root@russian`, repositório em `~/app/manager-documentation`):
 
 ```bash
-curl -fsSLO https://raw.githubusercontent.com/eduardo-pacheco-dev/manager-documentation/main/deploy.sh
-sudo bash deploy.sh setup \
+cd ~/app/manager-documentation
+bash deploy.sh setup \
   --url https://docs.exemplo.com \
   --admin-email admin@exemplo.com
 ```
 
-O comando imprime a senha inicial do administrador. Guarde-a. Estrutura criada:
+O setup detecta o diretório do repositório automaticamente. Como o usuário é `root`, o PM2 também rodará como root; para maior isolamento, crie um usuário de deploy e use `--user nome`. Configuração equivalente para o setup genérico:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/eduardo-pacheco-dev/manager-documentation/main/deploy.sh
+sudo bash deploy.sh setup \
+  --dir /opt/documentation-center \
+  --url https://docs.exemplo.com \
+  --admin-email admin@exemplo.com
+```
+
+O comando imprime a senha inicial do administrador. Guarde-a. O setup cria o banco e um usuário MySQL dedicado com senha aleatória (salva no `.env`). Se o root do MySQL não usar autenticação por socket, execute com `MYSQL_ROOT_PASSWORD=... sudo -E bash deploy.sh setup ...`. Estrutura criada:
 
 ```
-/opt/documentation-center/
+<APP_DIR>/
 ├── current -> releases/<tag>     # release ativa
 ├── releases/                     # releases (mantém as 5 últimas)
 ├── shared/.env                   # configuração persistente
-├── shared/data/app.db            # banco SQLite
 ├── shared/data/uploads/          # anexos e imagens
 ├── shared/logs/                  # logs do PM2
 └── ecosystem.config.cjs          # configuração do PM2
 ```
 
-O `APP_KEY` e o `.env` são gerados apenas no setup e preservados nos deploys seguintes. Faça backup de `shared/.env` e `shared/data/`.
+No servidor atual, `<APP_DIR>` é `/root/app/manager-documentation`. O `deploy.sh` mantém `releases/`, `shared/` e `current` dentro do repositório; esses caminhos estão no `.gitignore`.
+
+O `APP_KEY`, as credenciais do MySQL e o `.env` são gerados apenas no setup e preservados nos deploys seguintes. O banco fica no MySQL local da VPS (`DB_NAME`, `DB_USER` e `DB_PASSWORD` no `.env`).
 
 > Use um proxy reverso (Caddy ou Nginx) com HTTPS na frente da porta `8080`. O `PUBLIC_URL` deve ser a URL pública com `https://` para que os cookies seguros sejam ativados.
 
@@ -283,11 +315,11 @@ Em **Settings → Secrets and variables → Actions**:
 | Secret | `VPS_USER` | sim | Usuário do PM2 (o mesmo `SUDO_USER` do setup) |
 | Secret | `VPS_SSH_KEY` | sim | Chave privada SSH de deploy |
 | Variable | `VPS_PORT` | não | Porta SSH (padrão `22`) |
-| Variable | `VPS_APP_DIR` | não | Diretório da app (padrão `/opt/documentation-center`) |
+| Variable | `VPS_APP_DIR` | não | Diretório da app (padrão `~/app/manager-documentation`; no servidor atual `/root/app/manager-documentation`) |
 | Variable | `APP_PORT` | não | Porta HTTP (padrão `8080`) |
 | Variable | `APP_BIND` | não | Bind HTTP (padrão `0.0.0.0`) |
 
-A chave pública correspondente deve estar em `~/.ssh/authorized_keys` do usuário `VPS_USER`. O usuário precisa permissão para executar `pm2`.
+A chave pública correspondente deve estar em `~/.ssh/authorized_keys` do usuário `VPS_USER`. O usuário precisa permissão para executar `pm2`. No servidor atual: `VPS_USER=root` e o caminho padrão já resolve para `~/app/manager-documentation`.
 
 ### 3. Publicar
 
@@ -318,10 +350,19 @@ pm2 logs documentation-center
 
 O `deploy.sh` mantém as 5 releases mais recentes. O rollback troca o symlink `current`, recarrega o PM2 e valida o health check novamente.
 
+### 5. Backup do banco
+
+```bash
+mysqldump --single-transaction -u documentation -p documentation_center_go > backup-$(date +%F).sql
+```
+
+Guarde também `shared/.env` e `shared/data/uploads/`.
+
 
 ## Observações sobre a migração
 
-- O banco original era MySQL; esta versão usa SQLite por padrão para execução sem dependências externas. A camada de acesso fica isolada em `internal/store` e `internal/modules`.
+- O banco é **MySQL 8** (ou MariaDB compatível), com schema, índices e migrações em `internal/database`. A camada de acesso fica isolada em `internal/store` e `internal/modules`.
+- Bancos SQLite antigos não são importados automaticamente. Use as exportações dos módulos (XLSX/CSV) ou uma migração manual de dados ao trocar de banco.
 - Os cinco plugins originais (`Agenda`, `FollowUp`, `Nokia`, `Stations` e `Tasks`) foram convertidos em módulos nativos, com tabelas e APIs próprias.
 - A importação/exportação dos módulos usa CSV; o módulo Nokia também suporta planilhas XLSX, incluindo modelo, exportação completa e relatório de pendências.
 - O armazenamento configurável é compartilhado pelos uploads de imagens e anexos dos módulos.

@@ -11,7 +11,11 @@ cd ../backend && CGO_ENABLED=0 go build -o documentation-center ./cmd/server
 
 ```bash
 STATIC_DIR=../frontend/dist \
-DATABASE_PATH=/var/lib/documentation/app.db \
+DB_HOST=127.0.0.1 \
+DB_PORT=3306 \
+DB_NAME=documentation_center_go \
+DB_USER=documentation \
+DB_PASSWORD=troque-esta-senha \
 UPLOAD_DIR=/var/lib/documentation/uploads \
 PUBLIC_URL=https://docs.example.com \
 SECURE_COOKIES=true \
@@ -29,7 +33,12 @@ docker compose up --build
 | Variável | Descrição |
 | --- | --- |
 | ADDR | Endereço HTTP (padrão :8080). |
-| DATABASE_PATH | Caminho do banco SQLite. |
+| DB_HOST | Host do MySQL (padrão 127.0.0.1). |
+| DB_PORT | Porta do MySQL (padrão 3306). |
+| DB_NAME | Nome do banco (padrão documentation_center_go). |
+| DB_USER | Usuário do MySQL. |
+| DB_PASSWORD | Senha do MySQL. |
+| DB_DSN | DSN completa opcional, sobrepõe as variáveis DB_*. |
 | UPLOAD_DIR | Diretório de uploads locais. |
 | STATIC_DIR | Build do frontend servido pelo Go. |
 | PUBLIC_URL | URL pública usada em links de upload. |

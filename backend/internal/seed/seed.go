@@ -99,7 +99,7 @@ var starterDocs = []docMeta{
 	{"content/02-configuracao-ambiente.md", "Configuração do ambiente", "getting-started", "Requisitos, instalação e execução do backend e frontend em desenvolvimento."},
 	{"content/03-arquitetura.md", "Arquitetura da aplicação", "architecture", "Como backend e frontend se comunicam, camadas do servidor e fluxo de uma requisição."},
 	{"content/04-autenticacao.md", "Autenticação e autorização", "architecture", "Sessões de navegador, tokens de API, CSRF, contas inativas e permissões administrativas."},
-	{"content/05-banco-de-dados.md", "Banco de dados e migrações", "database", "Tabelas, campos JSON, migrações incrementais e backup do SQLite."},
+	{"content/05-banco-de-dados.md", "Banco de dados e migrações", "database", "Tabelas, migrações incrementais e backup do MySQL."},
 	{"content/06-api.md", "API de autenticação", "api", "Endpoints de cadastro, login, logout, usuário atual e upload de imagens."},
 	{"content/07-frontend.md", "Frontend e Carbon Design System", "frontend", "Organização da SPA, componentes Carbon, temas claro/escuro e responsividade."},
 	{"content/08-deploy.md", "Deploy", "deployment", "Build do frontend, execução do binário Go, Docker e variáveis de ambiente."},

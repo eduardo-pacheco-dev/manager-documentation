@@ -108,7 +108,7 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_PORT: ${{ vars.VPS_PORT || '22' }}
-          VPS_APP_DIR: ${{ vars.VPS_APP_DIR || '/opt/documentation-center' }}
+          VPS_APP_DIR: ${{ vars.VPS_APP_DIR || '' }}
           APP_PORT: ${{ vars.APP_PORT || '8080' }}
           APP_BIND: ${{ vars.APP_BIND || '0.0.0.0' }}
           SOURCE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
@@ -116,6 +116,8 @@ jobs:
           set -euo pipefail
           SSH_OPTS=(-i ~/.ssh/deploy_key -p "$VPS_PORT" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes)
           TAG="${SOURCE_SHA:0:12}"
+          REMOTE_HOME="$(ssh "${SSH_OPTS[@]}" "$VPS_USER@$VPS_HOST" 'printf %s "$HOME"')"
+          REMOTE_APP_DIR="${VPS_APP_DIR:-$REMOTE_HOME/app/manager-documentation}"
           RAW_ARCH="$(ssh "${SSH_OPTS[@]}" "$VPS_USER@$VPS_HOST" 'uname -m')"
           case "$RAW_ARCH" in
             x86_64|amd64) ARCH=amd64 ;;
@@ -125,14 +127,14 @@ jobs:
           ARTIFACT="release-artifacts/documentation-center-linux-${ARCH}.tar.gz"
           test -f "$ARTIFACT" || { echo "::error::Artefato não encontrado: $ARTIFACT"; exit 1; }
 
-          ssh "${SSH_OPTS[@]}" "$VPS_USER@$VPS_HOST" "mkdir -p '$VPS_APP_DIR/releases'"
+          ssh "${SSH_OPTS[@]}" "$VPS_USER@$VPS_HOST" "mkdir -p '$REMOTE_APP_DIR/releases'"
           scp -i ~/.ssh/deploy_key -P "$VPS_PORT" -o IdentitiesOnly=yes \
-            deploy.sh "$VPS_USER@$VPS_HOST:$VPS_APP_DIR/deploy.sh.upload"
+            deploy.sh "$VPS_USER@$VPS_HOST:$REMOTE_APP_DIR/deploy.sh.upload"
           scp -i ~/.ssh/deploy_key -P "$VPS_PORT" -o IdentitiesOnly=yes \
             "$ARTIFACT" "$VPS_USER@$VPS_HOST:/tmp/documentation-center-${TAG}.tar.gz"
 
           ssh "${SSH_OPTS[@]}" "$VPS_USER@$VPS_HOST" \
-            "chmod +x '$VPS_APP_DIR/deploy.sh.upload' && mv -f '$VPS_APP_DIR/deploy.sh.upload' '$VPS_APP_DIR/deploy.sh' && \
-             cd '$VPS_APP_DIR' && \
-             APP_DIR='$VPS_APP_DIR' APP_USER='$VPS_USER' APP_PORT='$APP_PORT' APP_BIND='$APP_BIND' PM2_APP_NAME='documentation-center' \
+            "chmod +x '$REMOTE_APP_DIR/deploy.sh.upload' && mv -f '$REMOTE_APP_DIR/deploy.sh.upload' '$REMOTE_APP_DIR/deploy.sh' && \
+             cd '$REMOTE_APP_DIR' && \
+             APP_DIR='$REMOTE_APP_DIR' APP_USER='$VPS_USER' APP_PORT='$APP_PORT' APP_BIND='$APP_BIND' PM2_APP_NAME='documentation-center' \
              ./deploy.sh --artifact '/tmp/documentation-center-${TAG}.tar.gz' --tag '$TAG' --port '$APP_PORT'"

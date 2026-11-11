@@ -25,8 +25,10 @@ COPY --from=backend /out/server /app/server
 COPY --from=frontend /app/frontend/dist /app/static
 ENV ADDR=:8080 \
     STATIC_DIR=/app/static \
-    DATABASE_PATH=/data/app.db \
     UPLOAD_DIR=/data/uploads \
+    DB_HOST=mysql \
+    DB_PORT=3306 \
+    DB_NAME=documentation_center \
     APP_ENV=production \
     SECURE_COOKIES=true
 VOLUME ["/data"]

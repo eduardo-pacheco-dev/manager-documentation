@@ -26,7 +26,7 @@ func main() {
 		log.Fatalf("config: %v", err)
 	}
 
-	db, err := database.Open(cfg.DatabasePath)
+	db, err := database.Open(cfg)
 	if err != nil {
 		log.Fatalf("database: %v", err)
 	}

@@ -144,7 +144,7 @@ func (s *Store) CreateNotification(notification *models.Notification) error {
 // the same notification for the same entity and period.
 func (s *Store) CreateNotificationOnce(notification *models.Notification) (bool, error) {
 	result, err := s.DB.Exec(`
-		INSERT OR IGNORE INTO notifications (id, user_id, title, body, url, level, dedupe_key, read_at, created_at)
+		INSERT IGNORE INTO notifications (id, user_id, title, body, url, level, dedupe_key, read_at, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		notification.ID, notification.UserID, notification.Title, notification.Body,
 		notification.URL, notification.Level, notification.DedupeKey, notification.ReadAt, notification.CreatedAt)
@@ -228,7 +228,7 @@ func (s *Store) NotificationOwnedBy(userID int64, id string) (bool, error) {
 
 func (s *Store) GetSetting(key string) (string, error) {
 	var value sql.NullString
-	err := s.DB.Get(&value, `SELECT value FROM settings WHERE key = ?`, key)
+	err := s.DB.Get(&value, "SELECT value FROM settings WHERE `key` = ?", key)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", ErrNotFound
 	}
@@ -240,8 +240,8 @@ func (s *Store) GetSetting(key string) (string, error) {
 
 func (s *Store) SetSetting(key, value string) error {
 	_, err := s.DB.Exec(`
-		INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)
-		ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+		INSERT INTO settings (`+"`key`"+`, value, updated_at) VALUES (?, ?, ?)
+		ON DUPLICATE KEY UPDATE value = VALUES(value), updated_at = VALUES(updated_at)`,
 		key, value, time.Now().UTC())
 	return err
 }

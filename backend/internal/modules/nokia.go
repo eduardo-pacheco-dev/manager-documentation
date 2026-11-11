@@ -187,7 +187,7 @@ func (s *Store) ListNokiaSites(filter NokiaSiteFilter) ([]NokiaSite, int, NokiaS
 	if err := s.DB.Get(&total, `SELECT COUNT(*) FROM nokia_sites s WHERE `+where, args...); err != nil {
 		return nil, 0, NokiaStats{}, 0, err
 	}
-	query := `SELECT s.*, TRIM(r.first_name || ' ' || r.last_name) AS rom_name
+	query := `SELECT s.*, TRIM(CONCAT(r.first_name, ' ', r.last_name)) AS rom_name
 		FROM nokia_sites s LEFT JOIN nokia_roms r ON r.id = s.nokia_rom_id
 		WHERE ` + where + ` ORDER BY s.updated_at DESC, s.id DESC LIMIT ? OFFSET ?`
 	sites := []NokiaSite{}
@@ -238,7 +238,7 @@ func (s *Store) attachNokiaTasks(sites []NokiaSite) error {
 
 func (s *Store) FindNokiaSite(id int64) (NokiaSite, error) {
 	var site NokiaSite
-	err := s.DB.Get(&site, `SELECT s.*, TRIM(r.first_name || ' ' || r.last_name) AS rom_name
+	err := s.DB.Get(&site, `SELECT s.*, TRIM(CONCAT(r.first_name, ' ', r.last_name)) AS rom_name
 		FROM nokia_sites s LEFT JOIN nokia_roms r ON r.id = s.nokia_rom_id WHERE s.id = ?`, id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return site, ErrNotFound
@@ -255,7 +255,7 @@ func (s *Store) FindNokiaSite(id int64) (NokiaSite, error) {
 	if err := s.DB.Select(&site.Attachments, `SELECT * FROM nokia_site_attachments WHERE nokia_site_id = ? ORDER BY created_at DESC`, id); err != nil {
 		return site, err
 	}
-	if err := s.DB.Select(&site.Comments, `SELECT c.*, TRIM(u.name || ' ' || COALESCE(u.surname, '')) AS author_name
+	if err := s.DB.Select(&site.Comments, `SELECT c.*, TRIM(CONCAT(u.name, ' ', COALESCE(u.surname, ''))) AS author_name
 		FROM nokia_site_comments c LEFT JOIN users u ON u.id = c.user_id WHERE c.nokia_site_id = ? ORDER BY c.created_at DESC`, id); err != nil {
 		return site, err
 	}

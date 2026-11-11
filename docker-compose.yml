@@ -1,9 +1,31 @@
 services:
+  mysql:
+    image: mysql:8.0
+    container_name: documentation-mysql
+    restart: unless-stopped
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: admin
+      MYSQL_DATABASE: documentation_center
+      MYSQL_USER: documentation
+      MYSQL_PASSWORD: documentation
+    volumes:
+      - documentation-mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -padmin --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
   documentation-center:
     build: .
     image: documentation-center:latest
     container_name: documentation-center
     restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
     ports:
       - "8080:8080"
     environment:
@@ -11,6 +33,11 @@ services:
       PUBLIC_URL: http://localhost:8080
       SECURE_COOKIES: "false"
       APP_KEY: change-this-key-in-production
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_NAME: documentation_center
+      DB_USER: documentation
+      DB_PASSWORD: documentation
       SEED_ADMIN_NAME: Administrador
       SEED_ADMIN_EMAIL: admin@example.com
       SEED_ADMIN_PASSWORD: change-this-password
@@ -21,3 +48,4 @@ services:
 
 volumes:
   documentation-data:
+  documentation-mysql:

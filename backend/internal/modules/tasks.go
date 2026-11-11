@@ -201,7 +201,7 @@ func (s *Store) TodoTasks(userID int64, filter TaskFilter) ([]TodoTask, error) {
 	case "important":
 		order = "t.is_important DESC, t.position ASC, t.id ASC"
 	case "title":
-		order = "t.title COLLATE NOCASE ASC, t.id ASC"
+		order = "t.title ASC, t.id ASC"
 	case "created":
 		order = "t.created_at DESC, t.id DESC"
 	}
