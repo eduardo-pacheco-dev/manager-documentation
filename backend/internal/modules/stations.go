@@ -336,6 +336,38 @@ func (s *Store) DeleteStationComment(stationID, commentID int64) error {
 	return err
 }
 
+type StationSiteOption struct {
+	SiteID     string  `db:"site_id" json:"site_id"`
+	EnderecoID *string `db:"endereco_id" json:"endereco_id"`
+	Regional   *string `db:"regional" json:"regional"`
+	Municipio  *string `db:"municipio" json:"municipio"`
+	Estado     *string `db:"estado" json:"estado"`
+}
+
+// StationSiteOptions returns distinct sites registered in the Stations module.
+// When excludeLinked is true, sites already linked to a Nokia project are omitted.
+func (s *Store) StationSiteOptions(search string, excludeLinked bool) ([]StationSiteOption, error) {
+	conditions := []string{"site_id <> ''"}
+	args := []any{}
+	if search = strings.TrimSpace(search); search != "" {
+		conditions = append(conditions, "site_id LIKE ?")
+		args = append(args, "%"+search+"%")
+	}
+	if excludeLinked {
+		conditions = append(conditions, "nokia_site_id IS NULL")
+	}
+	query := `SELECT site_id,
+		MIN(NULLIF(endereco_id, '')) AS endereco_id,
+		MIN(NULLIF(regional, '')) AS regional,
+		MIN(NULLIF(municipio, '')) AS municipio,
+		MIN(NULLIF(estado, '')) AS estado
+		FROM stations WHERE ` + strings.Join(conditions, " AND ") + `
+		GROUP BY site_id ORDER BY site_id COLLATE NOCASE ASC LIMIT 1000`
+	options := []StationSiteOption{}
+	err := s.DB.Select(&options, query, args...)
+	return options, err
+}
+
 func (s *Store) StationSites(search string, limit int) ([]map[string]any, int, error) {
 	args := []any{}
 	where := ""

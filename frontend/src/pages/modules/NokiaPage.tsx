@@ -4,6 +4,7 @@ import { Add, ArrowDown, ArrowUp, Download, Edit, Settings, TrashCan, Upload, Wa
 import {
   Button,
   Checkbox,
+  ComboBox,
   InlineLoading,
   Modal,
   Search,
@@ -22,6 +23,13 @@ import { api } from '../../lib/api';
 import { errorMessage, relativeTime } from '../../lib/format';
 
 interface ROM { id: number; first_name: string; last_name: string; email: string; phone: string }
+interface StationSiteOption {
+  site_id: string;
+  endereco_id: string | null;
+  regional: string | null;
+  municipio: string | null;
+  estado: string | null;
+}
 interface Task { id: number; name: string; position: number; completed_at: string | null }
 interface Rejection { id: number; checklist_field: string; reason: string; return_days: number; started_at: string; resolved_at: string | null; requires_field_return: boolean }
 interface Comment { id: number; body: string; user_id: number | null; author_name: string | null; created_at: string }
@@ -94,6 +102,7 @@ export function NokiaPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [roms, setRoms] = useState<ROM[]>([]);
+  const [stationSites, setStationSites] = useState<StationSiteOption[]>([]);
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<Site | null>(null);
   const [detail, setDetail] = useState<Site | null>(null);
@@ -126,7 +135,10 @@ export function NokiaPage() {
   }, [search, toast]);
 
   useEffect(() => { void load(); }, [load]);
-  useEffect(() => { api.get<{ data: ROM[] }>('/nokia/roms').then((response) => setRoms(response.data)).catch(() => undefined); }, []);
+  useEffect(() => {
+    api.get<{ data: ROM[] }>('/nokia/roms').then((response) => setRoms(response.data)).catch(() => undefined);
+    api.get<{ data: StationSiteOption[] }>('/nokia/station-sites').then((response) => setStationSites(response.data)).catch(() => undefined);
+  }, []);
 
   function openCreate() {
     setEditing(null);
@@ -335,8 +347,47 @@ export function NokiaPage() {
       <Modal open={modal} modalHeading={editing ? 'Editar site' : 'Novo site'} primaryButtonText={saving ? 'Salvando…' : 'Salvar'} secondaryButtonText="Cancelar" primaryButtonDisabled={saving} onRequestSubmit={() => void save()} onRequestClose={() => setModal(false)} size="md">
         <div className="modal-form">
           <div className="form-row">
-            <TextInput id="nk-site" labelText="Site ID *" value={form.site_id} onChange={(event) => setForm({ ...form, site_id: event.target.value })} required />
-            <TextInput id="nk-end" labelText="End ID" value={form.end_id} onChange={(event) => setForm({ ...form, end_id: event.target.value })} />
+            {editing ? (
+              <>
+                <TextInput id="nk-site" labelText="Site ID *" value={form.site_id} onChange={(event) => setForm({ ...form, site_id: event.target.value })} required />
+                <TextInput id="nk-end" labelText="End ID" value={form.end_id} onChange={(event) => setForm({ ...form, end_id: event.target.value })} />
+              </>
+            ) : (
+              <div className="nokia-site-combobox">
+                <ComboBox
+                  id="nk-site"
+                  titleText="Site ID *"
+                  placeholder="Busque um site nas Estações ou digite um novo"
+                  items={stationSites}
+                  itemToString={(item) => item?.site_id ?? ''}
+                  selectedItem={stationSites.find((item) => item.site_id === form.site_id) ?? null}
+                  allowCustomValue
+                  onInputChange={(value) => {
+                    setForm((current) => {
+                      const existing = stationSites.some((item) => item.site_id === value);
+                      return existing
+                        ? { ...current, site_id: value }
+                        : { ...current, site_id: value, end_id: '', regional: '' };
+                    });
+                  }}
+                  onChange={({ selectedItem, inputValue }) => {
+                    if (selectedItem) {
+                      setForm((current) => ({
+                        ...current,
+                        site_id: selectedItem.site_id,
+                        end_id: selectedItem.endereco_id ?? '',
+                        regional: selectedItem.regional ?? current.regional,
+                      }));
+                    } else if (inputValue) {
+                      setForm((current) => ({ ...current, site_id: inputValue }));
+                    }
+                  }}
+                />
+                <p className="field-help">
+                  Selecione um site já cadastrado em Estações ou digite um novo Site ID para cadastrá-lo automaticamente.
+                </p>
+              </div>
+            )}
           </div>
           <div className="form-row">
             <TextInput id="nk-oc" labelText="OC" value={form.oc} onChange={(event) => setForm({ ...form, oc: event.target.value })} />

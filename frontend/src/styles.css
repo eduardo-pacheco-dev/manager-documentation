@@ -2510,6 +2510,18 @@ p {
   min-width: 18rem;
 }
 
+.nokia-site-combobox {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  width: 100%;
+  grid-column: 1 / -1;
+}
+
+.nokia-site-combobox .cds--combo-box {
+  width: 100%;
+}
+
 .nokia-attachment-group {
   margin-top: 0.75rem;
 }

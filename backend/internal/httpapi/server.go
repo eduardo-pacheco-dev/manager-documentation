@@ -178,6 +178,7 @@ func (s *Server) Router() http.Handler {
 			auth.Route("/nokia", func(nokia chi.Router) {
 				nokia.Get("/sites", s.nokiaIndex)
 				nokia.Get("/roms", s.nokiaROMList)
+				nokia.Get("/station-sites", s.nokiaStationSites)
 				nokia.Post("/sites", s.nokiaCreate)
 				nokia.Get("/sites/export", s.nokiaExport)
 				nokia.Get("/sites/export/pending", s.nokiaPendingExport)

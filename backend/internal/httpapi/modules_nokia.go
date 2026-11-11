@@ -350,6 +350,16 @@ func (s *Server) nokiaROMList(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"data": roms})
 }
 
+func (s *Server) nokiaStationSites(w http.ResponseWriter, r *http.Request) {
+	includeLinked := r.URL.Query().Get("include_linked") == "1"
+	options, err := s.Modules.StationSiteOptions(r.URL.Query().Get("search"), !includeLinked)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Não foi possível carregar os sites das estações.", nil)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": options})
+}
+
 func (s *Server) nokiaSettings(w http.ResponseWriter, r *http.Request) {
 	roms, _ := s.Modules.NokiaROMs()
 	tasks, _ := s.Modules.NokiaTasks()

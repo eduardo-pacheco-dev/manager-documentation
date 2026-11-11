@@ -455,6 +455,10 @@ func TestNativeModules(t *testing.T) {
 	if res.StatusCode != http.StatusCreated {
 		t.Fatalf("create nokia site status = %d payload=%v", res.StatusCode, payload)
 	}
+	res, optionPayload := app.request(http.MethodGet, "/api/v1/nokia/station-sites", nil, "", nil)
+	if res.StatusCode != http.StatusOK || len(optionPayload["data"].([]any)) == 0 {
+		t.Fatalf("station site options missing: %d %v", res.StatusCode, optionPayload)
+	}
 	siteID := int64(payload["data"].(map[string]any)["site"].(map[string]any)["id"].(float64))
 	res, payload = app.request(http.MethodGet, "/api/v1/stations?search=NKTESTE01", nil, "", nil)
 	if res.StatusCode != http.StatusOK || int(payload["meta"].(map[string]any)["total"].(float64)) != 1 {
