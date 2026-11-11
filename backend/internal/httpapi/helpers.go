@@ -135,6 +135,7 @@ type moduleView struct {
 	Toggleable     bool   `json:"toggleable"`
 	AdminOnly      bool   `json:"admin_only"`
 	Primary        bool   `json:"primary"`
+	SystemLink     bool   `json:"system_link"`
 	Enabled        bool   `json:"enabled"`
 }
 
@@ -156,6 +157,7 @@ func modulesForUser(user models.User) ([]moduleView, []moduleView) {
 			Toggleable:     module.Toggleable,
 			AdminOnly:      module.AdminOnly,
 			Primary:        module.Primary,
+			SystemLink:     module.SystemLink,
 			Enabled:        enabledSet[module.Key],
 		})
 	}

@@ -16,6 +16,7 @@ type Module struct {
 	AdminOnly      bool   `json:"admin_only"`
 	Primary        bool   `json:"primary"`
 	Toggleable     bool   `json:"toggleable"`
+	SystemLink     bool   `json:"system_link"`
 	DefaultSection string `json:"default_section"`
 }
 
@@ -36,8 +37,9 @@ var CoreModules = []Module{
 		Icon:           "users",
 		Path:           "/users",
 		AdminOnly:      true,
-		Toggleable:     true,
-		DefaultSection: SectionModules,
+		Toggleable:     false,
+		SystemLink:     true,
+		DefaultSection: SectionSidebar,
 	},
 	{
 		Key:            "dev-docs",
@@ -45,8 +47,9 @@ var CoreModules = []Module{
 		Icon:           "document",
 		Path:           "/dev-docs",
 		AdminOnly:      true,
-		Toggleable:     true,
-		DefaultSection: SectionModules,
+		Toggleable:     false,
+		SystemLink:     true,
+		DefaultSection: SectionSidebar,
 	},
 	{
 		Key:            "agenda",
@@ -105,7 +108,7 @@ func EnabledModules(user User) []Module {
 	available := AvailableModules(user)
 	enabled := make([]Module, 0, len(available))
 	for _, module := range available {
-		if module.Key == "dashboard" {
+		if module.Key == "dashboard" || module.SystemLink {
 			enabled = append(enabled, module)
 			continue
 		}

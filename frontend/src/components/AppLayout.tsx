@@ -104,8 +104,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   if (!user) return null;
 
-  const sidebarModules = modules.filter((module) => module.section === 'sidebar');
-  const groupedModules = modules.filter((module) => module.section === 'modules');
+  const sidebarModules = modules.filter((module) => !module.system_link && module.section === 'sidebar');
+  const groupedModules = modules.filter((module) => !module.system_link && module.section === 'modules');
+  const systemLinks = modules.filter((module) => module.system_link);
   const themeIcon = preference === 'dark' ? Asleep : Light;
   const ThemeIcon = themeIcon;
 
@@ -229,6 +230,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           >
             Configurações
           </SideNavLink>
+          {systemLinks.map((module) => (
+            <NavItem
+              key={module.key}
+              module={module}
+              active={location.pathname === module.path || location.pathname.startsWith(`${module.path}/`)}
+            />
+          ))}
           <SideNavLink
             as={NavLink}
             to="/profile"

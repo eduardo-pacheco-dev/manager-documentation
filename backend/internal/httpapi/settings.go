@@ -15,6 +15,8 @@ import (
 func (s *Server) showSettings(w http.ResponseWriter, r *http.Request) {
 	user := currentUser(r)
 	allModules, enabledModules := modulesForUser(user)
+	allModules = settingsModules(allModules)
+	enabledModules = settingsModules(enabledModules)
 
 	timezone := s.Config.Timezone
 	if stored, err := s.Store.GetSetting("timezone"); err == nil && stored != "" {
@@ -154,6 +156,8 @@ func (s *Server) updateModules(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	all, enabled := modulesForUser(user)
+	all = settingsModules(all)
+	enabled = settingsModules(enabled)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"message": "Módulos atualizados com sucesso.",
 		"data":    map[string]any{"modules": all, "enabled_modules": enabled},
@@ -445,6 +449,17 @@ func derefString(value *string) string {
 func validHTTPURL(value string) bool {
 	parsed, err := url.Parse(strings.TrimSpace(value))
 	return err == nil && (parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.Host != ""
+}
+
+func settingsModules(modules []moduleView) []moduleView {
+	result := make([]moduleView, 0, len(modules))
+	for _, module := range modules {
+		if module.SystemLink {
+			continue
+		}
+		result = append(result, module)
+	}
+	return result
 }
 
 func timezones() []string {

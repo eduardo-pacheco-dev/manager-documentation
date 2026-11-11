@@ -22,6 +22,7 @@ export interface Module {
   toggleable: boolean;
   admin_only: boolean;
   primary: boolean;
+  system_link?: boolean;
   enabled: boolean;
 }
 

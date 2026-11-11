@@ -492,10 +492,10 @@ func TestSettingsAndStorage(t *testing.T) {
 	}
 
 	res, _ = app.request(http.MethodPut, "/api/v1/settings/modules", map[string]any{
-		"modules": []string{"users"},
-		"order":   []string{"dashboard", "users", "dev-docs"},
+		"modules": []string{"agenda"},
+		"order":   []string{"dashboard", "agenda", "users", "dev-docs"},
 		"sections": map[string]string{
-			"dashboard": "sidebar", "users": "sidebar", "dev-docs": "modules",
+			"dashboard": "sidebar", "agenda": "sidebar", "users": "sidebar", "dev-docs": "sidebar",
 		},
 	}, app.csrf, nil)
 	if res.StatusCode != http.StatusOK {
