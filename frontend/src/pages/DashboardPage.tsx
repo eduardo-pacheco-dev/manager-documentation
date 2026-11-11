@@ -104,9 +104,107 @@ function WidgetBody({ widget, onOpen }: { widget: DashboardWidget; onOpen: () =>
       return <UserCountWidget widget={widget} onOpen={onOpen} />;
     case 'core.users.recent':
       return <RecentUsersWidget widget={widget} onOpen={onOpen} />;
+    case 'stations.sites':
+      return <StationsWidget widget={widget} />;
+    case 'follow-up.overdue':
+      return <FollowUpsWidget widget={widget} />;
+    case 'follow-up.charts':
+      return <FollowUpsChartWidget widget={widget} />;
+    case 'nokia.charts':
+      return <NokiaWidget widget={widget} />;
+    case 'example.status':
+      return (
+        <div className="widget-generic">
+          <h3>{widget.title}</h3>
+          <p>{String((widget.data as Record<string, unknown> | undefined)?.message ?? 'Módulo ativo.')}</p>
+        </div>
+      );
     default:
       return <Tile className="widget-generic">{widget.description}</Tile>;
   }
+}
+
+function StationsWidget({ widget }: { widget: DashboardWidget }) {
+  const sites = ((widget.data as Record<string, unknown> | undefined)?.sites as Array<Record<string, unknown>> | undefined) ?? [];
+  return (
+    <div className="widget-recent">
+      <div className="widget-recent__header">
+        <div><h3>{widget.title}</h3><p>{widget.description}</p></div>
+        <Tag type="blue" size="sm">{String((widget.data as Record<string, unknown> | undefined)?.total ?? 0)} sites</Tag>
+      </div>
+      {sites.length === 0 ? <p className="muted">Nenhuma estação cadastrada.</p> : sites.map((site) => (
+        <div key={String(site.site_id)} className="widget-list-row">
+          <strong>{String(site.site_id)}</strong>
+          <span>{String(site.municipio ?? 'Município não informado')}{site.estado ? `/${String(site.estado)}` : ''}</span>
+          <Tag type="gray" size="sm">{String(site.stations_count)} estação(ões)</Tag>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const FOLLOWUP_STATUS_LABELS: Record<string, string> = { pendente: 'Pendente', em_andamento: 'Em andamento', concluido: 'Concluído', cancelado: 'Cancelado' };
+const FOLLOWUP_PRIORITY_LABELS: Record<string, string> = { baixa: 'Baixa', media: 'Média', alta: 'Alta', urgente: 'Urgente' };
+
+function FollowUpsWidget({ widget }: { widget: DashboardWidget }) {
+  const data = (widget.data as Record<string, unknown> | undefined) ?? {};
+  const items = (data.items as Array<Record<string, unknown>> | undefined) ?? [];
+  const overdue = Number(data.overdue_count ?? 0);
+  return (
+    <div className="widget-recent">
+      <div className="widget-recent__header">
+        <div><h3>Meus follow-ups</h3><p>{String(data.open_count ?? 0)} em aberto</p></div>
+        <Tag type={overdue > 0 ? 'red' : 'green'} size="sm">{overdue > 0 ? `${overdue} atrasado(s)` : 'Em dia'}</Tag>
+      </div>
+      {items.length === 0 ? <p className="muted">Nenhum follow-up atribuído a você.</p> : items.map((item) => (
+        <div key={String(item.id)} className="widget-list-row">
+          <strong>{String(item.title)}</strong>
+          <span>{String(item.assignee_name ?? 'Não atribuído')} · {String(item.due_date ?? 'sem prazo')}</span>
+          <Tag type={item.priority === 'urgente' ? 'red' : item.priority === 'alta' ? 'magenta' : 'gray'} size="sm">{FOLLOWUP_PRIORITY_LABELS[String(item.priority)] ?? String(item.priority)}</Tag>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function FollowUpsChartWidget({ widget }: { widget: DashboardWidget }) {
+  const data = (widget.data as Record<string, unknown> | undefined) ?? {};
+  const statuses = (data.statuses as Array<Record<string, unknown>> | undefined) ?? [];
+  return (
+    <div className="widget-recent">
+      <div className="widget-recent__header"><div><h3>Painel de follow-ups</h3><p>{widget.description}</p></div></div>
+      <div className="mini-stats">
+        <div><strong>{String(data.total ?? 0)}</strong><span>Total</span></div>
+        <div><strong>{String(data.open ?? 0)}</strong><span>Em aberto</span></div>
+        <div><strong>{String(data.overdue ?? 0)}</strong><span>Atrasados</span></div>
+        <div><strong>{String(data.completed ?? 0)}</strong><span>Concluídos</span></div>
+      </div>
+      <div className="bar-list">
+        {statuses.map((status) => (
+          <div key={String(status.status)} className="bar-row">
+            <span>{FOLLOWUP_STATUS_LABELS[String(status.status)] ?? String(status.status)}</span>
+            <div><i style={{ width: `${Math.min(100, Number(status.count ?? 0) * 10)}%` }} /></div>
+            <strong>{String(status.count)}</strong>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function NokiaWidget({ widget }: { widget: DashboardWidget }) {
+  const data = (widget.data as Record<string, unknown> | undefined) ?? {};
+  return (
+    <div className="widget-recent">
+      <div className="widget-recent__header"><div><h3>Projetos Nokia</h3><p>{widget.description}</p></div></div>
+      <div className="mini-stats">
+        <div><strong>{String(data.total ?? 0)}</strong><span>Sites</span></div>
+        <div><strong>{String(data.accepted ?? 0)}</strong><span>Aceitos</span></div>
+        <div><strong>{String(data.rejected ?? 0)}</strong><span>Rejeitados</span></div>
+        <div><strong>{String(data.pending ?? 0)}</strong><span>Pendências</span></div>
+      </div>
+    </div>
+  );
 }
 
 export function DashboardPage() {

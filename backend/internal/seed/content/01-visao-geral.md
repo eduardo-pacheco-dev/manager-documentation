@@ -12,6 +12,20 @@ O **Documentation Center** é uma central administrativa e wiki técnica constru
 - Notificações internas e por e-mail.
 - API v1 documentada com OpenAPI.
 
+## Módulos nativos
+
+Os antigos plugins foram convertidos em módulos nativos:
+
+| Módulo | Recursos |
+| --- | --- |
+| Agenda | Calendários, eventos, participantes, recorrência, lembretes e ICS |
+| Tarefas | Listas, tarefas, etapas, Meu Dia, importância e recorrência |
+| Follow-ups | Status, prioridade, prazos, responsáveis, histórico e resumo |
+| Estações | Inventário, busca, anexos, comentários e importação CSV |
+| Projetos Nokia | Sites, checklist FAM, tarefas, datas, rejeições e interrupções |
+| Exemplo | Página e widget demonstrativos do módulo convertido |
+
+
 ## Stack
 
 | Camada | Tecnologia |

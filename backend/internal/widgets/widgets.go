@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/eduardo-pacheco-dev/manager-documentation/backend/internal/models"
+	"github.com/eduardo-pacheco-dev/manager-documentation/backend/internal/modules"
 	"github.com/eduardo-pacheco-dev/manager-documentation/backend/internal/store"
 )
 
@@ -55,11 +56,51 @@ var registry = []Widget{
 		DefaultSpan: 3,
 		AdminOnly:   true,
 	},
+	{
+		ID:          "stations.sites",
+		Title:       "Sites",
+		Description: "Estações agrupadas por site.",
+		Icon:        "signal",
+		Order:       35,
+		DefaultSpan: 2,
+	},
+	{
+		ID:          "follow-up.overdue",
+		Title:       "Meus follow-ups",
+		Description: "Follow-ups atribuídos a você.",
+		Icon:        "clipboard",
+		Order:       45,
+		DefaultSpan: 2,
+	},
+	{
+		ID:          "follow-up.charts",
+		Title:       "Painel de follow-ups",
+		Description: "Distribuição por status, prioridade e totais.",
+		Icon:        "chart",
+		Order:       46,
+		DefaultSpan: 3,
+	},
+	{
+		ID:          "nokia.charts",
+		Title:       "Projetos Nokia",
+		Description: "Aceite, status das FAMs e pendências dos sites.",
+		Icon:        "signal",
+		Order:       50,
+		DefaultSpan: 3,
+	},
+	{
+		ID:          "example.status",
+		Title:       "Widget de exemplo",
+		Description: "Status do módulo Example convertido.",
+		Icon:        "cube",
+		Order:       55,
+		DefaultSpan: 1,
+	},
 }
 
 // Available returns widgets visible to the user, sorted by registry order and
 // hydrated with their data.
-func Available(s *store.Store, user models.User) ([]Widget, error) {
+func Available(s *store.Store, m *modules.Store, user models.User) ([]Widget, error) {
 	result := make([]Widget, 0, len(registry))
 	for _, widget := range registry {
 		if widget.AdminOnly && !user.IsAdmin {
@@ -89,6 +130,33 @@ func Available(s *store.Store, user models.User) ([]Widget, error) {
 				})
 			}
 			widget.Data = RecentUsersData{Users: recent}
+		case "stations.sites":
+			sites, total, err := m.StationSites("", 6)
+			if err != nil {
+				return nil, err
+			}
+			widget.Data = map[string]any{"sites": sites, "total": total}
+		case "follow-up.overdue":
+			settings, _ := m.FollowUpSettings()
+			data, err := m.FollowUpOverdueWidget(user.Email, settings.WidgetLimit)
+			if err != nil {
+				return nil, err
+			}
+			widget.Data = data
+		case "follow-up.charts":
+			data, err := m.FollowUpChartsWidget()
+			if err != nil {
+				return nil, err
+			}
+			widget.Data = data
+		case "nokia.charts":
+			data, err := m.NokiaMetrics()
+			if err != nil {
+				return nil, err
+			}
+			widget.Data = data
+		case "example.status":
+			widget.Data = map[string]any{"message": "Módulo Example ativo.", "version": "1.0.0"}
 		}
 		result = append(result, widget)
 	}

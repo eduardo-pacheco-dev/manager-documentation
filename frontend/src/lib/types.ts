@@ -53,6 +53,7 @@ export interface DashboardWidget {
   data?: {
     total?: number;
     users?: RecentUser[];
+    [key: string]: unknown;
   };
 }
 

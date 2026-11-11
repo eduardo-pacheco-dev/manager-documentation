@@ -213,3 +213,19 @@ func modelsStringList(values []string) models.NullableStringList {
 func modelsIntMap(values map[string]int) models.NullableIntMap {
 	return models.NewIntMap(values)
 }
+
+func parseDateTime(value string) (time.Time, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return time.Time{}, fmt.Errorf("empty datetime")
+	}
+	if parsed, err := time.Parse(time.RFC3339, value); err == nil {
+		return parsed, nil
+	}
+	for _, layout := range []string{"2006-01-02T15:04", "2006-01-02 15:04:05", "2006-01-02 15:04", "2006-01-02"} {
+		if parsed, err := time.ParseInLocation(layout, value, time.Local); err == nil {
+			return parsed, nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("invalid datetime %q", value)
+}

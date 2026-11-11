@@ -2,14 +2,20 @@ import { useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   Asleep,
+  Calendar,
+  ChartBar,
+  Checkmark,
   Close,
+  Cube,
   Document,
   Home,
   Light,
+  List,
   Logout,
   Menu,
   Notification,
   Settings,
+  SignalStrength,
   UserMultiple,
   UserProfile,
 } from '@carbon/icons-react';
@@ -40,6 +46,17 @@ function iconFor(key: string) {
       return UserMultiple;
     case 'dev-docs':
       return Document;
+    case 'agenda':
+      return Calendar;
+    case 'tasks':
+      return Checkmark;
+    case 'follow-ups':
+      return List;
+    case 'stations':
+    case 'nokia':
+      return SignalStrength;
+    case 'example':
+      return Cube;
     default:
       return Home;
   }

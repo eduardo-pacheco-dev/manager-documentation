@@ -15,6 +15,7 @@ import (
 	"github.com/eduardo-pacheco-dev/manager-documentation/backend/internal/crypto"
 	"github.com/eduardo-pacheco-dev/manager-documentation/backend/internal/database"
 	"github.com/eduardo-pacheco-dev/manager-documentation/backend/internal/httpapi"
+	"github.com/eduardo-pacheco-dev/manager-documentation/backend/internal/modules"
 	"github.com/eduardo-pacheco-dev/manager-documentation/backend/internal/seed"
 	"github.com/eduardo-pacheco-dev/manager-documentation/backend/internal/store"
 )
@@ -56,6 +57,13 @@ func main() {
 
 	if err := seed.Run(repository, cfg); err != nil {
 		log.Fatalf("seed: %v", err)
+	}
+	if cfg.SeedDemoData {
+		if admin, findErr := repository.FindUserByEmail(cfg.SeedAdminEmail); findErr == nil {
+			if moduleErr := seed.ModuleData(modules.New(db), admin); moduleErr != nil {
+				log.Printf("seed modules: %v", moduleErr)
+			}
+		}
 	}
 
 	cipher, err := crypto.New(cfg.AppKey)

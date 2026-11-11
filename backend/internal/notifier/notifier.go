@@ -30,6 +30,25 @@ var validLevels = map[string]bool{
 	"info": true, "success": true, "warning": true, "danger": true,
 }
 
+// Send delivers a plain-text email using the configured SMTP server. It is a
+// no-op when SMTP is not configured.
+func (n *Notifier) Send(to, subject, body string) error {
+	if n.config.SMTPHost == "" || strings.TrimSpace(to) == "" {
+		return nil
+	}
+	message := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n%s\r\n",
+		n.config.SMTPFrom, to, subject, body)
+	address := net.JoinHostPort(n.config.SMTPHost, fmt.Sprintf("%d", n.config.SMTPPort))
+	var auth smtp.Auth
+	if n.config.SMTPUser != "" {
+		auth = smtp.PlainAuth("", n.config.SMTPUser, n.config.SMTPPassword, n.config.SMTPHost)
+	}
+	if n.config.SMTPPort == 465 {
+		return sendTLS(address, n.config.SMTPHost, auth, n.config.SMTPFrom, to, []byte(message))
+	}
+	return smtp.SendMail(address, auth, n.config.SMTPFrom, []string{to}, []byte(message))
+}
+
 // Notify stores an in-app notification and sends an e-mail when the account
 // opted in and SMTP is configured.
 func (n *Notifier) Notify(user models.User, title, body, link, level string) error {

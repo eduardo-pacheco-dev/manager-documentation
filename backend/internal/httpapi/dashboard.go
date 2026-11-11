@@ -11,7 +11,7 @@ import (
 
 func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
 	user := currentUser(r)
-	available, err := widgets.Available(s.Store, user)
+	available, err := widgets.Available(s.Store, s.Modules, user)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Não foi possível carregar o dashboard.", nil)
 		return
@@ -55,7 +55,7 @@ func (s *Server) updateWidgetVisibility(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	user := currentUser(r)
-	available, err := widgets.Available(s.Store, user)
+	available, err := widgets.Available(s.Store, s.Modules, user)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Não foi possível carregar os widgets.", nil)
 		return
@@ -100,7 +100,7 @@ func (s *Server) updateWidgetOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := currentUser(r)
-	available, err := widgets.Available(s.Store, user)
+	available, err := widgets.Available(s.Store, s.Modules, user)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Não foi possível carregar os widgets.", nil)
 		return
@@ -129,7 +129,7 @@ func (s *Server) updateWidgetLayout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := currentUser(r)
-	available, err := widgets.Available(s.Store, user)
+	available, err := widgets.Available(s.Store, s.Modules, user)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Não foi possível carregar os widgets.", nil)
 		return

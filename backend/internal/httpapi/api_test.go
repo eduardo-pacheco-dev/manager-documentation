@@ -138,8 +138,8 @@ func TestAuthenticationAndCSRF(t *testing.T) {
 	if data["user"].(map[string]any)["email"] != "admin@test.local" {
 		t.Fatalf("unexpected user payload: %v", data["user"])
 	}
-	if len(data["modules"].([]any)) != 3 {
-		t.Fatalf("expected 3 modules, got %v", data["modules"])
+	if len(data["modules"].([]any)) != 9 {
+		t.Fatalf("expected 9 modules, got %v", data["modules"])
 	}
 
 	res, _ = app.request(http.MethodPost, "/api/v1/users", map[string]any{
@@ -389,6 +389,86 @@ func TestInactiveUserCannotLogin(t *testing.T) {
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("inactive login status = %d", resp.StatusCode)
+	}
+}
+
+func TestNativeModules(t *testing.T) {
+	app := newTestApp(t)
+
+	res, payload := app.request(http.MethodGet, "/api/v1/tasks", nil, "", nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("tasks index status = %d", res.StatusCode)
+	}
+	res, payload = app.request(http.MethodPost, "/api/v1/tasks/lists", map[string]any{
+		"name": "Trabalho", "color": "blue", "icon": "check-circle",
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("create list status = %d payload=%v", res.StatusCode, payload)
+	}
+	listID := int64(payload["data"].(map[string]any)["list"].(map[string]any)["id"].(float64))
+	res, payload = app.request(http.MethodPost, "/api/v1/tasks", map[string]any{
+		"title": "Tarefa teste", "todo_list_id": listID, "is_important": true,
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("create task status = %d payload=%v", res.StatusCode, payload)
+	}
+
+	res, payload = app.request(http.MethodGet, "/api/v1/agenda", nil, "", nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("agenda status = %d", res.StatusCode)
+	}
+	calendars := payload["data"].(map[string]any)["calendars"].([]any)
+	res, payload = app.request(http.MethodPost, "/api/v1/agenda/events", map[string]any{
+		"calendar_id": calendars[0].(map[string]any)["id"], "title": "Evento teste",
+		"start_at": "2026-11-12T09:00", "end_at": "2026-11-12T10:00",
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("create event status = %d payload=%v", res.StatusCode, payload)
+	}
+	res, payload = app.request(http.MethodGet, "/api/v1/agenda", nil, "", nil)
+	if res.StatusCode != http.StatusOK || len(payload["data"].(map[string]any)["occurrences"].([]any)) == 0 {
+		t.Fatalf("agenda occurrence missing: %v", payload)
+	}
+
+	res, payload = app.request(http.MethodPost, "/api/v1/follow-ups", map[string]any{
+		"title": "Follow-up teste", "status": "pendente", "priority": "alta",
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("create follow-up status = %d payload=%v", res.StatusCode, payload)
+	}
+	res, payload = app.request(http.MethodGet, "/api/v1/follow-ups", nil, "", nil)
+	if res.StatusCode != http.StatusOK || int(payload["meta"].(map[string]any)["total"].(float64)) != 1 {
+		t.Fatalf("follow-ups list failed: %d %v", res.StatusCode, payload)
+	}
+
+	res, payload = app.request(http.MethodPost, "/api/v1/stations", map[string]any{
+		"site_id": "SPTESTE001", "municipio": "São Paulo", "estado": "SP",
+		"latitude": "-23.5", "longitude": "-46.6",
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("create station status = %d payload=%v", res.StatusCode, payload)
+	}
+
+	res, payload = app.request(http.MethodPost, "/api/v1/nokia/sites", map[string]any{
+		"site_id": "NKTESTE01", "oc": "OC-TESTE-01", "regional": "TSP",
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("create nokia site status = %d payload=%v", res.StatusCode, payload)
+	}
+	siteID := int64(payload["data"].(map[string]any)["site"].(map[string]any)["id"].(float64))
+	res, _ = app.request(http.MethodPut, fmt.Sprintf("/api/v1/nokia/sites/%d/checklist/checklist_fam_entrega", siteID), map[string]any{"status": "analysis"}, app.csrf, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("checklist status = %d", res.StatusCode)
+	}
+
+	res, payload = app.request(http.MethodGet, "/api/v1/example", nil, "", nil)
+	if res.StatusCode != http.StatusOK || payload["data"].(map[string]any)["title"] == nil {
+		t.Fatalf("example status = %d", res.StatusCode)
+	}
+
+	res, payload = app.request(http.MethodGet, "/api/v1/dashboard", nil, "", nil)
+	if res.StatusCode != http.StatusOK || len(payload["data"].(map[string]any)["widgets"].([]any)) < 7 {
+		t.Fatalf("module widgets missing: %v", payload)
 	}
 }
 

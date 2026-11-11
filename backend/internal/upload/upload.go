@@ -25,6 +25,14 @@ import (
 )
 
 var ErrInvalidImage = errors.New("invalid image")
+var ErrInvalidFile = errors.New("invalid file")
+
+var allowedDocumentTypes = map[string]bool{
+	".pdf": true, ".doc": true, ".docx": true, ".xls": true, ".xlsx": true,
+	".ppt": true, ".pptx": true, ".zip": true, ".rar": true, ".txt": true,
+	".csv": true, ".png": true, ".jpg": true, ".jpeg": true, ".webp": true,
+	".kml": true, ".kmz": true, ".dwg": true, ".dxf": true, ".ics": true,
+}
 
 type Service struct {
 	store  *store.Store
@@ -89,6 +97,39 @@ func (s *Service) Save(ctx context.Context, file multipart.File, header *multipa
 		return s.saveLocal(key, file)
 	}
 	return s.uploadToS3(ctx, key, contentType, file)
+}
+
+func (s *Service) SaveDocument(ctx context.Context, file multipart.File, header *multipart.FileHeader, prefix string) (Result, error) {
+	extension := strings.ToLower(filepath.Ext(header.Filename))
+	if !allowedDocumentTypes[extension] {
+		return Result{}, ErrInvalidFile
+	}
+	contentType := header.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+	now := time.Now()
+	key := fmt.Sprintf("%s/%d/%02d/%s%s", strings.Trim(prefix, "/"), now.Year(), int(now.Month()), uuid.NewString(), extension)
+	settings, err := s.store.GetStorageSettings()
+	if err != nil {
+		return Result{}, err
+	}
+	provider := settings.Provider
+	if !settings.Configured(provider) {
+		provider = "local"
+	}
+	if provider == "local" {
+		return s.saveLocal(key, file)
+	}
+	return s.uploadToS3(ctx, key, contentType, file)
+}
+
+func (s *Service) DeleteLocal(key string) {
+	if key == "" {
+		return
+	}
+	relative := strings.TrimPrefix(key, "uploads/")
+	_ = os.Remove(filepath.Join(s.config.UploadDir, filepath.FromSlash(relative)))
 }
 
 func (s *Service) saveLocal(key string, file multipart.File) (Result, error) {

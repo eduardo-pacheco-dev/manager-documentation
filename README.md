@@ -1,6 +1,6 @@
 # Documentation Center
 
-Reescrita do **Documentation Center** em **Go + React + IBM Carbon Design System**, sem o sistema de plugins. O projeto mantém os recursos administrativos e a wiki técnica do sistema original, com interface responsiva e suporte a dispositivos móveis.
+Reescrita do **Documentation Center** em **Go + React + IBM Carbon Design System**. O projeto mantém os recursos administrativos e a wiki técnica do sistema original e converte todos os plugins em **módulos nativos**, com interface responsiva e suporte a dispositivos móveis.
 
 ## Stack
 
@@ -26,10 +26,16 @@ Reescrita do **Documentation Center** em **Go + React + IBM Carbon Design System
 - **Configurações**: tema sistema/claro/escuro, módulos habilitados, ordem e seção de navegação, notificações por e-mail, fuso horário (admin), armazenamento (admin), alteração de senha e exclusão da conta.
 - **Notificações**: central com níveis, contador de não lidas, marcar como lida, marcar todas, remover e limpar.
 - **Perfil**: dados básicos, papel e data de entrada.
+- **Agenda**: calendários próprios e compartilhados, eventos, participantes, recorrências, lembretes, visão mensal/lista e importação/exportação ICS.
+- **Tarefas**: listas, tarefas, etapas, Meu Dia, importantes, planejado, recorrência, movimentação e exportação CSV.
+- **Follow-ups**: status, prioridade, prazos, responsáveis, clientes/projetos, histórico, configurações, importação/exportação e widget.
+- **Estações**: inventário de 23 campos, busca/filtros, anexos, comentários, importação/exportação CSV e widget de sites.
+- **Projetos Nokia**: sites, ROMs, tarefas, checklist de FAMs, datas, interrupções, rejeições, anexos, comentários e widget.
+- **Exemplo**: demonstração do antigo plugin convertido em módulo.
 - **Responsividade**: sidebar em gaveta no mobile, grids adaptáveis, tabelas com rolagem e ações empilhadas.
 - **Administração inicial**: seed idempotente com administrador e wiki de exemplo.
 
-O sistema de plugins, manifests, comandos de plugin, widgets de plugin, armazenamento exclusivo de plugin e seção de plugins foram removidos. A configuração de armazenamento foi mantida e agora se aplica aos uploads de imagens da aplicação.
+Todos os plugins (`Agenda`, `FollowUp`, `Nokia`, `Stations`, `Tasks` e `Example`) foram portados como módulos nativos. O sistema de instalação dinâmica de plugins não existe mais; os módulos fazem parte do binário e podem ser habilitados, ordenados e movidos entre sidebar e menu Módulos nas configurações.
 
 ## Estrutura
 
@@ -44,6 +50,7 @@ O sistema de plugins, manifests, comandos de plugin, widgets de plugin, armazena
 │   │   ├── httpapi/           # rotas, handlers e OpenAPI
 │   │   ├── markdown/          # renderização segura
 │   │   ├── models/            # entidades e catálogo
+│   │   ├── modules/           # agenda, tarefas, follow-ups, estações e Nokia
 │   │   ├── notifier/          # notificações + SMTP
 │   │   ├── seed/              # admin, usuários e wiki inicial
 │   │   ├── store/             # consultas SQL
@@ -194,7 +201,8 @@ Os testes do backend cobrem autenticação, CSRF, usuários, wiki, sanitização
 
 ## Observações sobre a migração
 
-- O banco original era MySQL; esta versão usa SQLite por padrão para execução sem dependências externas. A camada de acesso fica isolada em `internal/store`.
-- O sistema de plugins não foi portado.
-- A configuração de armazenamento de plugins foi convertida em configuração de uploads (local, AWS S3 e Cloudflare R2).
+- O banco original era MySQL; esta versão usa SQLite por padrão para execução sem dependências externas. A camada de acesso fica isolada em `internal/store` e `internal/modules`.
+- Os seis plugins originais (`Agenda`, `FollowUp`, `Nokia`, `Stations`, `Tasks` e `Example`) foram convertidos em módulos nativos, com tabelas e APIs próprias.
+- O armazenamento configurável é compartilhado pelos uploads de imagens e anexos dos módulos.
 - A documentação inicial foi reescrita para refletir o novo stack.
+- A importação/exportação dos módulos usa CSV; o sistema original usava XLSX em alguns fluxos.

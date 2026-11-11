@@ -15,6 +15,7 @@ import (
 
 	"github.com/eduardo-pacheco-dev/manager-documentation/backend/internal/config"
 	"github.com/eduardo-pacheco-dev/manager-documentation/backend/internal/crypto"
+	"github.com/eduardo-pacheco-dev/manager-documentation/backend/internal/modules"
 	"github.com/eduardo-pacheco-dev/manager-documentation/backend/internal/notifier"
 	"github.com/eduardo-pacheco-dev/manager-documentation/backend/internal/store"
 	"github.com/eduardo-pacheco-dev/manager-documentation/backend/internal/upload"
@@ -23,6 +24,7 @@ import (
 type Server struct {
 	Config   config.Config
 	Store    *store.Store
+	Modules  *modules.Store
 	Cipher   *crypto.Cipher
 	Notifier *notifier.Notifier
 	Uploads  *upload.Service
@@ -33,6 +35,7 @@ func New(cfg config.Config, s *store.Store, cipher *crypto.Cipher) *Server {
 	return &Server{
 		Config:   cfg,
 		Store:    s,
+		Modules:  modules.New(s.DB),
 		Cipher:   cipher,
 		Notifier: notifier.New(s, cfg),
 		Uploads:  upload.New(s, cfg, cipher),
@@ -90,6 +93,124 @@ func (s *Server) Router() http.Handler {
 			auth.Put("/dashboard/widgets/order", s.updateWidgetOrder)
 			auth.Put("/dashboard/widgets/{id}", s.updateWidgetVisibility)
 			auth.Put("/dashboard/widgets/{id}/layout", s.updateWidgetLayout)
+
+			auth.Route("/agenda", func(agenda chi.Router) {
+				agenda.Get("/", s.agendaIndex)
+				agenda.Get("/events/{id}", s.agendaShowEvent)
+				agenda.Post("/events", s.agendaCreateEvent)
+				agenda.Put("/events/{id}", s.agendaUpdateEvent)
+				agenda.Delete("/events/{id}", s.agendaDeleteEvent)
+				agenda.Post("/events/{id}/duplicate", s.agendaDuplicateEvent)
+				agenda.Patch("/events/{id}/respond", s.agendaRespondEvent)
+				agenda.Patch("/events/{id}/move", s.agendaMoveEvent)
+				agenda.Post("/calendars", s.agendaCreateCalendar)
+				agenda.Put("/calendars/{id}", s.agendaUpdateCalendar)
+				agenda.Delete("/calendars/{id}", s.agendaDeleteCalendar)
+				agenda.Patch("/calendars/{id}/visibility", s.agendaCalendarVisibility)
+				agenda.Patch("/calendars/{id}/default", s.agendaCalendarDefault)
+				agenda.Post("/calendars/{id}/shares", s.agendaShareCalendar)
+				agenda.Delete("/calendars/{id}/shares/{shareId}", s.agendaUnshareCalendar)
+				agenda.Get("/ics", s.agendaExportICS)
+				agenda.Post("/ics/import", s.agendaImportICS)
+			})
+
+			auth.Route("/tasks", func(tasks chi.Router) {
+				tasks.Get("/", s.tasksIndex)
+				tasks.Post("/", s.tasksCreate)
+				tasks.Get("/export", s.tasksExport)
+				tasks.Get("/{id}", s.tasksShow)
+				tasks.Put("/{id}", s.tasksUpdate)
+				tasks.Delete("/{id}", s.tasksDelete)
+				tasks.Patch("/{id}/toggle", s.tasksToggle)
+				tasks.Patch("/{id}/important", s.tasksToggleImportant)
+				tasks.Patch("/{id}/my-day", s.tasksToggleMyDay)
+				tasks.Patch("/{id}/move", s.tasksMove)
+				tasks.Post("/{id}/steps", s.tasksCreateStep)
+				tasks.Put("/{id}/steps/{stepId}", s.tasksUpdateStep)
+				tasks.Delete("/{id}/steps/{stepId}", s.tasksDeleteStep)
+				tasks.Post("/lists", s.tasksCreateList)
+				tasks.Put("/lists/{id}", s.tasksUpdateList)
+				tasks.Delete("/lists/{id}", s.tasksDeleteList)
+			})
+
+			auth.Route("/follow-ups", func(follow chi.Router) {
+				follow.Get("/", s.followUpsIndex)
+				follow.Get("/export", s.followUpsExport)
+				follow.Post("/import", s.followUpsImport)
+				follow.Post("/email", s.followUpsEmailTable)
+				follow.Get("/{id}", s.followUpsShow)
+				follow.Post("/", s.followUpsCreate)
+				follow.Put("/{id}", s.followUpsUpdate)
+				follow.Delete("/{id}", s.followUpsDelete)
+				follow.Post("/{id}/updates", s.followUpsAddUpdate)
+				follow.Delete("/{id}/updates/{updateId}", s.followUpsDeleteUpdate)
+				follow.Post("/{id}/email", s.followUpsEmailOne)
+				follow.Group(func(admin chi.Router) {
+					admin.Use(s.requireAdmin)
+					admin.Put("/settings", s.followUpsUpdateSettings)
+					admin.Post("/settings/assignees", s.followUpsCreateAssignee)
+					admin.Delete("/settings/assignees/{id}", s.followUpsDeleteAssignee)
+					admin.Post("/settings/clients", s.followUpsCreateClient)
+					admin.Put("/settings/clients/{id}", s.followUpsUpdateClient)
+					admin.Delete("/settings/clients/{id}", s.followUpsDeleteClient)
+					admin.Post("/settings/projects", s.followUpsCreateProject)
+					admin.Put("/settings/projects/{id}", s.followUpsUpdateProject)
+					admin.Delete("/settings/projects/{id}", s.followUpsDeleteProject)
+				})
+			})
+
+			auth.Route("/stations", func(stations chi.Router) {
+				stations.Get("/", s.stationsIndex)
+				stations.Post("/", s.stationsCreate)
+				stations.Get("/export", s.stationsExport)
+				stations.Get("/template", s.stationsTemplate)
+				stations.Post("/import", s.stationsImport)
+				stations.Get("/{id}", s.stationsShow)
+				stations.Put("/{id}", s.stationsUpdate)
+				stations.Delete("/{id}", s.stationsDelete)
+				stations.Post("/{id}/attachments", s.stationsUploadAttachment)
+				stations.Get("/{id}/attachments/{attachmentId}", s.stationsDownloadAttachment)
+				stations.Delete("/{id}/attachments/{attachmentId}", s.stationsDeleteAttachment)
+				stations.Post("/{id}/comments", s.stationsCreateComment)
+				stations.Delete("/{id}/comments/{commentId}", s.stationsDeleteComment)
+			})
+
+			auth.Route("/nokia", func(nokia chi.Router) {
+				nokia.Get("/sites", s.nokiaIndex)
+				nokia.Get("/roms", s.nokiaROMList)
+				nokia.Post("/sites", s.nokiaCreate)
+				nokia.Get("/sites/export", s.nokiaExport)
+				nokia.Get("/sites/template", s.nokiaTemplate)
+				nokia.Post("/sites/import", s.nokiaImport)
+				nokia.Get("/sites/{id}", s.nokiaShow)
+				nokia.Put("/sites/{id}", s.nokiaUpdate)
+				nokia.Delete("/sites/{id}", s.nokiaDelete)
+				nokia.Put("/sites/{id}/checklist/{field}", s.nokiaUpdateChecklist)
+				nokia.Put("/sites/{id}/dates", s.nokiaUpdateDates)
+				nokia.Put("/sites/{id}/interruption", s.nokiaUpdateInterruption)
+				nokia.Delete("/sites/{id}/interruption", s.nokiaClearInterruption)
+				nokia.Post("/sites/{id}/tasks/{taskId}", s.nokiaToggleTask)
+				nokia.Post("/sites/{id}/rejections", s.nokiaCreateRejection)
+				nokia.Patch("/sites/{id}/rejections/{rejectionId}", s.nokiaResolveRejection)
+				nokia.Post("/sites/{id}/attachments", s.nokiaUploadAttachment)
+				nokia.Get("/sites/{id}/attachments/{attachmentId}", s.nokiaDownloadAttachment)
+				nokia.Delete("/sites/{id}/attachments/{attachmentId}", s.nokiaDeleteAttachment)
+				nokia.Post("/sites/{id}/comments", s.nokiaCreateComment)
+				nokia.Delete("/sites/{id}/comments/{commentId}", s.nokiaDeleteComment)
+				nokia.Group(func(admin chi.Router) {
+					admin.Use(s.requireAdmin)
+					admin.Get("/settings", s.nokiaSettings)
+					admin.Post("/settings/roms", s.nokiaCreateROM)
+					admin.Put("/settings/roms/{id}", s.nokiaUpdateROM)
+					admin.Delete("/settings/roms/{id}", s.nokiaDeleteROM)
+					admin.Post("/settings/tasks", s.nokiaCreateTask)
+					admin.Put("/settings/tasks/{id}", s.nokiaUpdateTask)
+					admin.Patch("/settings/tasks/{id}/move", s.nokiaMoveTask)
+					admin.Delete("/settings/tasks/{id}", s.nokiaDeleteTask)
+				})
+			})
+
+			auth.Get("/example", s.exampleIndex)
 
 			auth.Group(func(admin chi.Router) {
 				admin.Use(s.requireAdmin)
