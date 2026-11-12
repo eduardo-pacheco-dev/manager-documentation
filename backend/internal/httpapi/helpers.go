@@ -81,30 +81,46 @@ func parseID(r *http.Request, name string) (int64, bool) {
 	return id, err == nil && id > 0
 }
 
-func setSessionCookie(w http.ResponseWriter, cfg config.Config, token string, ttl time.Duration) {
+func setSessionCookie(w http.ResponseWriter, cfg config.Config, r *http.Request, token string, ttl time.Duration) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     sessionCookie,
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   cfg.SecureCookies,
+		Secure:   secureCookie(cfg, r),
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   int(ttl.Seconds()),
 		Expires:  time.Now().Add(ttl),
 	})
 }
 
-func clearSessionCookie(w http.ResponseWriter, cfg config.Config) {
+func clearSessionCookie(w http.ResponseWriter, cfg config.Config, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     sessionCookie,
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   cfg.SecureCookies,
+		Secure:   secureCookie(cfg, r),
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   -1,
 		Expires:  time.Unix(0, 0),
 	})
+}
+
+// secureCookie keeps cookies protected whenever the request is actually served
+// over HTTPS. When TLS terminates in a reverse proxy, X-Forwarded-Proto carries
+// the original scheme. This prevents a production deployment configured with
+// SECURE_COOKIES=true from losing the session when accessed over plain HTTP
+// (for example while HTTPS is not yet configured on the proxy).
+func secureCookie(cfg config.Config, r *http.Request) bool {
+	if !cfg.SecureCookies {
+		return false
+	}
+	if r.TLS != nil {
+		return true
+	}
+	proto := strings.TrimSpace(strings.Split(r.Header.Get("X-Forwarded-Proto"), ",")[0])
+	return strings.EqualFold(proto, "https")
 }
 
 func paginationMeta(page, perPage, total int) map[string]any {

@@ -415,7 +415,7 @@ func (s *Server) deleteAccount(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "Não foi possível excluir a conta.", nil)
 		return
 	}
-	clearSessionCookie(w, s.Config)
+	clearSessionCookie(w, s.Config, r)
 	writeJSON(w, http.StatusOK, map[string]string{"message": "Sua conta foi excluída com sucesso."})
 }
 

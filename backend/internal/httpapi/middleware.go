@@ -77,7 +77,7 @@ func (s *Server) requireAuth(next http.Handler) http.Handler {
 		auth, err := s.resolveAuth(r)
 		if err != nil {
 			if errors.Is(err, errInactive) {
-				clearSessionCookie(w, s.Config)
+				clearSessionCookie(w, s.Config, r)
 				writeError(w, http.StatusForbidden, "Sua conta está desativada.", nil)
 				return
 			}

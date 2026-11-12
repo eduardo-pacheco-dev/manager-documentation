@@ -90,7 +90,7 @@ func (s *Server) signup(w http.ResponseWriter, r *http.Request) {
 
 	_ = s.Notifier.Notify(user, "Sua conta foi criada", "Bem-vindo ao Documentation Center. Acesse as configurações para personalizar sua experiência.", "/settings", "success")
 
-	s.writeAuthResponse(w, user, http.StatusCreated, payload.DeviceName, false)
+	s.writeAuthResponse(w, r, user, http.StatusCreated, payload.DeviceName, false)
 }
 
 func (s *Server) login(w http.ResponseWriter, r *http.Request) {
@@ -132,10 +132,10 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.writeAuthResponse(w, user, http.StatusOK, payload.DeviceName, payload.Remember)
+	s.writeAuthResponse(w, r, user, http.StatusOK, payload.DeviceName, payload.Remember)
 }
 
-func (s *Server) writeAuthResponse(w http.ResponseWriter, user models.User, status int, deviceName string, remember bool) {
+func (s *Server) writeAuthResponse(w http.ResponseWriter, r *http.Request, user models.User, status int, deviceName string, remember bool) {
 	ttl := s.Config.SessionTTL
 	if remember && ttl < 30*24*time.Hour {
 		ttl = 30 * 24 * time.Hour
@@ -145,7 +145,7 @@ func (s *Server) writeAuthResponse(w http.ResponseWriter, user models.User, stat
 		writeError(w, http.StatusInternalServerError, "Não foi possível iniciar a sessão.", nil)
 		return
 	}
-	setSessionCookie(w, s.Config, token, ttl)
+	setSessionCookie(w, s.Config, r, token, ttl)
 
 	response := authResponse{}
 	response.Data.User = user.Public()
@@ -187,7 +187,7 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 			_ = s.Store.DeleteSession(auth.RawToken)
 		}
 	}
-	clearSessionCookie(w, s.Config)
+	clearSessionCookie(w, s.Config, r)
 	writeJSON(w, http.StatusOK, map[string]string{"message": "Sessão encerrada com sucesso."})
 }
 
