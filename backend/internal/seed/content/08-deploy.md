@@ -22,6 +22,17 @@ SECURE_COOKIES=true \
 ./documentation-center
 ```
 
+## Administrador
+
+O setup cria o administrador inicial. Para criar outro administrador ou promover uma conta existente na VPS:
+
+```bash
+cd ~/app/manager-documentation
+sudo bash deploy.sh admin --email admin2@exemplo.com --password "senha-forte" --name "Admin"
+```
+
+Sem `--password`, uma senha aleatória é gerada e impressa. O e-mail existente é promovido e ativado; a senha só muda se `--password` for informado.
+
 ## Docker
 
 ```bash

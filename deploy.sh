@@ -4,6 +4,7 @@
 #
 # Uso:
 #   sudo bash deploy.sh setup --url https://docs.exemplo.com --admin-email admin@exemplo.com
+#   ./deploy.sh admin --email admin@exemplo.com --password 'senha-forte'
 #   ./deploy.sh --artifact /tmp/documentation-center-linux-amd64.tar.gz --tag 1a2b3c4d
 #   ./deploy.sh rollback
 #
@@ -27,6 +28,7 @@ PUBLIC_URL_INPUT="${PUBLIC_URL:-}"
 ADMIN_EMAIL="${ADMIN_EMAIL:-admin@example.com}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-}"
 ADMIN_NAME="${ADMIN_NAME:-Administrador}"
+ADMIN_EMAIL_SET=0
 DB_NAME="${DB_NAME:-documentation_center_go}"
 DB_USER="${DB_USER:-documentation}"
 DB_PASSWORD="${DB_PASSWORD:-}"
@@ -57,6 +59,14 @@ Modo setup (uma vez, como root/sudo):
   (documentation), DB_PASSWORD (gerada) e MYSQL_ROOT_PASSWORD (quando o root
   não usa autenticação por socket).
 
+Criar ou promover um administrador (requer uma release já instalada):
+  sudo bash deploy.sh admin --email EMAIL [--password SENHA] [--name NOME]
+
+  --email EMAIL             E-mail do administrador (também aceita --admin-email)
+  --password SENHA          Senha do administrador; se omitida, uma senha é gerada
+  --name NOME               Nome do administrador (também aceita --admin-name)
+  --dir DIR                 Diretório da aplicação (padrão: /opt/documentation-center)
+
 Deploy de um artefato gerado pelo GitHub Actions:
   ./deploy.sh --artifact ARQUIVO.tar.gz --tag TAG [--port 8080]
 
@@ -75,6 +85,7 @@ EOF
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		setup) MODE="setup"; shift ;;
+		admin|create-admin) MODE="admin"; shift ;;
 		rollback) MODE="rollback"; shift ;;
 		--artifact) ARTIFACT="${2:?Informe o arquivo}"; shift 2 ;;
 		--tag) TAG="${2:?Informe a tag}"; shift 2 ;;
@@ -83,7 +94,10 @@ while [[ $# -gt 0 ]]; do
 		--port) APP_PORT="${2:?Informe a porta}"; shift 2 ;;
 		--bind) APP_BIND="${2:?Informe o endereço}"; shift 2 ;;
 		--url) PUBLIC_URL_INPUT="${2:?Informe a URL}"; shift 2 ;;
-		--admin-email) ADMIN_EMAIL="${2:?Informe o e-mail}"; shift 2 ;;
+		--email) ADMIN_EMAIL="${2:?Informe o e-mail}"; ADMIN_EMAIL_SET=1; shift 2 ;;
+		--password) ADMIN_PASSWORD="${2:?Informe a senha}"; shift 2 ;;
+		--name) ADMIN_NAME="${2:?Informe o nome}"; shift 2 ;;
+		--admin-email) ADMIN_EMAIL="${2:?Informe o e-mail}"; ADMIN_EMAIL_SET=1; shift 2 ;;
 		--admin-password) ADMIN_PASSWORD="${2:?Informe a senha}"; shift 2 ;;
 		--admin-name) ADMIN_NAME="${2:?Informe o nome}"; shift 2 ;;
 		--no-health) SKIP_HEALTH=1; shift ;;
@@ -452,6 +466,11 @@ prepare_release() {
 	tar -xzf "$ARTIFACT" -C "$staging"
 	[[ -f "$staging/server" ]] || die "O artefato não contém o binário 'server'."
 	[[ -d "$staging/static" ]] || die "O artefato não contém a pasta 'static'."
+	if [[ -f "$staging/createadmin" ]]; then
+		chmod +x "$staging/createadmin"
+	else
+		warn "O artefato não contém 'createadmin'; o comando 'deploy.sh admin' ficará indisponível até o próximo deploy."
+	fi
 	chmod +x "$staging/server"
 	ln -sfn "$APP_DIR/shared/.env" "$staging/.env"
 
@@ -556,6 +575,46 @@ deploy() {
 	run_as_app pm2 status "$APP_NAME" || true
 }
 
+create_admin() {
+	[[ -d "$APP_DIR" ]] || die "Diretório não encontrado: $APP_DIR. Execute o setup e um deploy primeiro."
+	local bin="$APP_DIR/current/createadmin"
+	if [[ ! -x "$bin" ]]; then
+		die "Binário createadmin não encontrado em $bin. Faça um deploy com a versão mais recente (o pacote precisa conter 'createadmin')."
+	fi
+	if [[ "$ADMIN_EMAIL_SET" -ne 1 || -z "$ADMIN_EMAIL" || "$ADMIN_EMAIL" != *@* ]]; then
+		die "Informe um e-mail válido com --email."
+	fi
+
+	local generated=0
+	if [[ -z "$ADMIN_PASSWORD" ]]; then
+		ADMIN_PASSWORD="$(gen_password)"
+		generated=1
+	fi
+	if [[ "${#ADMIN_PASSWORD}" -lt 8 ]]; then
+		die "A senha deve ter pelo menos 8 caracteres."
+	fi
+
+	local args=(-email "$ADMIN_EMAIL" -password "$ADMIN_PASSWORD")
+	if [[ -n "${ADMIN_NAME// /}" ]]; then
+		args+=(-name "$ADMIN_NAME")
+	fi
+
+	log "Criando/promovendo administrador ${ADMIN_EMAIL}..."
+	if ! run_as_app bash -c 'cd "$1" || exit 1; shift; exec "$@"' bash "$APP_DIR/current" "$bin" "${args[@]}"; then
+		die "Falha ao criar o administrador. Verifique o .env em $APP_DIR/shared/.env e os logs."
+	fi
+
+	log "Administrador ${ADMIN_EMAIL} pronto."
+	if [[ "$generated" -eq 1 ]]; then
+		if [[ "${NO_PRINT_SECRETS:-0}" == "1" ]]; then
+			log "Senha gerada (não exibida). Defina --password para escolher outra."
+		else
+			log "Senha gerada: ${ADMIN_PASSWORD}"
+			warn "Guarde essa senha agora; ela não será exibida novamente."
+		fi
+	fi
+}
+
 rollback() {
 	[[ -d "$APP_DIR" ]] || die "Diretório não encontrado: $APP_DIR."
 	command -v pm2 >/dev/null 2>&1 || die "PM2 não encontrado."
@@ -576,6 +635,7 @@ rollback() {
 
 case "$MODE" in
 	setup) setup ;;
+	admin) create_admin ;;
 	rollback) rollback ;;
 	deploy)
 		if [[ -z "$ARTIFACT" ]]; then

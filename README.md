@@ -177,12 +177,25 @@ docker compose up --build
 
 ## Administração inicial
 
-O seed cria um administrador automaticamente. Para criar ou promover outro administrador:
+O seed cria um administrador automaticamente. Para criar ou promover outro administrador localmente:
 
 ```bash
 cd backend
 go run ./cmd/createadmin -name "Admin" -email admin2@example.com -password "senha-forte"
 ```
+
+Na VPS, use o binário `createadmin` incluído no pacote de deploy:
+
+```bash
+cd ~/app/manager-documentation
+sudo bash deploy.sh admin --email admin2@exemplo.com --password "senha-forte" --name "Admin"
+```
+
+- Se o e-mail já existir, a conta é promovida a administradora e ativada (a senha só é alterada se `--password` for informado).
+- Se `--password` for omitido, uma senha aleatória é gerada e exibida ao final.
+- O comando usa o `.env` de `shared/.env` e exige uma release já instalada; a senha precisa ter ao menos 8 caracteres.
+
+> Execute `sudo bash deploy.sh --help` para ver todas as opções.
 
 ## Variáveis de ambiente
 
