@@ -107,6 +107,14 @@ var CoreModules = []Module{
 		Toggleable:     true,
 		DefaultSection: SectionModules,
 	},
+	{
+		Key:            "projects",
+		Label:          "Projetos",
+		Icon:           "chart",
+		Path:           "/projects",
+		Toggleable:     true,
+		DefaultSection: SectionModules,
+	},
 }
 
 func AvailableModules(user User) []Module {

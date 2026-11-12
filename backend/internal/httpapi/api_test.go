@@ -145,8 +145,8 @@ func TestAuthenticationAndCSRF(t *testing.T) {
 	if data["user"].(map[string]any)["email"] != "admin@test.local" {
 		t.Fatalf("unexpected user payload: %v", data["user"])
 	}
-	if len(data["modules"].([]any)) != 10 {
-		t.Fatalf("expected 10 modules, got %v", data["modules"])
+	if len(data["modules"].([]any)) != 11 {
+		t.Fatalf("expected 11 modules, got %v", data["modules"])
 	}
 
 	res, _ = app.request(http.MethodPost, "/api/v1/users", map[string]any{
@@ -913,5 +913,108 @@ func TestSettingsAndStorage(t *testing.T) {
 	}, app.csrf, nil)
 	if res.StatusCode != http.StatusOK {
 		t.Fatalf("modules status = %d", res.StatusCode)
+	}
+}
+
+func TestProjects(t *testing.T) {
+	app := newTestApp(t)
+
+	res, payload := app.request(http.MethodPost, "/api/v1/projects", map[string]any{
+		"name": "Projeto de teste", "description": "Cronograma", "status": "planejamento",
+		"start_date": "2026-01-05", "end_date": "2026-02-27", "currency": "BRL",
+		"budget": 50000, "working_days": "1,2,3,4,5", "hours_per_day": 8,
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("criar projeto status = %d payload = %v", res.StatusCode, payload)
+	}
+	project := payload["data"].(map[string]any)["project"].(map[string]any)
+	projectID := int64(project["id"].(float64))
+
+	createTask := func(body map[string]any) map[string]any {
+		res, payload := app.request(http.MethodPost, fmt.Sprintf("/api/v1/projects/%d/tasks", projectID), body, app.csrf, nil)
+		if res.StatusCode != http.StatusCreated {
+			t.Fatalf("criar tarefa status = %d payload = %v", res.StatusCode, payload)
+		}
+		return payload["data"].(map[string]any)["task"].(map[string]any)
+	}
+	taskA := createTask(map[string]any{"name": "Planejamento", "task_type": "task", "start_date": "2026-01-05", "duration_days": 5, "priority": "alta", "effort_hours": 20})
+	taskB := createTask(map[string]any{"name": "Execucao", "task_type": "task", "duration_days": 3})
+	taskID := func(task map[string]any) int64 { return int64(task["id"].(float64)) }
+
+	res, payload = app.request(http.MethodPost, fmt.Sprintf("/api/v1/projects/%d/dependencies", projectID), map[string]any{
+		"predecessor_id": taskID(taskA), "successor_id": taskID(taskB), "type": "FS", "lag_days": 0,
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("criar dependencia status = %d payload = %v", res.StatusCode, payload)
+	}
+
+	res, payload = app.request(http.MethodPost, fmt.Sprintf("/api/v1/projects/%d/resources", projectID), map[string]any{
+		"name": "Ana", "role": "Engenheira", "cost_hour": 100, "max_units": 100, "color": "blue",
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("criar recurso status = %d payload = %v", res.StatusCode, payload)
+	}
+	resourceID := int64(payload["data"].(map[string]any)["resource"].(map[string]any)["id"].(float64))
+
+	res, payload = app.request(http.MethodPost, fmt.Sprintf("/api/v1/projects/%d/assignments", projectID), map[string]any{
+		"task_id": taskID(taskA), "resource_id": resourceID, "units": 100, "planned_hours": 20,
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("criar alocacao status = %d payload = %v", res.StatusCode, payload)
+	}
+
+	res, payload = app.request(http.MethodPost, fmt.Sprintf("/api/v1/projects/%d/holidays", projectID), map[string]any{
+		"date": "2026-01-12", "name": "Feriado",
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("criar feriado status = %d payload = %v", res.StatusCode, payload)
+	}
+
+	res, payload = app.request(http.MethodGet, fmt.Sprintf("/api/v1/projects/%d", projectID), nil, "", nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("buscar projeto status = %d payload = %v", res.StatusCode, payload)
+	}
+	bundle := payload["data"].(map[string]any)
+	tasks := bundle["tasks"].([]any)
+	if len(tasks) != 2 {
+		t.Fatalf("esperava 2 tarefas, veio %d", len(tasks))
+	}
+	var scheduledB string
+	var critical int
+	for _, raw := range tasks {
+		task := raw.(map[string]any)
+		if int64(task["id"].(float64)) == taskID(taskB) {
+			scheduledB = task["scheduled_start"].(string)
+		}
+		if task["is_critical"].(bool) {
+			critical++
+		}
+	}
+	// Planejamento comeca em 05/01 e dura 5 dias uteis (termina 09/01). Com o
+	// feriado de 12/01, a sucessora comeca em 13/01.
+	if scheduledB != "2026-01-13" {
+		t.Fatalf("inicio da sucessora = %q, esperado 2026-01-13", scheduledB)
+	}
+	if critical != 2 {
+		t.Fatalf("esperava 2 tarefas criticas, veio %d", critical)
+	}
+	metrics := bundle["metrics"].(map[string]any)
+	if metrics["planned_cost"].(float64) != 2000 {
+		t.Fatalf("custo planejado = %v, esperado 2000", metrics["planned_cost"])
+	}
+
+	res, payload = app.request(http.MethodPost, fmt.Sprintf("/api/v1/projects/%d/baselines", projectID), map[string]any{"name": "Aprovacao"}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("criar linha de base status = %d payload = %v", res.StatusCode, payload)
+	}
+
+	res, _ = app.request(http.MethodGet, fmt.Sprintf("/api/v1/projects/%d/export", projectID), nil, "", nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("exportar status = %d", res.StatusCode)
+	}
+
+	res, _ = app.request(http.MethodDelete, fmt.Sprintf("/api/v1/projects/%d", projectID), nil, app.csrf, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("excluir projeto status = %d", res.StatusCode)
 	}
 }

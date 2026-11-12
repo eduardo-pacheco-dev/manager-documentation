@@ -60,6 +60,8 @@ function iconFor(key: string) {
       return Link;
     case 'demands':
       return Task;
+    case 'projects':
+      return ChartBar;
     default:
       return Home;
   }

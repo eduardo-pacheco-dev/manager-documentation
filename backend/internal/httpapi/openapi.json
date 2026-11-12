@@ -13,6 +13,7 @@
     { "name": "Dashboard", "description": "Widgets do painel" },
     { "name": "Settings", "description": "Preferências e configurações" },
     { "name": "Notifications", "description": "Central de notificações" },
+    { "name": "Projetos", "description": "Portfólio, EAP, dependências, recursos, custos e linha de base" },
     { "name": "Uploads", "description": "Envio de imagens" }
   ],
   "components": {
@@ -290,6 +291,62 @@
     "/demands/{id}/attachments/{attachmentId}": {
       "get": { "tags": ["Demandas"], "summary": "Baixa um anexo da demanda", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "attachmentId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Arquivo" } } },
       "delete": { "tags": ["Demandas"], "summary": "Remove um anexo da demanda", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "attachmentId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Anexo removido" } } }
+    },
+    "/projects": {
+      "get": { "tags": ["Projetos"], "summary": "Lista o portfólio de projetos", "parameters": [{ "name": "archived", "in": "query", "schema": { "type": "string", "enum": ["0", "1"] } }], "responses": { "200": { "description": "Projetos" } } },
+      "post": { "tags": ["Projetos"], "summary": "Cria um projeto", "responses": { "201": { "description": "Projeto criado" }, "422": { "description": "Validação" } } }
+    },
+    "/projects/{id}": {
+      "get": { "tags": ["Projetos"], "summary": "Retorna o projeto com cronograma calculado, recursos, custos e linha de base", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Projeto completo" }, "404": { "description": "Não encontrado" } } },
+      "put": { "tags": ["Projetos"], "summary": "Atualiza os dados do projeto", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Projeto atualizado" }, "422": { "description": "Validação" } } },
+      "delete": { "tags": ["Projetos"], "summary": "Exclui o projeto e seus dados", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Projeto excluído" } } }
+    },
+    "/projects/{id}/archive": {
+      "patch": { "tags": ["Projetos"], "summary": "Arquiva ou restaura o projeto", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Projeto atualizado" } } }
+    },
+    "/projects/{id}/export": {
+      "get": { "tags": ["Projetos"], "summary": "Exporta a EAP e o cronograma em CSV", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Arquivo CSV" } } }
+    },
+    "/projects/{id}/tasks": {
+      "post": { "tags": ["Projetos"], "summary": "Cria uma tarefa, resumo ou marco da EAP", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "201": { "description": "Tarefa criada" }, "422": { "description": "Validação" } } }
+    },
+    "/projects/{id}/tasks/{taskId}": {
+      "put": { "tags": ["Projetos"], "summary": "Atualiza uma tarefa da EAP", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "taskId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Tarefa atualizada" }, "422": { "description": "Validação" } } },
+      "delete": { "tags": ["Projetos"], "summary": "Exclui uma tarefa da EAP", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "taskId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Tarefa excluída" } } }
+    },
+    "/projects/{id}/tasks/{taskId}/move": {
+      "patch": { "tags": ["Projetos"], "summary": "Move a tarefa para cima ou para baixo", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "taskId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Tarefa movida" } } }
+    },
+    "/projects/{id}/dependencies": {
+      "post": { "tags": ["Projetos"], "summary": "Cria dependência FS, SS, FF ou SF com lag", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "201": { "description": "Dependência criada" }, "422": { "description": "Validação ou ciclo" } } }
+    },
+    "/projects/{id}/dependencies/{dependencyId}": {
+      "delete": { "tags": ["Projetos"], "summary": "Remove uma dependência", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "dependencyId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Dependência removida" } } }
+    },
+    "/projects/{id}/resources": {
+      "post": { "tags": ["Projetos"], "summary": "Cadastra um recurso com custo/hora e capacidade", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "201": { "description": "Recurso criado" }, "422": { "description": "Validação" } } }
+    },
+    "/projects/{id}/resources/{resourceId}": {
+      "put": { "tags": ["Projetos"], "summary": "Atualiza um recurso", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "resourceId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Recurso atualizado" } } },
+      "delete": { "tags": ["Projetos"], "summary": "Remove um recurso", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "resourceId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Recurso removido" } } }
+    },
+    "/projects/{id}/assignments": {
+      "post": { "tags": ["Projetos"], "summary": "Aloca um recurso em uma tarefa", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "201": { "description": "Alocação criada" }, "422": { "description": "Validação" } } }
+    },
+    "/projects/{id}/assignments/{assignmentId}": {
+      "delete": { "tags": ["Projetos"], "summary": "Remove uma alocação", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "assignmentId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Alocação removida" } } }
+    },
+    "/projects/{id}/holidays": {
+      "post": { "tags": ["Projetos"], "summary": "Cadastra um feriado no calendário do projeto", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "201": { "description": "Feriado criado" }, "422": { "description": "Validação" } } }
+    },
+    "/projects/{id}/holidays/{holidayId}": {
+      "delete": { "tags": ["Projetos"], "summary": "Remove um feriado", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "holidayId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Feriado removido" } } }
+    },
+    "/projects/{id}/baselines": {
+      "post": { "tags": ["Projetos"], "summary": "Captura uma linha de base do cronograma e custos", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "201": { "description": "Linha de base criada" } } }
+    },
+    "/projects/{id}/baselines/{baselineId}": {
+      "delete": { "tags": ["Projetos"], "summary": "Remove uma linha de base", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "baselineId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Linha de base removida" } } }
     },
     "/settings": {
       "get": { "tags": ["Settings"], "summary": "Configurações do usuário, módulos, fuso e armazenamento", "responses": { "200": { "description": "Configurações" } } }
