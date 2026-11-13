@@ -7,6 +7,7 @@ import {
   Checkmark,
   Close,
   Document,
+  Grid,
   Home,
   Light,
   List,
@@ -15,6 +16,8 @@ import {
   Menu,
   Notification,
   Settings,
+  SidePanelClose,
+  SidePanelOpen,
   SignalStrength,
   Task,
   UserMultiple,
@@ -107,10 +110,29 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const isMobile = useIsMobile();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [rail, setRail] = useState(() => {
+    try {
+      return window.localStorage.getItem('sidebar.rail') === '1';
+    } catch {
+      return false;
+    }
+  });
 
   useEffect(() => {
     setMobileOpen(false);
   }, [location.pathname]);
+
+  function toggleRail() {
+    setRail((current) => {
+      const next = !current;
+      try {
+        window.localStorage.setItem('sidebar.rail', next ? '1' : '0');
+      } catch {
+        // Ignore storage failures; the preference still applies for this session.
+      }
+      return next;
+    });
+  }
 
   if (!user) return null;
 
@@ -195,12 +217,24 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
       <SideNav
         aria-label="Navegação principal"
-        expanded={!isMobile || mobileOpen}
+        expanded={isMobile ? mobileOpen : !rail}
+        isRail={!isMobile && rail}
         isChildOfHeader
-        className="app-sidebar"
+        className={`app-sidebar${!isMobile && rail ? ' app-sidebar--rail' : ''}`}
         onOverlayClick={() => setMobileOpen(false)}
       >
-        <SideNavItems>
+        {!isMobile && (
+          <button
+            type="button"
+            className="app-sidebar__collapse"
+            onClick={toggleRail}
+            aria-label={rail ? 'Expandir menu lateral' : 'Recolher menu lateral'}
+            title={rail ? 'Expandir menu' : 'Recolher menu'}
+          >
+            {rail ? <SidePanelOpen size={16} /> : <SidePanelClose size={16} />}
+          </button>
+        )}
+        <SideNavItems className="app-sidebar__items">
           {sidebarModules.map((module) => (
             <NavItem
               key={module.key}
@@ -209,7 +243,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             />
           ))}
           {groupedModules.length > 0 && (
-            <SideNavMenu title="Módulos" defaultExpanded>
+            <SideNavMenu
+              title="Módulos"
+              defaultExpanded
+              renderIcon={Grid}
+              isActive={groupedModules.some((module) => location.pathname === module.path || location.pathname.startsWith(`${module.path}/`))}
+            >
               {groupedModules.map((module) => {
                 return (
                   <SideNavMenuItem
@@ -268,7 +307,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </SideNavItems>
       </SideNav>
 
-      <main id="main-content" className="app-main">
+      <main id="main-content" className={`app-main${!isMobile && rail ? ' app-main--rail' : ''}`}>
         <div className="app-main__inner">{children}</div>
         <footer className="app-footer">
           <span>Documentation Center</span>
