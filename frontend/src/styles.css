@@ -2005,6 +2005,33 @@ p {
   align-items: center;
 }
 
+.calendar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 2rem;
+  padding: 0.15rem 0;
+}
+
+.calendar-row .cds--checkbox-wrapper {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.calendar-row .cds--checkbox-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-row__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 0 0 auto;
+}
+
 .module-nav-item {
   display: flex;
   align-items: center;
