@@ -145,8 +145,8 @@ func TestAuthenticationAndCSRF(t *testing.T) {
 	if data["user"].(map[string]any)["email"] != "admin@test.local" {
 		t.Fatalf("unexpected user payload: %v", data["user"])
 	}
-	if len(data["modules"].([]any)) != 10 {
-		t.Fatalf("expected 10 modules, got %v", data["modules"])
+	if len(data["modules"].([]any)) != 12 {
+		t.Fatalf("expected 12 modules, got %v", data["modules"])
 	}
 
 	res, _ = app.request(http.MethodPost, "/api/v1/users", map[string]any{
@@ -913,5 +913,287 @@ func TestSettingsAndStorage(t *testing.T) {
 	}, app.csrf, nil)
 	if res.StatusCode != http.StatusOK {
 		t.Fatalf("modules status = %d", res.StatusCode)
+	}
+}
+
+func TestCollaboratorsAndProjectResources(t *testing.T) {
+	app := newTestApp(t)
+
+	res, payload := app.request(http.MethodPost, "/api/v1/collaborators", map[string]any{
+		"name": "Pessoa Teste", "social_name": "Pessoa de Teste", "email": "pessoa.teste@test.local",
+		"personal_email": "pessoa.pessoal@test.local", "phone": "+55 11 90000-0000",
+		"role": "QA", "department": "Qualidade", "cost_hour": 90, "max_units": 80,
+		"color": "green", "is_active": true, "cpf": "999.888.777-66", "birth_date": "1990-01-01",
+		"contract_type": "clt", "work_regime": "hibrido", "hire_date": "2024-02-01",
+		"weekly_hours": 40, "salary": 8000, "bank_name": "Banco Teste", "pix_key": "pessoa.teste@test.local",
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("criar colaborador status = %d payload = %v", res.StatusCode, payload)
+	}
+	collaborator := payload["data"].(map[string]any)["collaborator"].(map[string]any)
+	collaboratorID := int64(collaborator["id"].(float64))
+	if collaborator["cpf"] != "99988877766" || collaborator["weekly_hours"].(float64) != 40 || collaborator["salary"].(float64) != 8000 {
+		t.Fatalf("dados de RH não foram persistidos: %v", collaborator)
+	}
+
+	res, _ = app.request(http.MethodPost, "/api/v1/collaborators", map[string]any{
+		"name": "Outra Pessoa", "email": "pessoa.teste@test.local",
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusUnprocessableEntity {
+		t.Fatalf("e-mail duplicado deveria retornar 422, veio %d", res.StatusCode)
+	}
+
+	res, _ = app.request(http.MethodPost, "/api/v1/collaborators", map[string]any{
+		"name": "CPF Duplicado", "email": "cpf.duplicado@test.local", "cpf": "99988877766",
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusUnprocessableEntity {
+		t.Fatalf("CPF duplicado deveria retornar 422, veio %d", res.StatusCode)
+	}
+
+	res, payload = app.request(http.MethodGet, "/api/v1/collaborators?search=Pessoa", nil, "", nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("listar colaboradores status = %d", res.StatusCode)
+	}
+	if len(payload["data"].([]any)) != 1 {
+		t.Fatalf("esperava 1 colaborador na busca, veio %v", payload["data"])
+	}
+
+	res, payload = app.request(http.MethodPost, "/api/v1/projects", map[string]any{
+		"name": "Projeto com colaborador", "start_date": "2026-01-05", "end_date": "2026-02-27",
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("criar projeto status = %d payload = %v", res.StatusCode, payload)
+	}
+	projectID := int64(payload["data"].(map[string]any)["project"].(map[string]any)["id"].(float64))
+
+	res, payload = app.request(http.MethodPost, fmt.Sprintf("/api/v1/projects/%d/resources", projectID), map[string]any{
+		"collaborator_id": collaboratorID,
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("vincular colaborador status = %d payload = %v", res.StatusCode, payload)
+	}
+	resource := payload["data"].(map[string]any)["resource"].(map[string]any)
+	if resource["name"] != "Pessoa Teste" || resource["cost_hour"].(float64) != 90 || int(resource["max_units"].(float64)) != 80 {
+		t.Fatalf("recurso não herdou os dados do colaborador: %v", resource)
+	}
+
+	res, _ = app.request(http.MethodPost, fmt.Sprintf("/api/v1/projects/%d/resources", projectID), map[string]any{
+		"collaborator_id": collaboratorID,
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusUnprocessableEntity {
+		t.Fatalf("vínculo duplicado deveria retornar 422, veio %d", res.StatusCode)
+	}
+
+	res, payload = app.request(http.MethodPatch, fmt.Sprintf("/api/v1/collaborators/%d/toggle", collaboratorID), nil, app.csrf, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("alternar status status = %d payload = %v", res.StatusCode, payload)
+	}
+	if payload["data"].(map[string]any)["collaborator"].(map[string]any)["is_active"].(bool) {
+		t.Fatal("colaborador deveria estar inativo após o toggle")
+	}
+
+	res, _ = app.request(http.MethodDelete, fmt.Sprintf("/api/v1/collaborators/%d", collaboratorID), nil, app.csrf, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("excluir colaborador status = %d", res.StatusCode)
+	}
+
+	res, payload = app.request(http.MethodGet, fmt.Sprintf("/api/v1/projects/%d", projectID), nil, "", nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("buscar projeto status = %d", res.StatusCode)
+	}
+	resources := payload["data"].(map[string]any)["resources"].([]any)
+	if len(resources) != 1 {
+		t.Fatalf("esperava 1 recurso preservado, veio %d", len(resources))
+	}
+	preserved := resources[0].(map[string]any)
+	if preserved["collaborator_id"] != nil {
+		t.Fatalf("vínculo deveria ser removido, veio %v", preserved["collaborator_id"])
+	}
+	if preserved["name"] != "Pessoa Teste" {
+		t.Fatalf("recurso preservado perdeu o nome: %v", preserved)
+	}
+}
+
+func TestProjectPipeline(t *testing.T) {
+	app := newTestApp(t)
+
+	res, payload := app.request(http.MethodPost, "/api/v1/projects", map[string]any{
+		"name": "Projeto pipeline", "start_date": "2026-01-05", "end_date": "2026-02-27",
+		"flow_mode": "pipeline",
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("criar projeto pipeline status = %d payload = %v", res.StatusCode, payload)
+	}
+	project := payload["data"].(map[string]any)["project"].(map[string]any)
+	projectID := int64(project["id"].(float64))
+	if project["flow_mode"] != "pipeline" {
+		t.Fatalf("flow_mode = %v", project["flow_mode"])
+	}
+
+	res, payload = app.request(http.MethodGet, fmt.Sprintf("/api/v1/projects/%d", projectID), nil, "", nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("buscar projeto status = %d", res.StatusCode)
+	}
+	bundle := payload["data"].(map[string]any)
+	stages := bundle["stages"].([]any)
+	if len(stages) != 4 {
+		t.Fatalf("esperava 4 etapas padrão, veio %d", len(stages))
+	}
+	firstStage := int64(stages[0].(map[string]any)["id"].(float64))
+	doneStage := int64(stages[3].(map[string]any)["id"].(float64))
+
+	res, payload = app.request(http.MethodPost, fmt.Sprintf("/api/v1/projects/%d/tasks", projectID), map[string]any{
+		"name": "Card no pipeline", "task_type": "task", "duration_days": 3,
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("criar card status = %d payload = %v", res.StatusCode, payload)
+	}
+	task := payload["data"].(map[string]any)["task"].(map[string]any)
+	taskID := int64(task["id"].(float64))
+	if task["pipeline_stage_id"] == nil || int64(task["pipeline_stage_id"].(float64)) != firstStage {
+		t.Fatalf("card deveria iniciar na primeira etapa: %v", task["pipeline_stage_id"])
+	}
+
+	res, payload = app.request(http.MethodPatch, fmt.Sprintf("/api/v1/projects/%d/tasks/%d/stage", projectID, taskID), map[string]any{
+		"stage_id": doneStage,
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("mover card status = %d payload = %v", res.StatusCode, payload)
+	}
+	moved := payload["data"].(map[string]any)["task"].(map[string]any)
+	if int(moved["progress"].(float64)) != 100 {
+		t.Fatalf("card na etapa de conclusão deveria ficar 100%%, veio %v", moved["progress"])
+	}
+
+	res, payload = app.request(http.MethodPost, fmt.Sprintf("/api/v1/projects/%d/stages", projectID), map[string]any{
+		"name": "Homologação", "color": "orange", "wip_limit": 5,
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("criar etapa status = %d payload = %v", res.StatusCode, payload)
+	}
+	stage := payload["data"].(map[string]any)["stage"].(map[string]any)
+	stageID := int64(stage["id"].(float64))
+
+	res, _ = app.request(http.MethodPatch, fmt.Sprintf("/api/v1/projects/%d/stages/%d/move", projectID, stageID), map[string]any{
+		"direction": "up",
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("mover etapa status = %d", res.StatusCode)
+	}
+
+	res, _ = app.request(http.MethodDelete, fmt.Sprintf("/api/v1/projects/%d/stages/%d", projectID, stageID), nil, app.csrf, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("excluir etapa status = %d", res.StatusCode)
+	}
+
+	res, payload = app.request(http.MethodGet, fmt.Sprintf("/api/v1/projects/%d", projectID), nil, "", nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("buscar projeto final status = %d", res.StatusCode)
+	}
+	if got := len(payload["data"].(map[string]any)["stages"].([]any)); got != 4 {
+		t.Fatalf("esperava 4 etapas após exclusão, veio %d", got)
+	}
+}
+
+func TestProjects(t *testing.T) {
+	app := newTestApp(t)
+
+	res, payload := app.request(http.MethodPost, "/api/v1/projects", map[string]any{
+		"name": "Projeto de teste", "description": "Cronograma", "status": "planejamento",
+		"start_date": "2026-01-05", "end_date": "2026-02-27", "currency": "BRL",
+		"budget": 50000, "working_days": "1,2,3,4,5", "hours_per_day": 8,
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("criar projeto status = %d payload = %v", res.StatusCode, payload)
+	}
+	project := payload["data"].(map[string]any)["project"].(map[string]any)
+	projectID := int64(project["id"].(float64))
+
+	createTask := func(body map[string]any) map[string]any {
+		res, payload := app.request(http.MethodPost, fmt.Sprintf("/api/v1/projects/%d/tasks", projectID), body, app.csrf, nil)
+		if res.StatusCode != http.StatusCreated {
+			t.Fatalf("criar tarefa status = %d payload = %v", res.StatusCode, payload)
+		}
+		return payload["data"].(map[string]any)["task"].(map[string]any)
+	}
+	taskA := createTask(map[string]any{"name": "Planejamento", "task_type": "task", "start_date": "2026-01-05", "duration_days": 5, "priority": "alta", "effort_hours": 20})
+	taskB := createTask(map[string]any{"name": "Execucao", "task_type": "task", "duration_days": 3})
+	taskID := func(task map[string]any) int64 { return int64(task["id"].(float64)) }
+
+	res, payload = app.request(http.MethodPost, fmt.Sprintf("/api/v1/projects/%d/dependencies", projectID), map[string]any{
+		"predecessor_id": taskID(taskA), "successor_id": taskID(taskB), "type": "FS", "lag_days": 0,
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("criar dependencia status = %d payload = %v", res.StatusCode, payload)
+	}
+
+	res, payload = app.request(http.MethodPost, fmt.Sprintf("/api/v1/projects/%d/resources", projectID), map[string]any{
+		"name": "Ana", "role": "Engenheira", "cost_hour": 100, "max_units": 100, "color": "blue",
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("criar recurso status = %d payload = %v", res.StatusCode, payload)
+	}
+	resourceID := int64(payload["data"].(map[string]any)["resource"].(map[string]any)["id"].(float64))
+
+	res, payload = app.request(http.MethodPost, fmt.Sprintf("/api/v1/projects/%d/assignments", projectID), map[string]any{
+		"task_id": taskID(taskA), "resource_id": resourceID, "units": 100, "planned_hours": 20,
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("criar alocacao status = %d payload = %v", res.StatusCode, payload)
+	}
+
+	res, payload = app.request(http.MethodPost, fmt.Sprintf("/api/v1/projects/%d/holidays", projectID), map[string]any{
+		"date": "2026-01-12", "name": "Feriado",
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("criar feriado status = %d payload = %v", res.StatusCode, payload)
+	}
+
+	res, payload = app.request(http.MethodGet, fmt.Sprintf("/api/v1/projects/%d", projectID), nil, "", nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("buscar projeto status = %d payload = %v", res.StatusCode, payload)
+	}
+	bundle := payload["data"].(map[string]any)
+	tasks := bundle["tasks"].([]any)
+	if len(tasks) != 2 {
+		t.Fatalf("esperava 2 tarefas, veio %d", len(tasks))
+	}
+	var scheduledB string
+	var critical int
+	for _, raw := range tasks {
+		task := raw.(map[string]any)
+		if int64(task["id"].(float64)) == taskID(taskB) {
+			scheduledB = task["scheduled_start"].(string)
+		}
+		if task["is_critical"].(bool) {
+			critical++
+		}
+	}
+	// Planejamento comeca em 05/01 e dura 5 dias uteis (termina 09/01). Com o
+	// feriado de 12/01, a sucessora comeca em 13/01.
+	if scheduledB != "2026-01-13" {
+		t.Fatalf("inicio da sucessora = %q, esperado 2026-01-13", scheduledB)
+	}
+	if critical != 2 {
+		t.Fatalf("esperava 2 tarefas criticas, veio %d", critical)
+	}
+	metrics := bundle["metrics"].(map[string]any)
+	if metrics["planned_cost"].(float64) != 2000 {
+		t.Fatalf("custo planejado = %v, esperado 2000", metrics["planned_cost"])
+	}
+
+	res, payload = app.request(http.MethodPost, fmt.Sprintf("/api/v1/projects/%d/baselines", projectID), map[string]any{"name": "Aprovacao"}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("criar linha de base status = %d payload = %v", res.StatusCode, payload)
+	}
+
+	res, _ = app.request(http.MethodGet, fmt.Sprintf("/api/v1/projects/%d/export", projectID), nil, "", nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("exportar status = %d", res.StatusCode)
+	}
+
+	res, _ = app.request(http.MethodDelete, fmt.Sprintf("/api/v1/projects/%d", projectID), nil, app.csrf, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("excluir projeto status = %d", res.StatusCode)
 	}
 }

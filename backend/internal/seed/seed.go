@@ -105,6 +105,8 @@ var starterDocs = []docMeta{
 	{"content/08-deploy.md", "Deploy", "deployment", "Build do frontend, execução do binário Go, Docker e variáveis de ambiente."},
 	{"content/09-seguranca.md", "Segurança", "conventions", "Boas práticas aplicadas: senhas, sessões, CSRF, uploads, Markdown e permissões."},
 	{"content/10-testes.md", "Testes e qualidade", "testing", "Como executar testes do backend, verificar build do frontend e validar a API."},
+	{"content/11-projetos.md", "Projetos", "modules", "EAP, dependências, calendário, recursos, custos, linha de base e caminho crítico."},
+	{"content/12-colaboradores.md", "Colaboradores", "modules", "Cadastro central de pessoas, custos e capacidade usados como recursos nos projetos."},
 }
 
 func ensureDocs(s *store.Store, authorID int64) error {

@@ -104,7 +104,7 @@ type DemandStats struct {
 	Created    int `db:"created" json:"created"`
 }
 
-type Collaborator struct {
+type DemandCollaborator struct {
 	ID    int64  `db:"id" json:"id"`
 	Name  string `db:"name" json:"name"`
 	Email string `db:"email" json:"email"`
@@ -178,8 +178,8 @@ func (s *Store) SearchDemandStations(search string, limit int) ([]DemandStationO
 	return items, err
 }
 
-func (s *Store) DemandCollaborators() ([]Collaborator, error) {
-	items := []Collaborator{}
+func (s *Store) DemandCollaborators() ([]DemandCollaborator, error) {
+	items := []DemandCollaborator{}
 	err := s.DB.Select(&items, `SELECT id, TRIM(CONCAT(name, ' ', COALESCE(surname, ''))) AS name, email
 		FROM users WHERE is_active = 1 ORDER BY name ASC, surname ASC`)
 	return items, err

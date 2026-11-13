@@ -216,6 +216,52 @@ func (s *Server) Router() http.Handler {
 				demands.Delete("/{id}/attachments/{attachmentId}", s.demandsDeleteAttachment)
 			})
 
+			auth.Route("/collaborators", func(collaborators chi.Router) {
+				collaborators.Get("/", s.collaboratorsIndex)
+				collaborators.Post("/", s.collaboratorsCreate)
+				collaborators.Get("/{id}", s.collaboratorsShow)
+				collaborators.Put("/{id}", s.collaboratorsUpdate)
+				collaborators.Patch("/{id}/toggle", s.collaboratorsToggle)
+				collaborators.Delete("/{id}", s.collaboratorsDelete)
+			})
+
+			auth.Route("/projects", func(projects chi.Router) {
+				projects.Get("/", s.projectsIndex)
+				projects.Post("/", s.projectsCreate)
+				projects.Get("/{id}", s.projectsShow)
+				projects.Put("/{id}", s.projectsUpdate)
+				projects.Delete("/{id}", s.projectsDelete)
+				projects.Patch("/{id}/archive", s.projectsToggleArchive)
+				projects.Get("/{id}/export", s.projectsExport)
+
+				projects.Post("/{id}/tasks", s.projectTaskCreate)
+				projects.Put("/{id}/tasks/{taskId}", s.projectTaskUpdate)
+				projects.Delete("/{id}/tasks/{taskId}", s.projectTaskDelete)
+				projects.Patch("/{id}/tasks/{taskId}/move", s.projectTaskMove)
+				projects.Patch("/{id}/tasks/{taskId}/stage", s.projectTaskMoveStage)
+
+				projects.Post("/{id}/stages", s.projectStageCreate)
+				projects.Put("/{id}/stages/{stageId}", s.projectStageUpdate)
+				projects.Patch("/{id}/stages/{stageId}/move", s.projectStageMove)
+				projects.Delete("/{id}/stages/{stageId}", s.projectStageDelete)
+
+				projects.Post("/{id}/dependencies", s.projectDependencyCreate)
+				projects.Delete("/{id}/dependencies/{dependencyId}", s.projectDependencyDelete)
+
+				projects.Post("/{id}/resources", s.projectResourceCreate)
+				projects.Put("/{id}/resources/{resourceId}", s.projectResourceUpdate)
+				projects.Delete("/{id}/resources/{resourceId}", s.projectResourceDelete)
+
+				projects.Post("/{id}/assignments", s.projectAssignmentCreate)
+				projects.Delete("/{id}/assignments/{assignmentId}", s.projectAssignmentDelete)
+
+				projects.Post("/{id}/holidays", s.projectHolidayCreate)
+				projects.Delete("/{id}/holidays/{holidayId}", s.projectHolidayDelete)
+
+				projects.Post("/{id}/baselines", s.projectBaselineCreate)
+				projects.Delete("/{id}/baselines/{baselineId}", s.projectBaselineDelete)
+			})
+
 			auth.Route("/nokia", func(nokia chi.Router) {
 				nokia.Get("/sites", s.nokiaIndex)
 				nokia.Get("/roms", s.nokiaROMList)

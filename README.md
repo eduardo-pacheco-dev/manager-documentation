@@ -33,6 +33,7 @@ Reescrita do **Documentation Center** em **Go + React + IBM Carbon Design System
 - **Projetos Nokia**: sites, ROMs, tarefas, checklist de FAMs, datas, interrupções, rejeições, anexos, comentários e widget. Os sites Nokia são sincronizados automaticamente com o cadastro de Estações e cada novo site cria follow-ups automáticos para **FAM Entrega**, **FAM Instalação** e **FAM Panorâmica**. As datas planejadas, realizadas e aprovações são espelhadas como eventos de dia inteiro no calendário dedicado **Projetos Nokia** da Agenda.
 - **Links curtos**: encurtador com código personalizado, expiração, ativação/desativação, QR Code, anexos para download, exportação CSV, contagem de cliques, visitantes únicos, origens e histórico de acessos. Redirecionamento público em `/s/{código}`; quando há anexos, o link abre uma página pública de downloads.
 - **Demandas**: acionamento de colaboradores com responsável, prioridade, prazo, status, histórico de atualizações, anexos, cliente/e-mail do cliente, estação vinculada (busca), operadora, tipo de demanda, OC TIM, OS do cliente, chave, escopo da atividade, **links públicos de upload (colaborador) e download (cliente) integrados ao módulo Links curtos**, exportação CSV, notificações, deep link e widget “Minhas demandas” no dashboard.
+- **Projetos**: portfólio com planejamento no estilo Microsoft Project — EAP hierárquica com tarefas resumo e marcos, dependências FS/SS/FF/SF com lag, calendário de dias úteis e feriados, recursos com custo/hora e alocações, custos consolidados, caminho crítico, linha de base com variações de prazo/custo, gráfico de Gantt e exportação CSV.
 - **Integração entre módulos**: tarefas, follow-ups e eventos da agenda podem ser vinculados a estações e sites Nokia direto das páginas de detalhes, com criação rápida e desvinculação. A **Central de trabalho** no dashboard reúne prazos, follow-ups e compromissos, e as notificações cruzam os módulos com links diretos (follow-up atribuído/atualizado, convites da agenda, rejeições Nokia e lembretes de prazos).
 - **Responsividade**: sidebar em gaveta no mobile, grids adaptáveis, tabelas com rolagem e ações empilhadas.
 - **Administração inicial**: seed idempotente com administrador e wiki de exemplo.
@@ -52,7 +53,7 @@ Todos os plugins (`Agenda`, `FollowUp`, `Nokia`, `Stations` e `Tasks`) foram por
 │   │   ├── httpapi/           # rotas, handlers e OpenAPI
 │   │   ├── markdown/          # renderização segura
 │   │   ├── models/            # entidades e catálogo
-│   │   ├── modules/           # agenda, tarefas, follow-ups, estações e Nokia
+│   │   ├── modules/           # agenda, tarefas, follow-ups, estações, nokia e projetos
 │   │   ├── notifier/          # notificações + SMTP
 │   │   ├── seed/              # admin, usuários e wiki inicial
 │   │   ├── store/             # consultas SQL
