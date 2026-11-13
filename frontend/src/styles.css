@@ -2140,6 +2140,11 @@ p {
   min-width: 9rem;
 }
 
+.agenda-tools .cds--search {
+  flex: 0 0 100%;
+  width: 100%;
+}
+
 .task-list {
   display: flex;
   flex-direction: column;

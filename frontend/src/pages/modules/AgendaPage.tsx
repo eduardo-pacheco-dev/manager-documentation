@@ -323,7 +323,7 @@ export function AgendaPage() {
               <Button kind="ghost" onClick={() => move(1)}>→</Button>
               <strong>{date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</strong>
             </div>
-            <div className="module-toolbar">
+            <div className="module-toolbar agenda-tools">
               <Search size="sm" labelText="Buscar eventos" placeholder="Buscar eventos" value={search} onChange={(event) => setSearch(event.target.value)} onClear={() => setSearch('')} />
               <Select id="agenda-view" labelText="Visão" size="sm" value={view} onChange={(event) => setView(event.target.value as typeof view)}>
                 <SelectItem value="month" text="Mês" />
