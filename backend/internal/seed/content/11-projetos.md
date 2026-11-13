@@ -12,6 +12,22 @@ Cada projeto possui uma árvore de tarefas:
 
 Os códigos EAP (`1`, `1.1`, `1.2.3`) são gerados automaticamente. Ao mover uma tarefa para baixo de outra, a tarefa pai é promovida a resumo.
 
+## Fluxo de execução: EAP ou pipeline
+
+Cada projeto escolhe como será conduzido:
+
+- **Tarefas e EAP**: planejamento hierárquico com dependências, Gantt, caminho crítico e linha de base.
+- **Pipeline (Kanban)**: etapas configuráveis com cards. As etapas têm nome, cor, limite de cards (WIP) e uma flag de conclusão.
+
+No modo pipeline:
+
+- As etapas podem ser criadas, renomeadas, reordenadas e excluídas. Ao excluir uma etapa, os cards são movidos para a primeira etapa restante.
+- Os cards são as tarefas do projeto. É possível arrastá-los entre as etapas.
+- Mover um card para uma etapa de conclusão define o progresso em 100%; retirar um card concluído reinicia o progresso em 0%.
+- O mesmo projeto mantém a EAP subjacente, então recursos, custos, alocações e linha de base continuam funcionando.
+
+A troca de modo é feita no cadastro do projeto. Ao escolher pipeline pela primeira vez, são criadas as etapas padrão **A fazer**, **Em andamento**, **Em revisão** e **Concluído**.
+
 ## Dependências e cronograma
 
 Quatro tipos de dependência são suportados, com lag em dias úteis:
@@ -62,6 +78,9 @@ Todos os endpoints ficam em `/api/v1/projects` e exigem sessão ou token:
 | POST | `/projects/{id}/tasks` | Cria tarefa, resumo ou marco |
 | PUT/DELETE | `/projects/{id}/tasks/{taskId}` | Atualiza/exclui tarefa |
 | PATCH | `/projects/{id}/tasks/{taskId}/move` | Move na EAP |
+| PATCH | `/projects/{id}/tasks/{taskId}/stage` | Move o card entre etapas do pipeline |
+| POST/PUT/DELETE | `/projects/{id}/stages` | Etapas do pipeline |
+| PATCH | `/projects/{id}/stages/{stageId}/move` | Reordena a etapa |
 | POST/DELETE | `/projects/{id}/dependencies` | Cria/remove dependência |
 | POST/PUT/DELETE | `/projects/{id}/resources` | Recursos |
 | POST/DELETE | `/projects/{id}/assignments` | Alocações |

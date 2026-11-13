@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Add,
   ChartBar,
+  ChevronLeft,
+  ChevronRight,
   Download,
   Edit,
   Milestone,
@@ -34,17 +36,22 @@ import { errorMessage } from '../../lib/format';
 interface Project {
   id: number; name: string; description: string | null; owner_id: number; owner_name: string;
   status: string; start_date: string; end_date: string; currency: string; budget: number;
-  working_days: string; hours_per_day: number; archived: boolean; created_at: string; updated_at: string;
+  working_days: string; hours_per_day: number; flow_mode: string; archived: boolean; created_at: string; updated_at: string;
   task_count: number; done_count: number; progress: number;
 }
 interface ProjectTask {
   id: number; project_id: number; parent_id: number | null; wbs: string; name: string; notes: string | null;
   task_type: string; start_date: string | null; end_date: string | null; duration_days: number; progress: number;
   priority: string; effort_hours: number; fixed_cost: number; assignee_id: number | null; assignee_name: string;
+  pipeline_stage_id: number | null; stage_name: string;
   position: number; level: number; scheduled_start: string; scheduled_end: string; effective_duration: number;
   is_critical: boolean; assigned_cost: number; total_cost: number; resources: string[];
   baseline_start?: string | null; baseline_end?: string | null;
   start_variance_days: number; end_variance_days: number; cost_variance: number;
+}
+interface PipelineStage {
+  id: number; project_id: number; name: string; color: string; position: number;
+  wip_limit: number; is_done: boolean; card_count: number;
 }
 interface Dependency { id: number; predecessor_id: number; successor_id: number; type: string; lag_days: number }
 interface Resource { id: number; collaborator_id: number | null; name: string; role: string | null; email: string | null; cost_hour: number; max_units: number; color: string }
@@ -62,7 +69,7 @@ interface Metrics {
 }
 interface Bundle {
   project: Project; tasks: ProjectTask[]; dependencies: Dependency[]; resources: Resource[];
-  assignments: Assignment[]; holidays: Holiday[]; baselines: Baseline[]; metrics: Metrics;
+  assignments: Assignment[]; holidays: Holiday[]; baselines: Baseline[]; stages: PipelineStage[]; metrics: Metrics;
 }
 
 const STATUS: Record<string, string> = {
@@ -71,6 +78,11 @@ const STATUS: Record<string, string> = {
 const PRIORITIES: Record<string, string> = { baixa: 'Baixa', media: 'Média', alta: 'Alta', critica: 'Crítica' };
 const TASK_TYPES: Record<string, string> = { task: 'Tarefa', summary: 'Resumo', milestone: 'Marco' };
 const DEP_TYPES: Record<string, string> = { FS: 'Término → Início', SS: 'Início → Início', FF: 'Término → Término', SF: 'Início → Término' };
+const FLOW_MODES: Record<string, string> = { wbs: 'Tarefas e EAP', pipeline: 'Pipeline (Kanban)' };
+const STAGE_COLORS: Record<string, string> = {
+  blue: 'Azul', green: 'Verde', purple: 'Roxo', orange: 'Laranja', teal: 'Turquesa',
+  gray: 'Cinza', magenta: 'Magenta', cyan: 'Ciano', red: 'Vermelho',
+};
 
 function statusTag(value: string): 'blue' | 'green' | 'gray' | 'red' | 'purple' {
   switch (value) {
@@ -95,11 +107,13 @@ function fmtDate(value: string | null | undefined) {
 const emptyProjectForm = {
   name: '', description: '', status: 'planejamento', start_date: new Date().toISOString().slice(0, 10),
   end_date: new Date().toISOString().slice(0, 10), currency: 'BRL', budget: '0', working_days: '1,2,3,4,5', hours_per_day: '8',
+  flow_mode: 'wbs',
 };
 const emptyTaskForm = {
   parent_id: '', name: '', notes: '', task_type: 'task', start_date: '', duration_days: '1',
-  progress: '0', priority: 'media', effort_hours: '0', fixed_cost: '0',
+  progress: '0', priority: 'media', effort_hours: '0', fixed_cost: '0', pipeline_stage_id: '',
 };
+const emptyStageForm = { name: '', color: 'blue', wip_limit: '0', is_done: 'false' };
 
 export function ProjectsPage() {
   const toast = useToast();
@@ -118,6 +132,10 @@ export function ProjectsPage() {
   const [editingTask, setEditingTask] = useState<ProjectTask | null>(null);
   const [taskForm, setTaskForm] = useState(emptyTaskForm);
 
+  const [stageModal, setStageModal] = useState<'create' | 'edit' | null>(null);
+  const [editingStage, setEditingStage] = useState<PipelineStage | null>(null);
+  const [stageForm, setStageForm] = useState(emptyStageForm);
+
   const [dependencyForm, setDependencyForm] = useState({ predecessor_id: '', successor_id: '', type: 'FS', lag_days: '0' });
 
   const [resourceForm, setResourceForm] = useState({ collaborator_id: '', name: '', role: '', email: '', cost_hour: '0', max_units: '100', color: 'blue' });
@@ -128,6 +146,8 @@ export function ProjectsPage() {
   const [baselineName, setBaselineName] = useState('');
 
   const project = bundle?.project;
+  const isPipeline = project?.flow_mode === 'pipeline';
+  const stages = bundle?.stages ?? [];
   const tasks = bundle?.tasks ?? [];
   const leafTasks = useMemo(() => tasks.filter((task) => task.task_type !== 'summary'), [tasks]);
   const taskName = useMemo(() => {
@@ -174,6 +194,10 @@ export function ProjectsPage() {
       .catch(() => setCollaborators([]));
   }, []);
 
+  useEffect(() => {
+    setTab(0);
+  }, [selectedID, project?.flow_mode]);
+
   async function refresh() {
     await loadProjects(selectedID ?? undefined);
     if (selectedID) await loadBundle(selectedID);
@@ -190,6 +214,7 @@ export function ProjectsPage() {
       name: project.name, description: project.description ?? '', status: project.status,
       start_date: project.start_date, end_date: project.end_date, currency: project.currency,
       budget: String(project.budget), working_days: project.working_days, hours_per_day: String(project.hours_per_day),
+      flow_mode: project.flow_mode || 'wbs',
     });
     setProjectModal('edit');
   }
@@ -248,9 +273,13 @@ export function ProjectsPage() {
     }
   }
 
-  function openTaskCreate() {
+  function openTaskCreate(stageID?: number) {
     setEditingTask(null);
-    setTaskForm({ ...emptyTaskForm, start_date: project?.start_date ?? '' });
+    setTaskForm({
+      ...emptyTaskForm,
+      start_date: project?.start_date ?? '',
+      pipeline_stage_id: stageID ? String(stageID) : (stages[0] ? String(stages[0].id) : ''),
+    });
     setTaskModal(true);
   }
 
@@ -262,6 +291,7 @@ export function ProjectsPage() {
       start_date: task.start_date ?? '', duration_days: String(task.duration_days),
       progress: String(task.progress), priority: task.priority,
       effort_hours: String(task.effort_hours), fixed_cost: String(task.fixed_cost),
+      pipeline_stage_id: task.pipeline_stage_id ? String(task.pipeline_stage_id) : '',
     });
     setTaskModal(true);
   }
@@ -281,6 +311,7 @@ export function ProjectsPage() {
         progress: Number(taskForm.progress) || 0,
         effort_hours: Number(taskForm.effort_hours) || 0,
         fixed_cost: Number(taskForm.fixed_cost) || 0,
+        pipeline_stage_id: Number(taskForm.pipeline_stage_id) || 0,
       };
       if (editingTask) {
         await api.put(`/projects/${project.id}/tasks/${editingTask.id}`, payload);
@@ -460,6 +491,85 @@ export function ProjectsPage() {
     }
   }
 
+  function openStageCreate() {
+    setEditingStage(null);
+    setStageForm(emptyStageForm);
+    setStageModal('create');
+  }
+
+  function openStageEdit(stage: PipelineStage) {
+    setEditingStage(stage);
+    setStageForm({
+      name: stage.name,
+      color: stage.color,
+      wip_limit: String(stage.wip_limit),
+      is_done: stage.is_done ? 'true' : 'false',
+    });
+    setStageModal('edit');
+  }
+
+  async function submitStage() {
+    if (!project) return;
+    if (!stageForm.name.trim()) {
+      toast.error('Informe o nome da etapa');
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload = {
+        name: stageForm.name,
+        color: stageForm.color,
+        wip_limit: Number(stageForm.wip_limit) || 0,
+        is_done: stageForm.is_done === 'true',
+      };
+      if (editingStage) {
+        await api.put(`/projects/${project.id}/stages/${editingStage.id}`, payload);
+        toast.success('Etapa atualizada');
+      } else {
+        await api.post(`/projects/${project.id}/stages`, payload);
+        toast.success('Etapa criada');
+      }
+      setStageModal(null);
+      await refresh();
+    } catch (error) {
+      toast.error('Não foi possível salvar a etapa', errorMessage(error));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function moveStage(stage: PipelineStage, direction: 'left' | 'right') {
+    if (!project) return;
+    try {
+      await api.patch(`/projects/${project.id}/stages/${stage.id}/move`, { direction: direction === 'left' ? 'up' : 'down' });
+      await refresh();
+    } catch (error) {
+      toast.error('Não foi possível mover a etapa', errorMessage(error));
+    }
+  }
+
+  async function deleteStage(stage: PipelineStage) {
+    if (!project) return;
+    if (!window.confirm(`Excluir a etapa "${stage.name}"? Os cards serão movidos para a primeira etapa restante.`)) return;
+    try {
+      await api.delete(`/projects/${project.id}/stages/${stage.id}`);
+      toast.success('Etapa excluída');
+      await refresh();
+    } catch (error) {
+      toast.error('Não foi possível excluir a etapa', errorMessage(error));
+    }
+  }
+
+  async function moveTaskToStage(taskID: number, stageID: number) {
+    if (!project) return;
+    try {
+      await api.patch(`/projects/${project.id}/tasks/${taskID}/stage`, { stage_id: stageID });
+      await refresh();
+    } catch (error) {
+      toast.error('Não foi possível mover o card', errorMessage(error));
+    }
+  }
+
   async function toggleTaskProgress(task: ProjectTask) {
     if (!project) return;
     const next = task.progress >= 100 ? 0 : 100;
@@ -468,7 +578,7 @@ export function ProjectsPage() {
         parent_id: task.parent_id ?? 0, name: task.name, notes: task.notes ?? '', task_type: task.task_type,
         start_date: task.start_date ?? '', end_date: task.end_date ?? '', duration_days: task.duration_days,
         progress: next, priority: task.priority, effort_hours: task.effort_hours, fixed_cost: task.fixed_cost,
-        assignee_id: task.assignee_id ?? 0, position: task.position,
+        assignee_id: task.assignee_id ?? 0, pipeline_stage_id: task.pipeline_stage_id ?? 0, position: task.position,
       });
       await refresh();
     } catch (error) {
@@ -580,8 +690,7 @@ export function ProjectsPage() {
               <Tabs selectedIndex={tab} onChange={({ selectedIndex }) => setTab(selectedIndex)}>
                 <TabList aria-label="Seções do projeto" contained>
                   <Tab>Visão geral</Tab>
-                  <Tab>Tarefas e EAP</Tab>
-                  <Tab>Gantt</Tab>
+                  {isPipeline ? <Tab>Pipeline</Tab> : <><Tab>Tarefas e EAP</Tab><Tab>Gantt</Tab></>}
                   <Tab>Recursos</Tab>
                   <Tab>Linha de base</Tab>
                   <Tab>Configurações</Tab>
@@ -590,9 +699,26 @@ export function ProjectsPage() {
                   <TabPanel>
                     <OverviewPanel bundle={bundle} />
                   </TabPanel>
+                  {isPipeline ? (
+                    <TabPanel>
+                      <PipelineBoard
+                        stages={stages}
+                        tasks={leafTasks}
+                        project={project}
+                        onAddTask={(stageID) => openTaskCreate(stageID)}
+                        onEditTask={openTaskEdit}
+                        onCreateStage={openStageCreate}
+                        onEditStage={openStageEdit}
+                        onMoveStage={(stage, direction) => void moveStage(stage, direction)}
+                        onDeleteStage={(stage) => void deleteStage(stage)}
+                        onDropTask={(taskID, stageID) => void moveTaskToStage(taskID, stageID)}
+                      />
+                    </TabPanel>
+                  ) : (
+                    <>
                   <TabPanel>
                     <div className="projects-toolbar">
-                      <Button size="sm" renderIcon={Add} onClick={openTaskCreate}>Nova tarefa</Button>
+                      <Button size="sm" renderIcon={Add} onClick={() => openTaskCreate()}>Nova tarefa</Button>
                       <span className="projects-muted">Clique no progresso para concluir/reabrir uma tarefa.</span>
                     </div>
                     <div className="table-scroll">
@@ -673,6 +799,8 @@ export function ProjectsPage() {
                   <TabPanel>
                     <Gantt tasks={tasks} project={project} />
                   </TabPanel>
+                    </>
+                  )}
 
                   <TabPanel>
                     <div className="projects-two-columns">
@@ -844,6 +972,9 @@ export function ProjectsPage() {
           <Select id="project-status" labelText="Status" value={projectForm.status} onChange={(event) => setProjectForm({ ...projectForm, status: event.target.value })}>
             {Object.entries(STATUS).map(([value, label]) => <SelectItem key={value} value={value} text={label} />)}
           </Select>
+          <Select id="project-flow" labelText="Fluxo de execução" value={projectForm.flow_mode} onChange={(event) => setProjectForm({ ...projectForm, flow_mode: event.target.value })}>
+            {Object.entries(FLOW_MODES).map(([value, label]) => <SelectItem key={value} value={value} text={label} />)}
+          </Select>
           <TextInput id="project-start" labelText="Início" type="date" value={projectForm.start_date} onChange={(event) => setProjectForm({ ...projectForm, start_date: event.target.value })} />
           <TextInput id="project-end" labelText="Término planejado" type="date" value={projectForm.end_date} onChange={(event) => setProjectForm({ ...projectForm, end_date: event.target.value })} />
           <TextInput id="project-currency" labelText="Moeda" value={projectForm.currency} onChange={(event) => setProjectForm({ ...projectForm, currency: event.target.value })} />
@@ -877,6 +1008,12 @@ export function ProjectsPage() {
           <Select id="task-priority" labelText="Prioridade" value={taskForm.priority} onChange={(event) => setTaskForm({ ...taskForm, priority: event.target.value })}>
             {Object.entries(PRIORITIES).map(([value, label]) => <SelectItem key={value} value={value} text={label} />)}
           </Select>
+          {isPipeline && (
+            <Select id="task-stage" labelText="Etapa do pipeline" value={taskForm.pipeline_stage_id} onChange={(event) => setTaskForm({ ...taskForm, pipeline_stage_id: event.target.value })}>
+              <SelectItem value="" text="Sem etapa" />
+              {stages.map((stage) => <SelectItem key={stage.id} value={String(stage.id)} text={stage.name} />)}
+            </Select>
+          )}
           <TextInput id="task-start" labelText="Início" type="date" value={taskForm.start_date} onChange={(event) => setTaskForm({ ...taskForm, start_date: event.target.value })} />
           <TextInput id="task-duration" labelText="Duração (dias úteis)" type="number" value={taskForm.duration_days} onChange={(event) => setTaskForm({ ...taskForm, duration_days: event.target.value })} />
           <TextInput id="task-progress" labelText="Progresso (%)" type="number" value={taskForm.progress} onChange={(event) => setTaskForm({ ...taskForm, progress: event.target.value })} />
@@ -885,6 +1022,148 @@ export function ProjectsPage() {
           <TextArea id="task-notes" labelText="Anotações" value={taskForm.notes} onChange={(event) => setTaskForm({ ...taskForm, notes: event.target.value })} />
         </div>
       </Modal>
+
+      <Modal
+        open={stageModal !== null}
+        modalHeading={stageModal === 'edit' ? 'Editar etapa' : 'Nova etapa'}
+        primaryButtonText={saving ? 'Salvando…' : 'Salvar'}
+        secondaryButtonText="Cancelar"
+        primaryButtonDisabled={saving}
+        onRequestSubmit={() => void submitStage()}
+        onRequestClose={() => setStageModal(null)}
+        size="sm"
+      >
+        <div className="modal-form">
+          <TextInput id="stage-name" labelText="Nome da etapa" value={stageForm.name} onChange={(event) => setStageForm({ ...stageForm, name: event.target.value })} required />
+          <div className="form-row">
+            <Select id="stage-color" labelText="Cor" value={stageForm.color} onChange={(event) => setStageForm({ ...stageForm, color: event.target.value })}>
+              {Object.entries(STAGE_COLORS).map(([value, label]) => <SelectItem key={value} value={value} text={label} />)}
+            </Select>
+            <TextInput id="stage-wip" type="number" labelText="Limite de cards (0 = sem limite)" value={stageForm.wip_limit} onChange={(event) => setStageForm({ ...stageForm, wip_limit: event.target.value })} />
+          </div>
+          <Select id="stage-done" labelText="Etapa de conclusão" value={stageForm.is_done} onChange={(event) => setStageForm({ ...stageForm, is_done: event.target.value })}>
+            <SelectItem value="false" text="Não" />
+            <SelectItem value="true" text="Sim — cards movidos para cá ficam 100%" />
+          </Select>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
+function PipelineBoard({
+  stages,
+  tasks,
+  project,
+  onAddTask,
+  onEditTask,
+  onCreateStage,
+  onEditStage,
+  onMoveStage,
+  onDeleteStage,
+  onDropTask,
+}: {
+  stages: PipelineStage[];
+  tasks: ProjectTask[];
+  project: Project;
+  onAddTask: (stageID: number) => void;
+  onEditTask: (task: ProjectTask) => void;
+  onCreateStage: () => void;
+  onEditStage: (stage: PipelineStage) => void;
+  onMoveStage: (stage: PipelineStage, direction: 'left' | 'right') => void;
+  onDeleteStage: (stage: PipelineStage) => void;
+  onDropTask: (taskID: number, stageID: number) => void;
+}) {
+  const [dragTask, setDragTask] = useState<number | null>(null);
+  const [overStage, setOverStage] = useState<number | null>(null);
+
+  if (stages.length === 0) {
+    return (
+      <EmptyState
+        icon={ChartBar}
+        title="Pipeline sem etapas"
+        description="Crie as etapas do Kanban para começar a organizar os cards."
+        action={<Button renderIcon={Add} onClick={onCreateStage}>Nova etapa</Button>}
+      />
+    );
+  }
+
+  return (
+    <div className="projects-pipeline">
+      <div className="projects-toolbar">
+        <Button size="sm" renderIcon={Add} onClick={onCreateStage}>Nova etapa</Button>
+        <span className="projects-muted">Arraste os cards entre as etapas ou clique em um card para editar.</span>
+      </div>
+      <div className="projects-pipeline__board">
+        {stages.map((stage, index) => {
+          const cards = tasks.filter((task) => task.pipeline_stage_id === stage.id);
+          const overLimit = stage.wip_limit > 0 && cards.length > stage.wip_limit;
+          return (
+            <section
+              key={stage.id}
+              className={`projects-pipeline__column ${overStage === stage.id ? 'is-drop-target' : ''} ${overLimit ? 'is-over-limit' : ''}`}
+              onDragOver={(event) => { event.preventDefault(); setOverStage(stage.id); }}
+              onDragLeave={() => setOverStage((current) => (current === stage.id ? null : current))}
+              onDrop={(event) => {
+                event.preventDefault();
+                const dropped = Number(event.dataTransfer.getData('text/plain')) || dragTask;
+                if (dropped) onDropTask(dropped, stage.id);
+                setDragTask(null);
+                setOverStage(null);
+              }}
+            >
+              <header className="projects-pipeline__header">
+                <div className="projects-pipeline__stage-title">
+                  <span className="color-dot" style={{ background: stage.color }} />
+                  <strong>{stage.name}</strong>
+                  <span className="projects-pipeline__count">
+                    {cards.length}{stage.wip_limit > 0 ? `/${stage.wip_limit}` : ''}
+                  </span>
+                  {stage.is_done && <Tag type="green" size="sm">conclusão</Tag>}
+                </div>
+                <div className="projects-pipeline__stage-actions">
+                  <Button kind="ghost" size="sm" hasIconOnly renderIcon={ChevronLeft} iconDescription="Mover para a esquerda" disabled={index === 0} onClick={() => onMoveStage(stage, 'left')} />
+                  <Button kind="ghost" size="sm" hasIconOnly renderIcon={ChevronRight} iconDescription="Mover para a direita" disabled={index === stages.length - 1} onClick={() => onMoveStage(stage, 'right')} />
+                  <Button kind="ghost" size="sm" hasIconOnly renderIcon={Edit} iconDescription="Editar etapa" onClick={() => onEditStage(stage)} />
+                  <Button kind="danger--ghost" size="sm" hasIconOnly renderIcon={TrashCan} iconDescription="Excluir etapa" onClick={() => onDeleteStage(stage)} />
+                </div>
+              </header>
+              <div className="projects-pipeline__cards">
+                {cards.length === 0 && <span className="projects-pipeline__empty">Nenhum card nesta etapa.</span>}
+                {cards.map((task) => (
+                  <article
+                    key={task.id}
+                    className={`projects-pipeline__card ${dragTask === task.id ? 'is-dragging' : ''}`}
+                    draggable
+                    onDragStart={(event) => {
+                      setDragTask(task.id);
+                      event.dataTransfer.setData('text/plain', String(task.id));
+                      event.dataTransfer.effectAllowed = 'move';
+                    }}
+                    onDragEnd={() => { setDragTask(null); setOverStage(null); }}
+                    onClick={() => onEditTask(task)}
+                  >
+                    <div className="projects-pipeline__card-top">
+                      <strong>{task.name}</strong>
+                      <Tag type={task.priority === 'critica' ? 'red' : task.priority === 'alta' ? 'magenta' : 'gray'} size="sm">
+                        {PRIORITIES[task.priority] ?? task.priority}
+                      </Tag>
+                    </div>
+                    {task.notes && <span className="projects-pipeline__card-notes">{task.notes}</span>}
+                    <div className="projects-pipeline__card-meta">
+                      <span>{task.resources.length > 0 ? task.resources.join(', ') : task.assignee_name || 'Sem responsável'}</span>
+                      <span>{task.progress}%</span>
+                    </div>
+                    <div className="projects-pipeline__progress"><span style={{ width: `${task.progress}%` }} /></div>
+                    <span className="projects-pipeline__card-cost">{money(task.total_cost, project.currency)}</span>
+                  </article>
+                ))}
+                <Button kind="ghost" size="sm" renderIcon={Add} onClick={() => onAddTask(stage.id)}>Adicionar card</Button>
+              </div>
+            </section>
+          );
+        })}
+      </div>
     </div>
   );
 }

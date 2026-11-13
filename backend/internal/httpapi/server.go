@@ -238,6 +238,12 @@ func (s *Server) Router() http.Handler {
 				projects.Put("/{id}/tasks/{taskId}", s.projectTaskUpdate)
 				projects.Delete("/{id}/tasks/{taskId}", s.projectTaskDelete)
 				projects.Patch("/{id}/tasks/{taskId}/move", s.projectTaskMove)
+				projects.Patch("/{id}/tasks/{taskId}/stage", s.projectTaskMoveStage)
+
+				projects.Post("/{id}/stages", s.projectStageCreate)
+				projects.Put("/{id}/stages/{stageId}", s.projectStageUpdate)
+				projects.Patch("/{id}/stages/{stageId}/move", s.projectStageMove)
+				projects.Delete("/{id}/stages/{stageId}", s.projectStageDelete)
 
 				projects.Post("/{id}/dependencies", s.projectDependencyCreate)
 				projects.Delete("/{id}/dependencies/{dependencyId}", s.projectDependencyDelete)

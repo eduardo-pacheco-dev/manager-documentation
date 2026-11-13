@@ -1014,6 +1014,87 @@ func TestCollaboratorsAndProjectResources(t *testing.T) {
 	}
 }
 
+func TestProjectPipeline(t *testing.T) {
+	app := newTestApp(t)
+
+	res, payload := app.request(http.MethodPost, "/api/v1/projects", map[string]any{
+		"name": "Projeto pipeline", "start_date": "2026-01-05", "end_date": "2026-02-27",
+		"flow_mode": "pipeline",
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("criar projeto pipeline status = %d payload = %v", res.StatusCode, payload)
+	}
+	project := payload["data"].(map[string]any)["project"].(map[string]any)
+	projectID := int64(project["id"].(float64))
+	if project["flow_mode"] != "pipeline" {
+		t.Fatalf("flow_mode = %v", project["flow_mode"])
+	}
+
+	res, payload = app.request(http.MethodGet, fmt.Sprintf("/api/v1/projects/%d", projectID), nil, "", nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("buscar projeto status = %d", res.StatusCode)
+	}
+	bundle := payload["data"].(map[string]any)
+	stages := bundle["stages"].([]any)
+	if len(stages) != 4 {
+		t.Fatalf("esperava 4 etapas padrão, veio %d", len(stages))
+	}
+	firstStage := int64(stages[0].(map[string]any)["id"].(float64))
+	doneStage := int64(stages[3].(map[string]any)["id"].(float64))
+
+	res, payload = app.request(http.MethodPost, fmt.Sprintf("/api/v1/projects/%d/tasks", projectID), map[string]any{
+		"name": "Card no pipeline", "task_type": "task", "duration_days": 3,
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("criar card status = %d payload = %v", res.StatusCode, payload)
+	}
+	task := payload["data"].(map[string]any)["task"].(map[string]any)
+	taskID := int64(task["id"].(float64))
+	if task["pipeline_stage_id"] == nil || int64(task["pipeline_stage_id"].(float64)) != firstStage {
+		t.Fatalf("card deveria iniciar na primeira etapa: %v", task["pipeline_stage_id"])
+	}
+
+	res, payload = app.request(http.MethodPatch, fmt.Sprintf("/api/v1/projects/%d/tasks/%d/stage", projectID, taskID), map[string]any{
+		"stage_id": doneStage,
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("mover card status = %d payload = %v", res.StatusCode, payload)
+	}
+	moved := payload["data"].(map[string]any)["task"].(map[string]any)
+	if int(moved["progress"].(float64)) != 100 {
+		t.Fatalf("card na etapa de conclusão deveria ficar 100%%, veio %v", moved["progress"])
+	}
+
+	res, payload = app.request(http.MethodPost, fmt.Sprintf("/api/v1/projects/%d/stages", projectID), map[string]any{
+		"name": "Homologação", "color": "orange", "wip_limit": 5,
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("criar etapa status = %d payload = %v", res.StatusCode, payload)
+	}
+	stage := payload["data"].(map[string]any)["stage"].(map[string]any)
+	stageID := int64(stage["id"].(float64))
+
+	res, _ = app.request(http.MethodPatch, fmt.Sprintf("/api/v1/projects/%d/stages/%d/move", projectID, stageID), map[string]any{
+		"direction": "up",
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("mover etapa status = %d", res.StatusCode)
+	}
+
+	res, _ = app.request(http.MethodDelete, fmt.Sprintf("/api/v1/projects/%d/stages/%d", projectID, stageID), nil, app.csrf, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("excluir etapa status = %d", res.StatusCode)
+	}
+
+	res, payload = app.request(http.MethodGet, fmt.Sprintf("/api/v1/projects/%d", projectID), nil, "", nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("buscar projeto final status = %d", res.StatusCode)
+	}
+	if got := len(payload["data"].(map[string]any)["stages"].([]any)); got != 4 {
+		t.Fatalf("esperava 4 etapas após exclusão, veio %d", got)
+	}
+}
+
 func TestProjects(t *testing.T) {
 	app := newTestApp(t)
 

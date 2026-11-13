@@ -47,13 +47,14 @@ type projectPayload struct {
 	Budget      float64 `json:"budget"`
 	WorkingDays string  `json:"working_days"`
 	HoursPerDay float64 `json:"hours_per_day"`
+	FlowMode    string  `json:"flow_mode"`
 }
 
 func (p projectPayload) input() modules.ProjectInput {
 	return modules.ProjectInput{
 		Name: p.Name, Description: p.Description, Status: p.Status, StartDate: p.StartDate,
 		EndDate: p.EndDate, Currency: p.Currency, Budget: p.Budget, WorkingDays: p.WorkingDays,
-		HoursPerDay: p.HoursPerDay,
+		HoursPerDay: p.HoursPerDay, FlowMode: p.FlowMode,
 	}
 }
 
@@ -134,19 +135,20 @@ func (s *Server) projectsToggleArchive(w http.ResponseWriter, r *http.Request) {
 }
 
 type projectTaskPayload struct {
-	ParentID     int64   `json:"parent_id"`
-	Name         string  `json:"name"`
-	Notes        string  `json:"notes"`
-	TaskType     string  `json:"task_type"`
-	StartDate    string  `json:"start_date"`
-	EndDate      string  `json:"end_date"`
-	DurationDays int     `json:"duration_days"`
-	Progress     int     `json:"progress"`
-	Priority     string  `json:"priority"`
-	EffortHours  float64 `json:"effort_hours"`
-	FixedCost    float64 `json:"fixed_cost"`
-	AssigneeID   int64   `json:"assignee_id"`
-	Position     int     `json:"position"`
+	ParentID        int64   `json:"parent_id"`
+	Name            string  `json:"name"`
+	Notes           string  `json:"notes"`
+	TaskType        string  `json:"task_type"`
+	StartDate       string  `json:"start_date"`
+	EndDate         string  `json:"end_date"`
+	DurationDays    int     `json:"duration_days"`
+	Progress        int     `json:"progress"`
+	Priority        string  `json:"priority"`
+	EffortHours     float64 `json:"effort_hours"`
+	FixedCost       float64 `json:"fixed_cost"`
+	AssigneeID      int64   `json:"assignee_id"`
+	PipelineStageID int64   `json:"pipeline_stage_id"`
+	Position        int     `json:"position"`
 }
 
 func (p projectTaskPayload) input() modules.ProjectTaskInput {
@@ -154,7 +156,7 @@ func (p projectTaskPayload) input() modules.ProjectTaskInput {
 		ParentID: p.ParentID, Name: p.Name, Notes: p.Notes, TaskType: p.TaskType,
 		StartDate: p.StartDate, EndDate: p.EndDate, DurationDays: p.DurationDays, Progress: p.Progress,
 		Priority: p.Priority, EffortHours: p.EffortHours, FixedCost: p.FixedCost,
-		AssigneeID: p.AssigneeID, Position: p.Position,
+		AssigneeID: p.AssigneeID, PipelineStageID: p.PipelineStageID, Position: p.Position,
 	}
 }
 
@@ -227,6 +229,111 @@ func (s *Server) projectTaskMove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"message": "Tarefa movida."})
+}
+
+func (s *Server) projectTaskMoveStage(w http.ResponseWriter, r *http.Request) {
+	projectID, _ := parseID(r, "id")
+	taskID, ok := parseID(r, "taskId")
+	if !ok {
+		writeError(w, http.StatusNotFound, "Tarefa não encontrada.", nil)
+		return
+	}
+	var payload struct {
+		StageID int64 `json:"stage_id"`
+	}
+	if !decodeJSON(w, r, &payload) {
+		return
+	}
+	task, err := s.Modules.MoveProjectTaskToStage(projectID, taskID, payload.StageID)
+	if err != nil {
+		projectError(w, err, "Não foi possível mover o card.")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"message": "Card movido.", "data": map[string]any{"task": task}})
+}
+
+type projectStagePayload struct {
+	Name     string `json:"name"`
+	Color    string `json:"color"`
+	WIPLimit int    `json:"wip_limit"`
+	IsDone   bool   `json:"is_done"`
+}
+
+func (p projectStagePayload) input() modules.ProjectPipelineStageInput {
+	return modules.ProjectPipelineStageInput{
+		Name: p.Name, Color: p.Color, WIPLimit: p.WIPLimit, IsDone: p.IsDone,
+	}
+}
+
+func (s *Server) projectStageCreate(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := parseID(r, "id")
+	if !ok {
+		writeError(w, http.StatusNotFound, "Projeto não encontrado.", nil)
+		return
+	}
+	var payload projectStagePayload
+	if !decodeJSON(w, r, &payload) {
+		return
+	}
+	stage, err := s.Modules.CreatePipelineStage(projectID, payload.input())
+	if err != nil {
+		projectError(w, err, "Não foi possível criar a etapa.")
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]any{"message": "Etapa criada.", "data": map[string]any{"stage": stage}})
+}
+
+func (s *Server) projectStageUpdate(w http.ResponseWriter, r *http.Request) {
+	projectID, _ := parseID(r, "id")
+	stageID, ok := parseID(r, "stageId")
+	if !ok {
+		writeError(w, http.StatusNotFound, "Etapa não encontrada.", nil)
+		return
+	}
+	var payload projectStagePayload
+	if !decodeJSON(w, r, &payload) {
+		return
+	}
+	stage, err := s.Modules.UpdatePipelineStage(projectID, stageID, payload.input())
+	if err != nil {
+		projectError(w, err, "Não foi possível atualizar a etapa.")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"message": "Etapa atualizada.", "data": map[string]any{"stage": stage}})
+}
+
+func (s *Server) projectStageMove(w http.ResponseWriter, r *http.Request) {
+	projectID, _ := parseID(r, "id")
+	stageID, ok := parseID(r, "stageId")
+	if !ok {
+		writeError(w, http.StatusNotFound, "Etapa não encontrada.", nil)
+		return
+	}
+	var payload struct {
+		Direction string `json:"direction"`
+	}
+	if !decodeJSON(w, r, &payload) {
+		return
+	}
+	if err := s.Modules.MovePipelineStage(projectID, stageID, payload.Direction); err != nil {
+		projectError(w, err, "Não foi possível mover a etapa.")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"message": "Etapa movida."})
+}
+
+func (s *Server) projectStageDelete(w http.ResponseWriter, r *http.Request) {
+	projectID, _ := parseID(r, "id")
+	stageID, ok := parseID(r, "stageId")
+	if !ok {
+		writeError(w, http.StatusNotFound, "Etapa não encontrada.", nil)
+		return
+	}
+	if err := s.Modules.DeletePipelineStage(projectID, stageID); err != nil {
+		projectError(w, err, "Não foi possível excluir a etapa.")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"message": "Etapa excluída."})
 }
 
 func (s *Server) projectDependencyCreate(w http.ResponseWriter, r *http.Request) {

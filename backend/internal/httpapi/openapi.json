@@ -330,6 +330,19 @@
     "/projects/{id}/tasks/{taskId}/move": {
       "patch": { "tags": ["Projetos"], "summary": "Move a tarefa para cima ou para baixo", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "taskId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Tarefa movida" } } }
     },
+    "/projects/{id}/tasks/{taskId}/stage": {
+      "patch": { "tags": ["Projetos"], "summary": "Move o card para outra etapa do pipeline", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "taskId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Card movido" }, "422": { "description": "Etapa inválida" } } }
+    },
+    "/projects/{id}/stages": {
+      "post": { "tags": ["Projetos"], "summary": "Cria uma etapa do pipeline", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "201": { "description": "Etapa criada" }, "422": { "description": "Validação" } } }
+    },
+    "/projects/{id}/stages/{stageId}": {
+      "put": { "tags": ["Projetos"], "summary": "Atualiza uma etapa do pipeline", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "stageId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Etapa atualizada" }, "422": { "description": "Validação" } } },
+      "delete": { "tags": ["Projetos"], "summary": "Exclui uma etapa e move os cards para a primeira etapa restante", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "stageId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Etapa excluída" } } }
+    },
+    "/projects/{id}/stages/{stageId}/move": {
+      "patch": { "tags": ["Projetos"], "summary": "Reordena a etapa para cima ou para baixo", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "stageId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Etapa movida" } } }
+    },
     "/projects/{id}/dependencies": {
       "post": { "tags": ["Projetos"], "summary": "Cria dependência FS, SS, FF ou SF com lag", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "201": { "description": "Dependência criada" }, "422": { "description": "Validação ou ciclo" } } }
     },

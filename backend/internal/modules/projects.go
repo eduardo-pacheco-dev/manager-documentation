@@ -32,6 +32,7 @@ type Project struct {
 	Budget      float64   `db:"budget" json:"budget"`
 	WorkingDays string    `db:"working_days" json:"working_days"`
 	HoursPerDay float64   `db:"hours_per_day" json:"hours_per_day"`
+	FlowMode    string    `db:"flow_mode" json:"flow_mode"`
 	Archived    bool      `db:"archived" json:"archived"`
 	CreatedAt   time.Time `db:"created_at" json:"created_at"`
 	UpdatedAt   time.Time `db:"updated_at" json:"updated_at"`
@@ -41,38 +42,40 @@ type Project struct {
 }
 
 type ProjectTask struct {
-	ID            int64     `db:"id" json:"id"`
-	ProjectID     int64     `db:"project_id" json:"project_id"`
-	ParentID      *int64    `db:"parent_id" json:"parent_id"`
-	WBS           string    `db:"wbs" json:"wbs"`
-	Name          string    `db:"name" json:"name"`
-	Notes         *string   `db:"notes" json:"notes"`
-	TaskType      string    `db:"task_type" json:"task_type"`
-	StartDate     *string   `db:"start_date" json:"start_date"`
-	EndDate       *string   `db:"end_date" json:"end_date"`
-	DurationDays  int       `db:"duration_days" json:"duration_days"`
-	Progress      int       `db:"progress" json:"progress"`
-	Priority      string    `db:"priority" json:"priority"`
-	EffortHours   float64   `db:"effort_hours" json:"effort_hours"`
-	FixedCost     float64   `db:"fixed_cost" json:"fixed_cost"`
-	AssigneeID    *int64    `db:"assignee_id" json:"assignee_id"`
-	AssigneeName  string    `db:"assignee_name" json:"assignee_name"`
-	Position      int       `db:"position" json:"position"`
-	CreatedAt     time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt     time.Time `db:"updated_at" json:"updated_at"`
-	Level         int       `json:"level"`
-	ScheduledFrom string    `json:"scheduled_start"`
-	ScheduledTo   string    `json:"scheduled_end"`
-	EffectiveDays int       `json:"effective_duration"`
-	IsCritical    bool      `json:"is_critical"`
-	AssignedCost  float64   `json:"assigned_cost"`
-	TotalCost     float64   `json:"total_cost"`
-	Resources     []string  `json:"resources"`
-	BaselineStart *string   `json:"baseline_start,omitempty"`
-	BaselineEnd   *string   `json:"baseline_end,omitempty"`
-	StartVariance int       `json:"start_variance_days"`
-	EndVariance   int       `json:"end_variance_days"`
-	CostVariance  float64   `json:"cost_variance"`
+	ID              int64     `db:"id" json:"id"`
+	ProjectID       int64     `db:"project_id" json:"project_id"`
+	ParentID        *int64    `db:"parent_id" json:"parent_id"`
+	WBS             string    `db:"wbs" json:"wbs"`
+	Name            string    `db:"name" json:"name"`
+	Notes           *string   `db:"notes" json:"notes"`
+	TaskType        string    `db:"task_type" json:"task_type"`
+	StartDate       *string   `db:"start_date" json:"start_date"`
+	EndDate         *string   `db:"end_date" json:"end_date"`
+	DurationDays    int       `db:"duration_days" json:"duration_days"`
+	Progress        int       `db:"progress" json:"progress"`
+	Priority        string    `db:"priority" json:"priority"`
+	EffortHours     float64   `db:"effort_hours" json:"effort_hours"`
+	FixedCost       float64   `db:"fixed_cost" json:"fixed_cost"`
+	AssigneeID      *int64    `db:"assignee_id" json:"assignee_id"`
+	AssigneeName    string    `db:"assignee_name" json:"assignee_name"`
+	PipelineStageID *int64    `db:"pipeline_stage_id" json:"pipeline_stage_id"`
+	StageName       string    `db:"stage_name" json:"stage_name"`
+	Position        int       `db:"position" json:"position"`
+	CreatedAt       time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt       time.Time `db:"updated_at" json:"updated_at"`
+	Level           int       `json:"level"`
+	ScheduledFrom   string    `json:"scheduled_start"`
+	ScheduledTo     string    `json:"scheduled_end"`
+	EffectiveDays   int       `json:"effective_duration"`
+	IsCritical      bool      `json:"is_critical"`
+	AssignedCost    float64   `json:"assigned_cost"`
+	TotalCost       float64   `json:"total_cost"`
+	Resources       []string  `json:"resources"`
+	BaselineStart   *string   `json:"baseline_start,omitempty"`
+	BaselineEnd     *string   `json:"baseline_end,omitempty"`
+	StartVariance   int       `json:"start_variance_days"`
+	EndVariance     int       `json:"end_variance_days"`
+	CostVariance    float64   `json:"cost_variance"`
 }
 
 type ProjectDependency struct {
@@ -121,6 +124,19 @@ type ProjectHoliday struct {
 	CreatedAt time.Time `db:"created_at" json:"created_at"`
 }
 
+type ProjectPipelineStage struct {
+	ID        int64     `db:"id" json:"id"`
+	ProjectID int64     `db:"project_id" json:"project_id"`
+	Name      string    `db:"name" json:"name"`
+	Color     string    `db:"color" json:"color"`
+	Position  int       `db:"position" json:"position"`
+	WIPLimit  int       `db:"wip_limit" json:"wip_limit"`
+	IsDone    bool      `db:"is_done" json:"is_done"`
+	CardCount int       `db:"card_count" json:"card_count"`
+	CreatedAt time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
+}
+
 type ProjectBaseline struct {
 	ID        int64     `db:"id" json:"id"`
 	ProjectID int64     `db:"project_id" json:"project_id"`
@@ -147,14 +163,15 @@ type ProjectMetrics struct {
 }
 
 type ProjectBundle struct {
-	Project      Project             `json:"project"`
-	Tasks        []ProjectTask       `json:"tasks"`
-	Dependencies []ProjectDependency `json:"dependencies"`
-	Resources    []ProjectResource   `json:"resources"`
-	Assignments  []ProjectAssignment `json:"assignments"`
-	Holidays     []ProjectHoliday    `json:"holidays"`
-	Baselines    []ProjectBaseline   `json:"baselines"`
-	Metrics      ProjectMetrics      `json:"metrics"`
+	Project      Project                `json:"project"`
+	Tasks        []ProjectTask          `json:"tasks"`
+	Dependencies []ProjectDependency    `json:"dependencies"`
+	Resources    []ProjectResource      `json:"resources"`
+	Assignments  []ProjectAssignment    `json:"assignments"`
+	Holidays     []ProjectHoliday       `json:"holidays"`
+	Baselines    []ProjectBaseline      `json:"baselines"`
+	Stages       []ProjectPipelineStage `json:"stages"`
+	Metrics      ProjectMetrics         `json:"metrics"`
 }
 
 type ProjectInput struct {
@@ -167,22 +184,24 @@ type ProjectInput struct {
 	Budget      float64
 	WorkingDays string
 	HoursPerDay float64
+	FlowMode    string
 }
 
 type ProjectTaskInput struct {
-	ParentID     int64
-	Name         string
-	Notes        string
-	TaskType     string
-	StartDate    string
-	EndDate      string
-	DurationDays int
-	Progress     int
-	Priority     string
-	EffortHours  float64
-	FixedCost    float64
-	AssigneeID   int64
-	Position     int
+	ParentID        int64
+	Name            string
+	Notes           string
+	TaskType        string
+	StartDate       string
+	EndDate         string
+	DurationDays    int
+	Progress        int
+	Priority        string
+	EffortHours     float64
+	FixedCost       float64
+	AssigneeID      int64
+	PipelineStageID int64
+	Position        int
 }
 
 type ProjectResourceInput struct {
@@ -202,8 +221,25 @@ type ProjectAssignmentInput struct {
 	PlannedHours float64
 }
 
+type ProjectPipelineStageInput struct {
+	Name     string
+	Color    string
+	WIPLimit int
+	IsDone   bool
+}
+
 var projectStatuses = map[string]bool{
 	"planejamento": true, "em_andamento": true, "pausado": true, "concluido": true, "cancelado": true,
+}
+
+var projectFlowModes = map[string]bool{"wbs": true, "pipeline": true}
+
+func normalizeFlowMode(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if projectFlowModes[value] {
+		return value
+	}
+	return "wbs"
 }
 
 var projectPriorities = map[string]bool{"baixa": true, "media": true, "alta": true, "critica": true}
@@ -273,17 +309,21 @@ func (s *Store) CreateProject(ownerID int64, input ProjectInput) (Project, error
 	if hours <= 0 || hours > 24 {
 		hours = 8
 	}
+	flowMode := normalizeFlowMode(input.FlowMode)
 	timestamp := now()
 	result, err := s.DB.Exec(`
 		INSERT INTO projects (name, description, owner_id, status, start_date, end_date, currency,
-			budget, working_days, hours_per_day, archived, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+			budget, working_days, hours_per_day, flow_mode, archived, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
 		name, nullString(input.Description), ownerID, status, start, end, currency,
-		input.Budget, workingDays, hours, timestamp, timestamp)
+		input.Budget, workingDays, hours, flowMode, timestamp, timestamp)
 	if err != nil {
 		return Project{}, err
 	}
 	id, _ := result.LastInsertId()
+	if flowMode == "pipeline" {
+		_ = s.ensureDefaultPipelineStages(id)
+	}
 	return s.FindProject(id)
 }
 
@@ -320,13 +360,20 @@ func (s *Store) UpdateProject(id int64, input ProjectInput) (Project, error) {
 	if hours <= 0 || hours > 24 {
 		hours = project.HoursPerDay
 	}
+	flowMode := normalizeFlowMode(input.FlowMode)
+	if strings.TrimSpace(input.FlowMode) == "" {
+		flowMode = normalizeFlowMode(project.FlowMode)
+	}
 	_, err = s.DB.Exec(`
 		UPDATE projects SET name = ?, description = ?, status = ?, start_date = ?, end_date = ?,
-			currency = ?, budget = ?, working_days = ?, hours_per_day = ?, updated_at = ?
+			currency = ?, budget = ?, working_days = ?, hours_per_day = ?, flow_mode = ?, updated_at = ?
 		WHERE id = ?`,
-		name, nullString(input.Description), status, start, end, currency, input.Budget, workingDays, hours, now(), id)
+		name, nullString(input.Description), status, start, end, currency, input.Budget, workingDays, hours, flowMode, now(), id)
 	if err != nil {
 		return project, err
+	}
+	if flowMode == "pipeline" {
+		_ = s.ensureDefaultPipelineStages(id)
 	}
 	return s.FindProject(id)
 }
@@ -355,9 +402,10 @@ func (s *Store) ToggleProjectArchived(id int64) (Project, error) {
 func (s *Store) ProjectTasks(projectID int64) ([]ProjectTask, error) {
 	tasks := []ProjectTask{}
 	err := s.DB.Select(&tasks, `
-		SELECT t.*, COALESCE(u.name, '') AS assignee_name
+		SELECT t.*, COALESCE(u.name, '') AS assignee_name, COALESCE(s.name, '') AS stage_name
 		FROM project_tasks t
 		LEFT JOIN users u ON u.id = t.assignee_id
+		LEFT JOIN project_pipeline_stages s ON s.id = t.pipeline_stage_id
 		WHERE t.project_id = ?
 		ORDER BY t.position ASC, t.id ASC`, projectID)
 	return tasks, err
@@ -366,9 +414,10 @@ func (s *Store) ProjectTasks(projectID int64) ([]ProjectTask, error) {
 func (s *Store) FindProjectTask(projectID, id int64) (ProjectTask, error) {
 	var task ProjectTask
 	err := s.DB.Get(&task, `
-		SELECT t.*, COALESCE(u.name, '') AS assignee_name
+		SELECT t.*, COALESCE(u.name, '') AS assignee_name, COALESCE(s.name, '') AS stage_name
 		FROM project_tasks t
 		LEFT JOIN users u ON u.id = t.assignee_id
+		LEFT JOIN project_pipeline_stages s ON s.id = t.pipeline_stage_id
 		WHERE t.id = ? AND t.project_id = ?`, id, projectID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return task, ErrNotFound
@@ -422,13 +471,23 @@ func (s *Store) CreateProjectTask(projectID int64, input ProjectTaskInput) (Proj
 		_ = s.DB.Get(&position, `SELECT COALESCE(MAX(position), 0) + 1 FROM project_tasks WHERE project_id = ? AND COALESCE(parent_id, 0) = ?`,
 			projectID, input.ParentID)
 	}
+	stageID := input.PipelineStageID
+	if stageID > 0 {
+		if !s.projectHasPipelineStage(projectID, stageID) {
+			return ProjectTask{}, fmt.Errorf("%w: etapa do pipeline não encontrada", ErrValidation)
+		}
+	} else if project.FlowMode == "pipeline" {
+		_ = s.ensureDefaultPipelineStages(projectID)
+		stageID = s.firstPipelineStageID(projectID)
+	}
 	timestamp := now()
 	result, err := s.DB.Exec(`
 		INSERT INTO project_tasks (project_id, parent_id, wbs, name, notes, task_type, start_date, end_date,
-			duration_days, progress, priority, effort_hours, fixed_cost, assignee_id, position, created_at, updated_at)
-		VALUES (?, ?, '', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			duration_days, progress, priority, effort_hours, fixed_cost, assignee_id, pipeline_stage_id, position, created_at, updated_at)
+		VALUES (?, ?, '', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		projectID, nullableID(input.ParentID), name, nullString(input.Notes), taskType, nullDate(start), nullDate(end),
-		duration, progress, priority, input.EffortHours, input.FixedCost, nullableID(input.AssigneeID), position, timestamp, timestamp)
+		duration, progress, priority, input.EffortHours, input.FixedCost, nullableID(input.AssigneeID),
+		nullableID(stageID), position, timestamp, timestamp)
 	if err != nil {
 		return ProjectTask{}, err
 	}
@@ -482,14 +541,22 @@ func (s *Store) UpdateProjectTask(projectID, id int64, input ProjectTaskInput) (
 	if position <= 0 {
 		position = task.Position
 	}
+	stageID := input.PipelineStageID
+	if stageID > 0 {
+		if !s.projectHasPipelineStage(projectID, stageID) {
+			return task, fmt.Errorf("%w: etapa do pipeline não encontrada", ErrValidation)
+		}
+	} else if task.PipelineStageID != nil {
+		stageID = *task.PipelineStageID
+	}
 	_, err = s.DB.Exec(`
 		UPDATE project_tasks SET parent_id = ?, name = ?, notes = ?, task_type = ?, start_date = ?, end_date = ?,
 			duration_days = ?, progress = ?, priority = ?, effort_hours = ?, fixed_cost = ?, assignee_id = ?,
-			position = ?, updated_at = ?
+			pipeline_stage_id = ?, position = ?, updated_at = ?
 		WHERE id = ? AND project_id = ?`,
 		nullableID(input.ParentID), name, nullString(input.Notes), taskType, nullDate(start), nullDate(end),
 		duration, progress, priority, input.EffortHours, input.FixedCost, nullableID(input.AssigneeID),
-		position, now(), id, projectID)
+		nullableID(stageID), position, now(), id, projectID)
 	if err != nil {
 		return task, err
 	}
@@ -622,6 +689,193 @@ func (s *Store) reindexProject(projectID int64) {
 			_, _ = s.DB.Exec(`UPDATE project_tasks SET progress = ?, updated_at = ? WHERE id = ?`, progress, now(), task.ID)
 		}
 	}
+}
+
+/* --------------------------------------------------------------------------
+ * Pipeline stages (Kanban)
+ * ----------------------------------------------------------------------- */
+
+const pipelineStageSelect = `
+	SELECT s.*, (SELECT COUNT(*) FROM project_tasks t WHERE t.pipeline_stage_id = s.id) AS card_count
+	FROM project_pipeline_stages s`
+
+func (s *Store) ProjectPipelineStages(projectID int64) ([]ProjectPipelineStage, error) {
+	stages := []ProjectPipelineStage{}
+	err := s.DB.Select(&stages, pipelineStageSelect+` WHERE s.project_id = ? ORDER BY s.position ASC, s.id ASC`, projectID)
+	return stages, err
+}
+
+func (s *Store) FindPipelineStage(projectID, id int64) (ProjectPipelineStage, error) {
+	var stage ProjectPipelineStage
+	err := s.DB.Get(&stage, pipelineStageSelect+` WHERE s.project_id = ? AND s.id = ?`, projectID, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return stage, ErrNotFound
+	}
+	return stage, err
+}
+
+func (s *Store) CreatePipelineStage(projectID int64, input ProjectPipelineStageInput) (ProjectPipelineStage, error) {
+	name := strings.TrimSpace(input.Name)
+	if name == "" {
+		return ProjectPipelineStage{}, fmt.Errorf("%w: nome da etapa é obrigatório", ErrValidation)
+	}
+	if _, err := s.FindProject(projectID); err != nil {
+		return ProjectPipelineStage{}, err
+	}
+	color := strings.TrimSpace(input.Color)
+	if color == "" {
+		color = "blue"
+	}
+	wip := input.WIPLimit
+	if wip < 0 {
+		wip = 0
+	}
+	var position int
+	_ = s.DB.Get(&position, `SELECT COALESCE(MAX(position), 0) + 1 FROM project_pipeline_stages WHERE project_id = ?`, projectID)
+	timestamp := now()
+	result, err := s.DB.Exec(`
+		INSERT INTO project_pipeline_stages (project_id, name, color, position, wip_limit, is_done, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		projectID, name, color, position, wip, input.IsDone, timestamp, timestamp)
+	if err != nil {
+		return ProjectPipelineStage{}, err
+	}
+	id, _ := result.LastInsertId()
+	return s.FindPipelineStage(projectID, id)
+}
+
+func (s *Store) UpdatePipelineStage(projectID, id int64, input ProjectPipelineStageInput) (ProjectPipelineStage, error) {
+	if _, err := s.FindPipelineStage(projectID, id); err != nil {
+		return ProjectPipelineStage{}, err
+	}
+	name := strings.TrimSpace(input.Name)
+	if name == "" {
+		return ProjectPipelineStage{}, fmt.Errorf("%w: nome da etapa é obrigatório", ErrValidation)
+	}
+	color := strings.TrimSpace(input.Color)
+	if color == "" {
+		color = "blue"
+	}
+	wip := input.WIPLimit
+	if wip < 0 {
+		wip = 0
+	}
+	_, err := s.DB.Exec(`
+		UPDATE project_pipeline_stages SET name = ?, color = ?, wip_limit = ?, is_done = ?, updated_at = ?
+		WHERE id = ? AND project_id = ?`,
+		name, color, wip, input.IsDone, now(), id, projectID)
+	if err != nil {
+		return ProjectPipelineStage{}, err
+	}
+	return s.FindPipelineStage(projectID, id)
+}
+
+func (s *Store) MovePipelineStage(projectID, id int64, direction string) error {
+	stages, err := s.ProjectPipelineStages(projectID)
+	if err != nil {
+		return err
+	}
+	index := -1
+	for i := range stages {
+		if stages[i].ID == id {
+			index = i
+			break
+		}
+	}
+	if index < 0 {
+		return ErrNotFound
+	}
+	target := index - 1
+	if direction == "down" {
+		target = index + 1
+	}
+	if target < 0 || target >= len(stages) {
+		return nil
+	}
+	stages[index], stages[target] = stages[target], stages[index]
+	for i, stage := range stages {
+		_, _ = s.DB.Exec(`UPDATE project_pipeline_stages SET position = ?, updated_at = ? WHERE id = ?`, i+1, now(), stage.ID)
+	}
+	return nil
+}
+
+func (s *Store) DeletePipelineStage(projectID, id int64) error {
+	if _, err := s.FindPipelineStage(projectID, id); err != nil {
+		return err
+	}
+	var fallbackID int64
+	_ = s.DB.Get(&fallbackID, `
+		SELECT id FROM project_pipeline_stages
+		WHERE project_id = ? AND id <> ? ORDER BY position ASC, id ASC LIMIT 1`, projectID, id)
+	if fallbackID > 0 {
+		_, _ = s.DB.Exec(`UPDATE project_tasks SET pipeline_stage_id = ?, updated_at = ? WHERE project_id = ? AND pipeline_stage_id = ?`,
+			fallbackID, now(), projectID, id)
+	} else {
+		_, _ = s.DB.Exec(`UPDATE project_tasks SET pipeline_stage_id = NULL, updated_at = ? WHERE project_id = ? AND pipeline_stage_id = ?`,
+			now(), projectID, id)
+	}
+	_, err := s.DB.Exec(`DELETE FROM project_pipeline_stages WHERE id = ? AND project_id = ?`, id, projectID)
+	return err
+}
+
+func (s *Store) MoveProjectTaskToStage(projectID, taskID, stageID int64) (ProjectTask, error) {
+	task, err := s.FindProjectTask(projectID, taskID)
+	if err != nil {
+		return task, err
+	}
+	stage, err := s.FindPipelineStage(projectID, stageID)
+	if err != nil {
+		return task, fmt.Errorf("%w: etapa do pipeline não encontrada", ErrValidation)
+	}
+	progress := task.Progress
+	if stage.IsDone {
+		progress = 100
+	} else if task.Progress >= 100 {
+		progress = 0
+	}
+	_, err = s.DB.Exec(`UPDATE project_tasks SET pipeline_stage_id = ?, progress = ?, updated_at = ? WHERE id = ? AND project_id = ?`,
+		stageID, progress, now(), taskID, projectID)
+	if err != nil {
+		return task, err
+	}
+	s.reindexProject(projectID)
+	return s.FindProjectTask(projectID, taskID)
+}
+
+func (s *Store) ensureDefaultPipelineStages(projectID int64) error {
+	var count int
+	if err := s.DB.Get(&count, `SELECT COUNT(*) FROM project_pipeline_stages WHERE project_id = ?`, projectID); err != nil {
+		return err
+	}
+	if count > 0 {
+		return nil
+	}
+	defaults := []ProjectPipelineStageInput{
+		{Name: "A fazer", Color: "blue"},
+		{Name: "Em andamento", Color: "purple"},
+		{Name: "Em revisão", Color: "orange"},
+		{Name: "Concluído", Color: "green", IsDone: true},
+	}
+	for _, stage := range defaults {
+		if _, err := s.CreatePipelineStage(projectID, stage); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Store) projectHasPipelineStage(projectID, stageID int64) bool {
+	var count int
+	if err := s.DB.Get(&count, `SELECT COUNT(*) FROM project_pipeline_stages WHERE project_id = ? AND id = ?`, projectID, stageID); err != nil {
+		return false
+	}
+	return count > 0
+}
+
+func (s *Store) firstPipelineStageID(projectID int64) int64 {
+	var id int64
+	_ = s.DB.Get(&id, `SELECT id FROM project_pipeline_stages WHERE project_id = ? ORDER BY position ASC, id ASC LIMIT 1`, projectID)
+	return id
 }
 
 /* --------------------------------------------------------------------------
@@ -986,6 +1240,11 @@ func (s *Store) ProjectBundle(projectID int64) (ProjectBundle, error) {
 	if err != nil {
 		return bundle, err
 	}
+	stages, err := s.ProjectPipelineStages(projectID)
+	if err != nil {
+		return bundle, err
+	}
+	bundle.Stages = stages
 
 	scheduled, err := scheduleProject(project, tasks, dependencies, holidays)
 	if err != nil {

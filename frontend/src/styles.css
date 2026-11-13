@@ -4331,6 +4331,137 @@ p {
   margin-right: 0.3rem;
 }
 
+.projects-pipeline__board {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding-bottom: 0.75rem;
+}
+
+.projects-pipeline__column {
+  flex: 0 0 17rem;
+  min-height: 14rem;
+  border: 1px solid var(--cds-border-subtle-01);
+  border-radius: 0.5rem;
+  background: var(--cds-layer);
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.projects-pipeline__column.is-drop-target {
+  border-color: var(--cds-border-interactive);
+  background: var(--cds-layer-hover);
+}
+
+.projects-pipeline__column.is-over-limit {
+  border-color: var(--cds-support-warning);
+}
+
+.projects-pipeline__header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.65rem 0.7rem;
+  border-bottom: 1px solid var(--cds-border-subtle-01);
+}
+
+.projects-pipeline__stage-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+}
+
+.projects-pipeline__count {
+  margin-left: auto;
+  color: var(--cds-text-helper);
+  font-size: 0.72rem;
+}
+
+.projects-pipeline__stage-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.05rem;
+}
+
+.projects-pipeline__cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.6rem;
+  max-height: 30rem;
+  overflow-y: auto;
+}
+
+.projects-pipeline__empty {
+  color: var(--cds-text-helper);
+  font-size: 0.75rem;
+  padding: 0.35rem 0.2rem;
+}
+
+.projects-pipeline__card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.6rem;
+  border: 1px solid var(--cds-border-subtle-01);
+  border-radius: 0.35rem;
+  background: var(--cds-layer-accent-01);
+  cursor: grab;
+}
+
+.projects-pipeline__card:hover {
+  background: var(--cds-layer-hover);
+}
+
+.projects-pipeline__card.is-dragging {
+  opacity: 0.45;
+}
+
+.projects-pipeline__card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+}
+
+.projects-pipeline__card-notes {
+  color: var(--cds-text-secondary);
+  font-size: 0.72rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.projects-pipeline__card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--cds-text-helper);
+  font-size: 0.7rem;
+}
+
+.projects-pipeline__card-cost {
+  color: var(--cds-text-helper);
+  font-size: 0.7rem;
+}
+
+.projects-pipeline__progress {
+  height: 3px;
+  border-radius: 999px;
+  background: var(--cds-layer-01);
+  overflow: hidden;
+}
+
+.projects-pipeline__progress > span {
+  display: block;
+  height: 100%;
+  background: var(--cds-support-success);
+}
+
 @media (max-width: 900px) {
   .projects-layout {
     grid-template-columns: 1fr;

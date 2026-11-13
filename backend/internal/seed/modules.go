@@ -400,6 +400,7 @@ type projectSeedTask struct {
 	Effort     float64
 	FixedCost  float64
 	AssigneeID int64
+	Stage      string
 }
 
 type projectSeedDependency struct {
@@ -431,11 +432,13 @@ type projectSeed struct {
 	Budget       float64
 	WorkingDays  string
 	HoursPerDay  float64
+	FlowMode     string
 	Tasks        []projectSeedTask
 	Dependencies []projectSeedDependency
 	Resources    []modules.ProjectResourceInput
 	Assignments  []projectSeedAssignment
 	Holidays     []projectSeedHoliday
+	Stages       []modules.ProjectPipelineStageInput
 	Baseline     string
 }
 
@@ -463,18 +466,19 @@ func seedProjects(m *modules.Store, admin models.User, collaborators map[string]
 			Budget:      180000,
 			WorkingDays: "1,2,3,4,5",
 			HoursPerDay: 8,
+			FlowMode:    "pipeline",
 			Tasks: []projectSeedTask{
 				{Key: "planning", Name: "Planejamento", Type: "summary"},
-				{Key: "kickoff", Parent: "planning", Name: "Kickoff e alinhamento com o cliente", Notes: "Reunião inicial para alinhar escopo, prazos e responsáveis.", Type: "task", Start: expansionDate, Duration: 2, Progress: 100, Priority: "alta", Effort: 16, AssigneeID: admin.ID},
-				{Key: "requirements", Parent: "planning", Name: "Levantamento de requisitos", Notes: "Consolidar requisitos técnicos e documentais das estações.", Type: "task", Start: expansionDate, Duration: 3, Progress: 100, Priority: "alta", Effort: 24, AssigneeID: admin.ID},
+				{Key: "kickoff", Parent: "planning", Name: "Kickoff e alinhamento com o cliente", Notes: "Reunião inicial para alinhar escopo, prazos e responsáveis.", Type: "task", Start: expansionDate, Duration: 2, Progress: 100, Priority: "alta", Effort: 16, AssigneeID: admin.ID, Stage: "Concluído"},
+				{Key: "requirements", Parent: "planning", Name: "Levantamento de requisitos", Notes: "Consolidar requisitos técnicos e documentais das estações.", Type: "task", Start: expansionDate, Duration: 3, Progress: 100, Priority: "alta", Effort: 24, AssigneeID: admin.ID, Stage: "Concluído"},
 				{Key: "engineering", Name: "Engenharia e documentação", Type: "summary"},
-				{Key: "design", Parent: "engineering", Name: "Projeto executivo das estações", Notes: "Plantas, memorial descritivo e lista de materiais.", Type: "task", Start: expansionDate, Duration: 5, Progress: 60, Priority: "alta", Effort: 40},
-				{Key: "approval", Parent: "engineering", Name: "Aprovação do cliente", Type: "milestone", Start: expansionDate, Priority: "critica"},
+				{Key: "design", Parent: "engineering", Name: "Projeto executivo das estações", Notes: "Plantas, memorial descritivo e lista de materiais.", Type: "task", Start: expansionDate, Duration: 5, Progress: 60, Priority: "alta", Effort: 40, Stage: "Em execução"},
+				{Key: "approval", Parent: "engineering", Name: "Aprovação do cliente", Type: "milestone", Start: expansionDate, Priority: "critica", Stage: "Validação"},
 				{Key: "rollout", Name: "Implantação", Type: "summary"},
-				{Key: "mobilize", Parent: "rollout", Name: "Mobilização de equipes", Notes: "Liberar acesso aos sites, ferramentas e EPIs.", Type: "task", Start: expansionDate, Duration: 2, Priority: "media", Effort: 16, FixedCost: 2000},
-				{Key: "install", Parent: "rollout", Name: "Instalação de equipamentos", Notes: "Instalar RRUs, cabeamento e validar energia nos sites do lote.", Type: "task", Start: expansionDate, Duration: 10, Priority: "alta", Effort: 80, FixedCost: 12000},
-				{Key: "integrate", Parent: "rollout", Name: "Integração e testes", Notes: "Integração com a rede core e testes de aceitação.", Type: "task", Start: expansionDate, Duration: 4, Priority: "alta", Effort: 32, FixedCost: 3500},
-				{Key: "acceptance", Parent: "rollout", Name: "Aceite final", Type: "milestone", Start: expansionDate, Priority: "critica"},
+				{Key: "mobilize", Parent: "rollout", Name: "Mobilização de equipes", Notes: "Liberar acesso aos sites, ferramentas e EPIs.", Type: "task", Start: expansionDate, Duration: 2, Priority: "media", Effort: 16, FixedCost: 2000, Stage: "Backlog"},
+				{Key: "install", Parent: "rollout", Name: "Instalação de equipamentos", Notes: "Instalar RRUs, cabeamento e validar energia nos sites do lote.", Type: "task", Start: expansionDate, Duration: 10, Priority: "alta", Effort: 80, FixedCost: 12000, Stage: "Backlog"},
+				{Key: "integrate", Parent: "rollout", Name: "Integração e testes", Notes: "Integração com a rede core e testes de aceitação.", Type: "task", Start: expansionDate, Duration: 4, Priority: "alta", Effort: 32, FixedCost: 3500, Stage: "Backlog"},
+				{Key: "acceptance", Parent: "rollout", Name: "Aceite final", Type: "milestone", Start: expansionDate, Priority: "critica", Stage: "Backlog"},
 			},
 			Dependencies: []projectSeedDependency{
 				{From: "kickoff", To: "requirements", Type: "FS"},
@@ -504,6 +508,12 @@ func seedProjects(m *modules.Store, admin models.User, collaborators map[string]
 			Holidays: []projectSeedHoliday{
 				{Date: fmt.Sprintf("%d-11-20", expansionStart.Year()), Name: "Dia da Consciência Negra"},
 				{Date: fmt.Sprintf("%d-12-25", expansionStart.Year()), Name: "Natal"},
+			},
+			Stages: []modules.ProjectPipelineStageInput{
+				{Name: "Backlog", Color: "blue"},
+				{Name: "Em execução", Color: "purple"},
+				{Name: "Validação", Color: "orange"},
+				{Name: "Concluído", Color: "green", IsDone: true},
 			},
 			Baseline: "Linha de base inicial",
 		}); err != nil {
@@ -559,7 +569,7 @@ func createSeedProject(m *modules.Store, admin models.User, collaborators map[st
 			data.Resources[index].CollaboratorID = collaboratorID
 		}
 	}
-	project, err := m.CreateProject(admin.ID, modules.ProjectInput{
+	projectInput := modules.ProjectInput{
 		Name:        data.Name,
 		Description: data.Description,
 		Status:      data.Status,
@@ -569,25 +579,48 @@ func createSeedProject(m *modules.Store, admin models.User, collaborators map[st
 		Budget:      data.Budget,
 		WorkingDays: data.WorkingDays,
 		HoursPerDay: data.HoursPerDay,
-	})
+		FlowMode:    data.FlowMode,
+	}
+	// Create as WBS first so custom pipeline stages can be seeded before the
+	// default stages are generated. The flow mode is applied after stages exist.
+	createInput := projectInput
+	if createInput.FlowMode == "pipeline" {
+		createInput.FlowMode = "wbs"
+	}
+	project, err := m.CreateProject(admin.ID, createInput)
 	if err != nil {
 		return err
+	}
+
+	stageIDs := make(map[string]int64, len(data.Stages))
+	for _, item := range data.Stages {
+		stage, err := m.CreatePipelineStage(project.ID, item)
+		if err != nil {
+			return fmt.Errorf("projeto %q, etapa %q: %w", data.Name, item.Name, err)
+		}
+		stageIDs[stage.Name] = stage.ID
+	}
+	if projectInput.FlowMode == "pipeline" {
+		if _, err := m.UpdateProject(project.ID, projectInput); err != nil {
+			return fmt.Errorf("projeto %q, modo pipeline: %w", data.Name, err)
+		}
 	}
 
 	taskIDs := make(map[string]int64, len(data.Tasks))
 	for _, item := range data.Tasks {
 		task, err := m.CreateProjectTask(project.ID, modules.ProjectTaskInput{
-			ParentID:     taskIDs[item.Parent],
-			Name:         item.Name,
-			Notes:        item.Notes,
-			TaskType:     item.Type,
-			StartDate:    item.Start,
-			DurationDays: item.Duration,
-			Progress:     item.Progress,
-			Priority:     item.Priority,
-			EffortHours:  item.Effort,
-			FixedCost:    item.FixedCost,
-			AssigneeID:   item.AssigneeID,
+			ParentID:        taskIDs[item.Parent],
+			Name:            item.Name,
+			Notes:           item.Notes,
+			TaskType:        item.Type,
+			StartDate:       item.Start,
+			DurationDays:    item.Duration,
+			Progress:        item.Progress,
+			Priority:        item.Priority,
+			EffortHours:     item.Effort,
+			FixedCost:       item.FixedCost,
+			AssigneeID:      item.AssigneeID,
+			PipelineStageID: stageIDs[item.Stage],
 		})
 		if err != nil {
 			return fmt.Errorf("projeto %q, tarefa %q: %w", data.Name, item.Name, err)

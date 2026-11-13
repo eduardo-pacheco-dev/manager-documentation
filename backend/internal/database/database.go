@@ -1022,6 +1022,27 @@ var migrations = [][]string{
 			ADD COLUMN pix_key VARCHAR(255) NULL`,
 		`CREATE UNIQUE INDEX uq_collaborators_cpf ON collaborators(cpf)`,
 	},
+	{
+		`ALTER TABLE projects ADD COLUMN flow_mode VARCHAR(16) NOT NULL DEFAULT 'wbs'`,
+		`CREATE TABLE project_pipeline_stages (
+			id BIGINT NOT NULL AUTO_INCREMENT,
+			project_id BIGINT NOT NULL,
+			name VARCHAR(255) NOT NULL,
+			color VARCHAR(32) NOT NULL DEFAULT 'blue',
+			position INT NOT NULL DEFAULT 0,
+			wip_limit INT NOT NULL DEFAULT 0,
+			is_done TINYINT(1) NOT NULL DEFAULT 0,
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL,
+			PRIMARY KEY (id),
+			KEY idx_pipeline_stages_project (project_id, position),
+			CONSTRAINT fk_pipeline_stages_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+		`ALTER TABLE project_tasks ADD COLUMN pipeline_stage_id BIGINT NULL`,
+		`CREATE INDEX idx_project_tasks_stage ON project_tasks(pipeline_stage_id)`,
+		`ALTER TABLE project_tasks ADD CONSTRAINT fk_project_tasks_stage
+			FOREIGN KEY (pipeline_stage_id) REFERENCES project_pipeline_stages(id) ON DELETE SET NULL`,
+	},
 }
 
 // CleanupSessions removes expired sessions and tokens. It is safe to call at
