@@ -410,7 +410,7 @@ func (s *Store) CreateProjectTask(projectID int64, input ProjectTaskInput) (Proj
 	start := normalizeDate(input.StartDate)
 	end := normalizeDate(input.EndDate)
 	if start == "" {
-		start = project.StartDate
+		start = normalizeDate(project.StartDate)
 	}
 	if taskType == "summary" {
 		start, end = "", ""
