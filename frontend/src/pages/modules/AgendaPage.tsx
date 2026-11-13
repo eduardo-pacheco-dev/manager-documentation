@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Add, Calendar, Download, Edit, Share, TrashCan, Upload } from '@carbon/icons-react';
+import { Add, Calendar, Edit, OverflowMenuVertical, TrashCan } from '@carbon/icons-react';
 import {
   Button,
   Checkbox,
   InlineLoading,
   Modal,
+  OverflowMenu,
+  OverflowMenuItem,
   Search,
   Select,
   SelectItem,
@@ -83,6 +85,9 @@ export function AgendaPage() {
   });
   const [calendarForm, setCalendarForm] = useState({ name: '', description: '', color: 'blueberry', timezone: 'America/Sao_Paulo', email: '', role: 'reader' });
   const [importCalendar, setImportCalendar] = useState(0);
+  const [importModal, setImportModal] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importing, setImporting] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -131,6 +136,40 @@ export function AgendaPage() {
       frequency: '', interval: 1, until: '', attendees: '', scope: 'all', recurrence_id: '',
     });
     setEventModal(true);
+  }
+
+  function openCalendarCreate() {
+    setCalendarEditing(null);
+    setCalendarForm({ name: '', description: '', color: 'blueberry', timezone: 'America/Sao_Paulo', email: '', role: 'reader' });
+    setCalendarModal(true);
+  }
+
+  function openImport() {
+    setImportCalendar(calendars.find((calendar) => calendar.role !== 'reader' && calendar.role !== 'free_busy_reader')?.id ?? calendars[0]?.id ?? 0);
+    setImportFile(null);
+    setImportModal(true);
+  }
+
+  async function importICS() {
+    if (!importFile) {
+      toast.error('Selecione um arquivo .ics para importar');
+      return;
+    }
+    setImporting(true);
+    try {
+      const data = new FormData();
+      data.append('file', importFile);
+      data.append('calendar_id', String(importCalendar || calendars[0]?.id || 0));
+      const response = await api.upload<{ message: string }>('/agenda/ics/import', data);
+      toast.success(response.message);
+      setImportModal(false);
+      setImportFile(null);
+      await load();
+    } catch (error) {
+      toast.error('Não foi possível importar', errorMessage(error));
+    } finally {
+      setImporting(false);
+    }
   }
 
   async function openEdit(occurrence: Occurrence) {
@@ -237,9 +276,18 @@ export function AgendaPage() {
         description="Calendários, eventos, participantes, recorrências e importação ICS."
         actions={
           <>
-            <Button kind="ghost" renderIcon={Download} onClick={() => window.open('/api/v1/agenda/ics', '_blank')}>Exportar ICS</Button>
-            <Button kind="ghost" renderIcon={Share} onClick={() => { setCalendarEditing(null); setCalendarForm({ name: '', description: '', color: 'blueberry', timezone: 'America/Sao_Paulo', email: '', role: 'reader' }); setCalendarModal(true); }}>Novo calendário</Button>
             <Button renderIcon={Add} onClick={() => openCreate()}>Novo evento</Button>
+            <OverflowMenu
+              aria-label="Mais ações da agenda"
+              iconDescription="Mais ações"
+              renderIcon={OverflowMenuVertical}
+              direction="bottom"
+              flipped
+            >
+              <OverflowMenuItem itemText="Importar (.ics)" onClick={openImport} />
+              <OverflowMenuItem itemText="Exportar (.ics)" onClick={() => window.open('/api/v1/agenda/ics', '_blank')} />
+              <OverflowMenuItem itemText="Novo calendário" hasDivider onClick={openCalendarCreate} />
+            </OverflowMenu>
           </>
         }
       />
@@ -265,31 +313,6 @@ export function AgendaPage() {
               </div>
             ))}
           </Tile>
-          <Tile className="module-sidebar__card">
-            <h3>Importar (.ics)</h3>
-            <form className="inline-form" onSubmit={async (event) => {
-              event.preventDefault();
-              const input = (event.currentTarget.elements.namedItem('ics') as HTMLInputElement);
-              if (!input.files?.[0]) return;
-              const data = new FormData();
-              data.append('file', input.files[0]);
-              data.append('calendar_id', String(importCalendar || calendars[0]?.id || 0));
-              try {
-                const response = await api.upload<{ message: string }>('/agenda/ics/import', data);
-                toast.success(response.message);
-                input.value = '';
-                await load();
-              } catch (error) {
-                toast.error('Não foi possível importar', errorMessage(error));
-              }
-            }}>
-              <Select id="ics-calendar" labelText="Calendário de destino" value={String(importCalendar || calendars[0]?.id || '')} onChange={(event) => setImportCalendar(Number(event.target.value))}>
-                {calendars.filter((calendar) => calendar.role !== 'reader' && calendar.role !== 'free_busy_reader').map((calendar) => <SelectItem key={calendar.id} value={String(calendar.id)} text={calendar.name} />)}
-              </Select>
-              <TextInput id="ics" type="file" labelText="Arquivo ICS" accept=".ics,.ical,text/calendar" />
-              <Button kind="tertiary" type="submit" renderIcon={Upload}>Importar</Button>
-            </form>
-          </Tile>
         </aside>
 
         <div className="module-main">
@@ -300,7 +323,7 @@ export function AgendaPage() {
               <Button kind="ghost" onClick={() => move(1)}>→</Button>
               <strong>{date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</strong>
             </div>
-            <div className="module-toolbar">
+            <div className="module-toolbar agenda-tools">
               <Search size="sm" labelText="Buscar eventos" placeholder="Buscar eventos" value={search} onChange={(event) => setSearch(event.target.value)} onClear={() => setSearch('')} />
               <Select id="agenda-view" labelText="Visão" size="sm" value={view} onChange={(event) => setView(event.target.value as typeof view)}>
                 <SelectItem value="month" text="Mês" />
@@ -446,6 +469,39 @@ export function AgendaPage() {
               <Button kind="danger--ghost" renderIcon={TrashCan} onClick={async () => { if (!window.confirm(`Excluir o calendário “${calendarEditing.name}” e todos os eventos?`)) return; await api.delete(`/agenda/calendars/${calendarEditing.id}`); setCalendarModal(false); toast.success('Calendário excluído.'); await load(); }}>Excluir calendário</Button>
             </>
           )}
+        </div>
+      </Modal>
+
+      <Modal
+        open={importModal}
+        modalHeading="Importar agenda (.ics)"
+        primaryButtonText={importing ? 'Importando…' : 'Importar'}
+        secondaryButtonText="Cancelar"
+        primaryButtonDisabled={importing || !importFile}
+        onRequestSubmit={() => void importICS()}
+        onRequestClose={() => { setImportModal(false); setImportFile(null); }}
+        size="sm"
+      >
+        <div className="modal-form">
+          <p className="muted small">Importe eventos de um arquivo .ics para um calendário de sua escolha.</p>
+          <Select
+            id="ics-calendar"
+            labelText="Calendário de destino"
+            value={String(importCalendar || calendars[0]?.id || '')}
+            onChange={(event) => setImportCalendar(Number(event.target.value))}
+          >
+            {calendars.filter((calendar) => calendar.role !== 'reader' && calendar.role !== 'free_busy_reader').map((calendar) => (
+              <SelectItem key={calendar.id} value={String(calendar.id)} text={calendar.name} />
+            ))}
+          </Select>
+          <TextInput
+            key={String(importModal)}
+            id="ics"
+            type="file"
+            labelText="Arquivo .ics"
+            accept=".ics,.ical,text/calendar"
+            onChange={(event) => setImportFile(event.target.files?.[0] ?? null)}
+          />
         </div>
       </Modal>
     </div>
