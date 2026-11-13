@@ -145,8 +145,8 @@ func TestAuthenticationAndCSRF(t *testing.T) {
 	if data["user"].(map[string]any)["email"] != "admin@test.local" {
 		t.Fatalf("unexpected user payload: %v", data["user"])
 	}
-	if len(data["modules"].([]any)) != 11 {
-		t.Fatalf("expected 11 modules, got %v", data["modules"])
+	if len(data["modules"].([]any)) != 12 {
+		t.Fatalf("expected 12 modules, got %v", data["modules"])
 	}
 
 	res, _ = app.request(http.MethodPost, "/api/v1/users", map[string]any{
@@ -913,6 +913,104 @@ func TestSettingsAndStorage(t *testing.T) {
 	}, app.csrf, nil)
 	if res.StatusCode != http.StatusOK {
 		t.Fatalf("modules status = %d", res.StatusCode)
+	}
+}
+
+func TestCollaboratorsAndProjectResources(t *testing.T) {
+	app := newTestApp(t)
+
+	res, payload := app.request(http.MethodPost, "/api/v1/collaborators", map[string]any{
+		"name": "Pessoa Teste", "social_name": "Pessoa de Teste", "email": "pessoa.teste@test.local",
+		"personal_email": "pessoa.pessoal@test.local", "phone": "+55 11 90000-0000",
+		"role": "QA", "department": "Qualidade", "cost_hour": 90, "max_units": 80,
+		"color": "green", "is_active": true, "cpf": "999.888.777-66", "birth_date": "1990-01-01",
+		"contract_type": "clt", "work_regime": "hibrido", "hire_date": "2024-02-01",
+		"weekly_hours": 40, "salary": 8000, "bank_name": "Banco Teste", "pix_key": "pessoa.teste@test.local",
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("criar colaborador status = %d payload = %v", res.StatusCode, payload)
+	}
+	collaborator := payload["data"].(map[string]any)["collaborator"].(map[string]any)
+	collaboratorID := int64(collaborator["id"].(float64))
+	if collaborator["cpf"] != "99988877766" || collaborator["weekly_hours"].(float64) != 40 || collaborator["salary"].(float64) != 8000 {
+		t.Fatalf("dados de RH não foram persistidos: %v", collaborator)
+	}
+
+	res, _ = app.request(http.MethodPost, "/api/v1/collaborators", map[string]any{
+		"name": "Outra Pessoa", "email": "pessoa.teste@test.local",
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusUnprocessableEntity {
+		t.Fatalf("e-mail duplicado deveria retornar 422, veio %d", res.StatusCode)
+	}
+
+	res, _ = app.request(http.MethodPost, "/api/v1/collaborators", map[string]any{
+		"name": "CPF Duplicado", "email": "cpf.duplicado@test.local", "cpf": "99988877766",
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusUnprocessableEntity {
+		t.Fatalf("CPF duplicado deveria retornar 422, veio %d", res.StatusCode)
+	}
+
+	res, payload = app.request(http.MethodGet, "/api/v1/collaborators?search=Pessoa", nil, "", nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("listar colaboradores status = %d", res.StatusCode)
+	}
+	if len(payload["data"].([]any)) != 1 {
+		t.Fatalf("esperava 1 colaborador na busca, veio %v", payload["data"])
+	}
+
+	res, payload = app.request(http.MethodPost, "/api/v1/projects", map[string]any{
+		"name": "Projeto com colaborador", "start_date": "2026-01-05", "end_date": "2026-02-27",
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("criar projeto status = %d payload = %v", res.StatusCode, payload)
+	}
+	projectID := int64(payload["data"].(map[string]any)["project"].(map[string]any)["id"].(float64))
+
+	res, payload = app.request(http.MethodPost, fmt.Sprintf("/api/v1/projects/%d/resources", projectID), map[string]any{
+		"collaborator_id": collaboratorID,
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("vincular colaborador status = %d payload = %v", res.StatusCode, payload)
+	}
+	resource := payload["data"].(map[string]any)["resource"].(map[string]any)
+	if resource["name"] != "Pessoa Teste" || resource["cost_hour"].(float64) != 90 || int(resource["max_units"].(float64)) != 80 {
+		t.Fatalf("recurso não herdou os dados do colaborador: %v", resource)
+	}
+
+	res, _ = app.request(http.MethodPost, fmt.Sprintf("/api/v1/projects/%d/resources", projectID), map[string]any{
+		"collaborator_id": collaboratorID,
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusUnprocessableEntity {
+		t.Fatalf("vínculo duplicado deveria retornar 422, veio %d", res.StatusCode)
+	}
+
+	res, payload = app.request(http.MethodPatch, fmt.Sprintf("/api/v1/collaborators/%d/toggle", collaboratorID), nil, app.csrf, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("alternar status status = %d payload = %v", res.StatusCode, payload)
+	}
+	if payload["data"].(map[string]any)["collaborator"].(map[string]any)["is_active"].(bool) {
+		t.Fatal("colaborador deveria estar inativo após o toggle")
+	}
+
+	res, _ = app.request(http.MethodDelete, fmt.Sprintf("/api/v1/collaborators/%d", collaboratorID), nil, app.csrf, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("excluir colaborador status = %d", res.StatusCode)
+	}
+
+	res, payload = app.request(http.MethodGet, fmt.Sprintf("/api/v1/projects/%d", projectID), nil, "", nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("buscar projeto status = %d", res.StatusCode)
+	}
+	resources := payload["data"].(map[string]any)["resources"].([]any)
+	if len(resources) != 1 {
+		t.Fatalf("esperava 1 recurso preservado, veio %d", len(resources))
+	}
+	preserved := resources[0].(map[string]any)
+	if preserved["collaborator_id"] != nil {
+		t.Fatalf("vínculo deveria ser removido, veio %v", preserved["collaborator_id"])
+	}
+	if preserved["name"] != "Pessoa Teste" {
+		t.Fatalf("recurso preservado perdeu o nome: %v", preserved)
 	}
 }
 

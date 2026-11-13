@@ -108,6 +108,14 @@ var CoreModules = []Module{
 		DefaultSection: SectionModules,
 	},
 	{
+		Key:            "collaborators",
+		Label:          "Colaboradores",
+		Icon:           "user-multiple",
+		Path:           "/collaborators",
+		Toggleable:     true,
+		DefaultSection: SectionModules,
+	},
+	{
 		Key:            "projects",
 		Label:          "Projetos",
 		Icon:           "chart",

@@ -47,7 +47,11 @@ interface ProjectTask {
   start_variance_days: number; end_variance_days: number; cost_variance: number;
 }
 interface Dependency { id: number; predecessor_id: number; successor_id: number; type: string; lag_days: number }
-interface Resource { id: number; name: string; role: string | null; email: string | null; cost_hour: number; max_units: number; color: string }
+interface Resource { id: number; collaborator_id: number | null; name: string; role: string | null; email: string | null; cost_hour: number; max_units: number; color: string }
+interface CollaboratorOption {
+  id: number; name: string; role: string | null; email: string | null; cost_hour: number;
+  max_units: number; color: string; is_active: boolean;
+}
 interface Assignment { id: number; task_id: number; resource_id: number; units: number; planned_hours: number; resource_name: string; cost_hour: number; cost: number }
 interface Holiday { id: number; date: string; name: string }
 interface Baseline { id: number; name: string; created_at: string; task_count: number }
@@ -116,7 +120,8 @@ export function ProjectsPage() {
 
   const [dependencyForm, setDependencyForm] = useState({ predecessor_id: '', successor_id: '', type: 'FS', lag_days: '0' });
 
-  const [resourceForm, setResourceForm] = useState({ name: '', role: '', email: '', cost_hour: '0', max_units: '100', color: 'blue' });
+  const [resourceForm, setResourceForm] = useState({ collaborator_id: '', name: '', role: '', email: '', cost_hour: '0', max_units: '100', color: 'blue' });
+  const [collaborators, setCollaborators] = useState<CollaboratorOption[]>([]);
   const [assignmentForm, setAssignmentForm] = useState({ task_id: '', resource_id: '', units: '100', planned_hours: '0' });
 
   const [holidayForm, setHolidayForm] = useState({ date: '', name: '' });
@@ -163,6 +168,11 @@ export function ProjectsPage() {
 
   useEffect(() => { void loadProjects(); }, [loadProjects]);
   useEffect(() => { if (selectedID) void loadBundle(selectedID); }, [selectedID, loadBundle]);
+  useEffect(() => {
+    api.get<{ data: CollaboratorOption[] }>('/collaborators?status=active&per_page=200')
+      .then((response) => setCollaborators(response.data))
+      .catch(() => setCollaborators([]));
+  }, []);
 
   async function refresh() {
     await loadProjects(selectedID ?? undefined);
@@ -327,20 +337,38 @@ export function ProjectsPage() {
     }
   }
 
+  function selectCollaborator(value: string) {
+    const collaborator = collaborators.find((item) => String(item.id) === value);
+    if (!collaborator) {
+      setResourceForm((current) => ({ ...current, collaborator_id: '' }));
+      return;
+    }
+    setResourceForm({
+      collaborator_id: value,
+      name: collaborator.name,
+      role: collaborator.role ?? '',
+      email: collaborator.email ?? '',
+      cost_hour: String(collaborator.cost_hour),
+      max_units: String(collaborator.max_units),
+      color: collaborator.color,
+    });
+  }
+
   async function submitResource() {
     if (!project) return;
-    if (!resourceForm.name.trim()) {
-      toast.error('Informe o nome do recurso');
+    if (!resourceForm.collaborator_id && !resourceForm.name.trim()) {
+      toast.error('Selecione um colaborador ou informe o nome do recurso');
       return;
     }
     try {
       await api.post(`/projects/${project.id}/resources`, {
         ...resourceForm,
+        collaborator_id: Number(resourceForm.collaborator_id) || 0,
         cost_hour: Number(resourceForm.cost_hour) || 0,
         max_units: Number(resourceForm.max_units) || 100,
       });
       toast.success('Recurso criado');
-      setResourceForm({ name: '', role: '', email: '', cost_hour: '0', max_units: '100', color: 'blue' });
+      setResourceForm({ collaborator_id: '', name: '', role: '', email: '', cost_hour: '0', max_units: '100', color: 'blue' });
       await refresh();
     } catch (error) {
       toast.error('Não foi possível criar o recurso', errorMessage(error));
@@ -651,19 +679,38 @@ export function ProjectsPage() {
                       <div className="module-subcard">
                         <h3>Recursos</h3>
                         <div className="projects-form-grid">
-                          <TextInput id="res-name" labelText="Nome" value={resourceForm.name} onChange={(event) => setResourceForm({ ...resourceForm, name: event.target.value })} />
-                          <TextInput id="res-role" labelText="Função" value={resourceForm.role} onChange={(event) => setResourceForm({ ...resourceForm, role: event.target.value })} />
-                          <TextInput id="res-email" labelText="E-mail" value={resourceForm.email} onChange={(event) => setResourceForm({ ...resourceForm, email: event.target.value })} />
+                          <Select id="res-collaborator" labelText="Colaborador" value={resourceForm.collaborator_id} onChange={(event) => selectCollaborator(event.target.value)}>
+                            <SelectItem value="" text="Recurso avulso" />
+                            {collaborators.map((collaborator) => (
+                              <SelectItem
+                                key={collaborator.id}
+                                value={String(collaborator.id)}
+                                text={`${collaborator.name}${collaborator.role ? ` · ${collaborator.role}` : ''}`}
+                              />
+                            ))}
+                          </Select>
+                          <TextInput id="res-name" labelText="Nome" value={resourceForm.name} readOnly={Boolean(resourceForm.collaborator_id)} onChange={(event) => setResourceForm({ ...resourceForm, name: event.target.value })} />
+                          <TextInput id="res-role" labelText="Função" value={resourceForm.role} readOnly={Boolean(resourceForm.collaborator_id)} onChange={(event) => setResourceForm({ ...resourceForm, role: event.target.value })} />
+                          <TextInput id="res-email" labelText="E-mail" value={resourceForm.email} readOnly={Boolean(resourceForm.collaborator_id)} onChange={(event) => setResourceForm({ ...resourceForm, email: event.target.value })} />
                           <TextInput id="res-cost" labelText="Custo/hora" type="number" value={resourceForm.cost_hour} onChange={(event) => setResourceForm({ ...resourceForm, cost_hour: event.target.value })} />
                           <TextInput id="res-units" labelText="Capacidade (%)" type="number" value={resourceForm.max_units} onChange={(event) => setResourceForm({ ...resourceForm, max_units: event.target.value })} />
                           <Button size="sm" onClick={() => void submitResource()}>Adicionar recurso</Button>
                         </div>
+                        {resourceForm.collaborator_id && (
+                          <p className="projects-muted">
+                            Dados herdados do cadastro de colaboradores. Custo/hora e capacidade podem ser ajustados para este projeto.
+                          </p>
+                        )}
                         <div className="projects-list">
                           {bundle.resources.length === 0 && <span className="projects-muted">Nenhum recurso cadastrado.</span>}
                           {bundle.resources.map((resource) => (
                             <div key={resource.id} className="projects-list-row">
                               <span className="color-dot" style={{ background: resource.color }} />
-                              <span><strong>{resource.name}</strong>{resource.role ? ` · ${resource.role}` : ''}</span>
+                              <span>
+                                <strong>{resource.name}</strong>
+                                {resource.role ? ` · ${resource.role}` : ''}
+                                {resource.collaborator_id && <Tag type="blue" size="sm">colaborador</Tag>}
+                              </span>
                               <span className="projects-muted">{money(resource.cost_hour, project.currency)}/h</span>
                               <Button kind="ghost" size="sm" hasIconOnly renderIcon={TrashCan} iconDescription="Remover" onClick={() => void deleteResource(resource.id)} />
                             </div>

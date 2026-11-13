@@ -86,16 +86,17 @@ type ProjectDependency struct {
 }
 
 type ProjectResource struct {
-	ID        int64     `db:"id" json:"id"`
-	ProjectID int64     `db:"project_id" json:"project_id"`
-	Name      string    `db:"name" json:"name"`
-	Role      *string   `db:"role" json:"role"`
-	Email     *string   `db:"email" json:"email"`
-	CostHour  float64   `db:"cost_hour" json:"cost_hour"`
-	MaxUnits  int       `db:"max_units" json:"max_units"`
-	Color     string    `db:"color" json:"color"`
-	CreatedAt time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
+	ID             int64     `db:"id" json:"id"`
+	ProjectID      int64     `db:"project_id" json:"project_id"`
+	CollaboratorID *int64    `db:"collaborator_id" json:"collaborator_id"`
+	Name           string    `db:"name" json:"name"`
+	Role           *string   `db:"role" json:"role"`
+	Email          *string   `db:"email" json:"email"`
+	CostHour       float64   `db:"cost_hour" json:"cost_hour"`
+	MaxUnits       int       `db:"max_units" json:"max_units"`
+	Color          string    `db:"color" json:"color"`
+	CreatedAt      time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt      time.Time `db:"updated_at" json:"updated_at"`
 }
 
 type ProjectAssignment struct {
@@ -185,12 +186,13 @@ type ProjectTaskInput struct {
 }
 
 type ProjectResourceInput struct {
-	Name     string
-	Role     string
-	Email    string
-	CostHour float64
-	MaxUnits int
-	Color    string
+	CollaboratorID int64
+	Name           string
+	Role           string
+	Email          string
+	CostHour       float64
+	MaxUnits       int
+	Color          string
 }
 
 type ProjectAssignmentInput struct {
@@ -710,21 +712,16 @@ func (s *Store) ProjectResources(projectID int64) ([]ProjectResource, error) {
 }
 
 func (s *Store) CreateProjectResource(projectID int64, input ProjectResourceInput) (ProjectResource, error) {
-	if strings.TrimSpace(input.Name) == "" {
-		return ProjectResource{}, fmt.Errorf("%w: nome do recurso é obrigatório", ErrValidation)
-	}
-	if input.MaxUnits <= 0 {
-		input.MaxUnits = 100
-	}
-	if input.Color == "" {
-		input.Color = "blue"
+	prepared, err := s.prepareProjectResource(projectID, 0, input)
+	if err != nil {
+		return ProjectResource{}, err
 	}
 	timestamp := now()
 	result, err := s.DB.Exec(`
-		INSERT INTO project_resources (project_id, name, role, email, cost_hour, max_units, color, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		projectID, strings.TrimSpace(input.Name), nullString(input.Role), nullString(input.Email),
-		input.CostHour, input.MaxUnits, input.Color, timestamp, timestamp)
+		INSERT INTO project_resources (project_id, collaborator_id, name, role, email, cost_hour, max_units, color, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		projectID, nullableID(prepared.CollaboratorID), prepared.Name, nullString(prepared.Role), nullString(prepared.Email),
+		prepared.CostHour, prepared.MaxUnits, prepared.Color, timestamp, timestamp)
 	if err != nil {
 		return ProjectResource{}, err
 	}
@@ -735,20 +732,16 @@ func (s *Store) CreateProjectResource(projectID int64, input ProjectResourceInpu
 }
 
 func (s *Store) UpdateProjectResource(projectID, id int64, input ProjectResourceInput) (ProjectResource, error) {
-	if strings.TrimSpace(input.Name) == "" {
-		return ProjectResource{}, fmt.Errorf("%w: nome do recurso é obrigatório", ErrValidation)
-	}
-	if input.MaxUnits <= 0 {
-		input.MaxUnits = 100
-	}
-	if input.Color == "" {
-		input.Color = "blue"
+	prepared, err := s.prepareProjectResource(projectID, id, input)
+	if err != nil {
+		return ProjectResource{}, err
 	}
 	result, err := s.DB.Exec(`
-		UPDATE project_resources SET name = ?, role = ?, email = ?, cost_hour = ?, max_units = ?, color = ?, updated_at = ?
+		UPDATE project_resources SET collaborator_id = ?, name = ?, role = ?, email = ?, cost_hour = ?,
+			max_units = ?, color = ?, updated_at = ?
 		WHERE id = ? AND project_id = ?`,
-		strings.TrimSpace(input.Name), nullString(input.Role), nullString(input.Email), input.CostHour,
-		input.MaxUnits, input.Color, now(), id, projectID)
+		nullableID(prepared.CollaboratorID), prepared.Name, nullString(prepared.Role), nullString(prepared.Email),
+		prepared.CostHour, prepared.MaxUnits, prepared.Color, now(), id, projectID)
 	if err != nil {
 		return ProjectResource{}, err
 	}
@@ -759,6 +752,52 @@ func (s *Store) UpdateProjectResource(projectID, id int64, input ProjectResource
 	var resource ProjectResource
 	err = s.DB.Get(&resource, `SELECT * FROM project_resources WHERE id = ?`, id)
 	return resource, err
+}
+
+// prepareProjectResource validates a project resource and snapshots the linked
+// collaborator data. Project-specific cost and capacity are preserved when
+// explicitly informed.
+func (s *Store) prepareProjectResource(projectID, resourceID int64, input ProjectResourceInput) (ProjectResourceInput, error) {
+	if input.CollaboratorID > 0 {
+		collaborator, err := s.FindCollaborator(input.CollaboratorID)
+		if err != nil {
+			return input, fmt.Errorf("%w: colaborador não encontrado", ErrValidation)
+		}
+		var duplicate int64
+		err = s.DB.Get(&duplicate, `
+			SELECT id FROM project_resources
+			WHERE project_id = ? AND collaborator_id = ? AND id <> ?`,
+			projectID, input.CollaboratorID, resourceID)
+		if err == nil {
+			return input, fmt.Errorf("%w: este colaborador já está vinculado ao projeto", ErrValidation)
+		}
+		if !errors.Is(err, sql.ErrNoRows) {
+			return input, err
+		}
+		input.Name = collaborator.Name
+		input.Role = deref(collaborator.Role)
+		input.Email = deref(collaborator.Email)
+		input.Color = collaborator.Color
+		if input.CostHour <= 0 {
+			input.CostHour = collaborator.CostHour
+		}
+		if input.MaxUnits <= 0 {
+			input.MaxUnits = collaborator.MaxUnits
+		}
+	}
+	input.Name = strings.TrimSpace(input.Name)
+	if input.Name == "" {
+		return input, fmt.Errorf("%w: nome do recurso é obrigatório", ErrValidation)
+	}
+	if input.MaxUnits <= 0 {
+		input.MaxUnits = 100
+	}
+	input.MaxUnits = clampInt(input.MaxUnits, 1, 100)
+	if strings.TrimSpace(input.Color) == "" {
+		input.Color = "blue"
+	}
+	input.CostHour = round2(input.CostHour)
+	return input, nil
 }
 
 func (s *Store) DeleteProjectResource(projectID, id int64) error {

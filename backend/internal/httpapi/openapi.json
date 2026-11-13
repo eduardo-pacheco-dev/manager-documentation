@@ -14,6 +14,7 @@
     { "name": "Settings", "description": "Preferências e configurações" },
     { "name": "Notifications", "description": "Central de notificações" },
     { "name": "Projetos", "description": "Portfólio, EAP, dependências, recursos, custos e linha de base" },
+    { "name": "Colaboradores", "description": "Cadastro central de pessoas usadas como recursos nos projetos" },
     { "name": "Uploads", "description": "Envio de imagens" }
   ],
   "components": {
@@ -292,6 +293,18 @@
       "get": { "tags": ["Demandas"], "summary": "Baixa um anexo da demanda", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "attachmentId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Arquivo" } } },
       "delete": { "tags": ["Demandas"], "summary": "Remove um anexo da demanda", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "attachmentId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Anexo removido" } } }
     },
+    "/collaborators": {
+      "get": { "tags": ["Colaboradores"], "summary": "Lista colaboradores com busca, status e paginação", "parameters": [{ "name": "search", "in": "query", "schema": { "type": "string" } }, { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["active", "inactive"] } }, { "name": "page", "in": "query", "schema": { "type": "integer" } }, { "name": "per_page", "in": "query", "schema": { "type": "integer" } }], "responses": { "200": { "description": "Colaboradores, estatísticas e paginação" } } },
+      "post": { "tags": ["Colaboradores"], "summary": "Cria um colaborador", "responses": { "201": { "description": "Colaborador criado" }, "422": { "description": "Validação" } } }
+    },
+    "/collaborators/{id}": {
+      "get": { "tags": ["Colaboradores"], "summary": "Retorna um colaborador", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Colaborador" }, "404": { "description": "Não encontrado" } } },
+      "put": { "tags": ["Colaboradores"], "summary": "Atualiza um colaborador", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Colaborador atualizado" }, "422": { "description": "Validação" } } },
+      "delete": { "tags": ["Colaboradores"], "summary": "Exclui o colaborador e desvincula os recursos dos projetos", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Colaborador excluído" } } }
+    },
+    "/collaborators/{id}/toggle": {
+      "patch": { "tags": ["Colaboradores"], "summary": "Ativa ou desativa o colaborador", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Status atualizado" } } }
+    },
     "/projects": {
       "get": { "tags": ["Projetos"], "summary": "Lista o portfólio de projetos", "parameters": [{ "name": "archived", "in": "query", "schema": { "type": "string", "enum": ["0", "1"] } }], "responses": { "200": { "description": "Projetos" } } },
       "post": { "tags": ["Projetos"], "summary": "Cria um projeto", "responses": { "201": { "description": "Projeto criado" }, "422": { "description": "Validação" } } }
@@ -324,7 +337,7 @@
       "delete": { "tags": ["Projetos"], "summary": "Remove uma dependência", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "dependencyId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Dependência removida" } } }
     },
     "/projects/{id}/resources": {
-      "post": { "tags": ["Projetos"], "summary": "Cadastra um recurso com custo/hora e capacidade", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "201": { "description": "Recurso criado" }, "422": { "description": "Validação" } } }
+      "post": { "tags": ["Projetos"], "summary": "Cadastra um recurso com custo/hora e capacidade, opcionalmente vinculado a um colaborador", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "201": { "description": "Recurso criado" }, "422": { "description": "Validação" } } }
     },
     "/projects/{id}/resources/{resourceId}": {
       "put": { "tags": ["Projetos"], "summary": "Atualiza um recurso", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "resourceId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Recurso atualizado" } } },

@@ -267,17 +267,19 @@ func (s *Server) projectDependencyDelete(w http.ResponseWriter, r *http.Request)
 }
 
 type projectResourcePayload struct {
-	Name     string  `json:"name"`
-	Role     string  `json:"role"`
-	Email    string  `json:"email"`
-	CostHour float64 `json:"cost_hour"`
-	MaxUnits int     `json:"max_units"`
-	Color    string  `json:"color"`
+	CollaboratorID int64   `json:"collaborator_id"`
+	Name           string  `json:"name"`
+	Role           string  `json:"role"`
+	Email          string  `json:"email"`
+	CostHour       float64 `json:"cost_hour"`
+	MaxUnits       int     `json:"max_units"`
+	Color          string  `json:"color"`
 }
 
 func (p projectResourcePayload) input() modules.ProjectResourceInput {
 	return modules.ProjectResourceInput{
-		Name: p.Name, Role: p.Role, Email: p.Email, CostHour: p.CostHour, MaxUnits: p.MaxUnits, Color: p.Color,
+		CollaboratorID: p.CollaboratorID, Name: p.Name, Role: p.Role, Email: p.Email,
+		CostHour: p.CostHour, MaxUnits: p.MaxUnits, Color: p.Color,
 	}
 }
 

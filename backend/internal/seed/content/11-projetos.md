@@ -41,6 +41,8 @@ Cada projeto define:
 
 Recursos possuem função, e-mail, custo por hora, capacidade e cor. Cada alocação liga um recurso a uma tarefa com unidades percentuais e horas planejadas. O custo é `horas planejadas × custo/hora`; o custo da tarefa soma o custo fixo e as alocações; o projeto consolida tudo no orçamento e no saldo.
 
+Um recurso pode ser vinculado a um **colaborador** do módulo Colaboradores. Nesse caso, nome, função, e-mail, custo/hora, capacidade e cor são copiados do cadastro central, e o mesmo colaborador não pode ser vinculado duas vezes ao mesmo projeto. Custo e capacidade podem ser ajustados por projeto.
+
 ## Linha de base
 
 Capturar uma linha de base grava início, fim, duração e custo de cada tarefa folha. A tela compara com o cronograma atual e mostra variações em dias úteis e em custo por tarefa.

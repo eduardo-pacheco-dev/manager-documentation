@@ -216,6 +216,15 @@ func (s *Server) Router() http.Handler {
 				demands.Delete("/{id}/attachments/{attachmentId}", s.demandsDeleteAttachment)
 			})
 
+			auth.Route("/collaborators", func(collaborators chi.Router) {
+				collaborators.Get("/", s.collaboratorsIndex)
+				collaborators.Post("/", s.collaboratorsCreate)
+				collaborators.Get("/{id}", s.collaboratorsShow)
+				collaborators.Put("/{id}", s.collaboratorsUpdate)
+				collaborators.Patch("/{id}/toggle", s.collaboratorsToggle)
+				collaborators.Delete("/{id}", s.collaboratorsDelete)
+			})
+
 			auth.Route("/projects", func(projects chi.Router) {
 				projects.Get("/", s.projectsIndex)
 				projects.Post("/", s.projectsCreate)

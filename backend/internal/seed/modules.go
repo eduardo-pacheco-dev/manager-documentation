@@ -26,10 +26,162 @@ func ModuleData(m *modules.Store, admin models.User) error {
 	if err := seedNokia(m); err != nil {
 		return err
 	}
-	if err := seedProjects(m, admin); err != nil {
+	collaborators, err := seedCollaborators(m)
+	if err != nil {
+		return err
+	}
+	if err := seedProjects(m, admin, collaborators); err != nil {
 		return err
 	}
 	return seedAgenda(m, admin)
+}
+
+// seedCollaborators registers the demo people used across the modules. It
+// returns a name lookup so project resources can link to the central registry.
+func seedCollaborators(m *modules.Store) (map[string]int64, error) {
+	seeds := []modules.CollaboratorInput{
+		{
+			Name: "Ana Souza", SocialName: "Ana Paula Souza", Email: "ana.souza@example.com", PersonalEmail: "ana.souza.pessoal@example.com",
+			Phone: "+55 11 3333-1001", Mobile: "+55 11 98888-1001", Role: "Gerente de projetos", Department: "PMO",
+			ManagerName: "Fernanda Alves", CPF: "39053344705", RG: "12.345.678-9", RGIssuer: "SSP/SP",
+			CTPS: "1234567", CTPSSeries: "001", PIS: "12034567890", VoterRegistration: "123456789012",
+			BirthDate: "1988-03-14", Gender: "feminino", MaritalStatus: "casado", Nationality: "brasileira",
+			Birthplace: "São Paulo/SP", MotherName: "Marta Souza", FatherName: "José Souza",
+			ZipCode: "01310-100", Street: "Av. Paulista", AddressNumber: "1000", Complement: "Apto 101",
+			Neighborhood: "Bela Vista", City: "São Paulo", State: "SP", Country: "Brasil",
+			EmergencyContactName: "Carlos Souza", EmergencyContactPhone: "+55 11 97777-1001",
+			ContractType: "clt", WorkRegime: "hibrido", WorkLocation: "São Paulo/SP",
+			HireDate: "2019-02-04", WeeklyHours: 40, Salary: 14000,
+			BankName: "Itaú", BankAgency: "1234", BankAccount: "12345-6", BankAccountType: "corrente",
+			PixKey: "ana.souza@example.com", CostHour: 120, MaxUnits: 100, Color: "blue", IsActive: true,
+			Notes: "Responsável pelo portfólio de implantação.",
+		},
+		{
+			Name: "Bruno Lima", Email: "bruno.lima@example.com", PersonalEmail: "bruno.lima.pessoal@example.com",
+			Phone: "+55 11 3333-1002", Mobile: "+55 11 98888-1002", Role: "Engenheiro de campo", Department: "Engenharia",
+			ManagerName: "Ana Souza", CPF: "12345678909", RG: "23.456.789-0", RGIssuer: "SSP/SP",
+			CTPS: "2234567", CTPSSeries: "002", PIS: "12034567891", CNH: "01234567890", CNHCategory: "B", CNHExpiry: "2028-06-20",
+			BirthDate: "1991-07-22", Gender: "masculino", MaritalStatus: "solteiro", Nationality: "brasileira",
+			Birthplace: "Campinas/SP", MotherName: "Helena Lima", FatherName: "Roberto Lima",
+			ZipCode: "13010-100", Street: "Rua Barão de Jaguara", AddressNumber: "500", Neighborhood: "Centro",
+			City: "Campinas", State: "SP", Country: "Brasil",
+			EmergencyContactName: "Helena Lima", EmergencyContactPhone: "+55 11 97777-1002",
+			ContractType: "clt", WorkRegime: "presencial", WorkLocation: "Campinas/SP",
+			HireDate: "2021-01-11", WeeklyHours: 44, Salary: 9800,
+			BankName: "Bradesco", BankAgency: "2345", BankAccount: "23456-7", BankAccountType: "corrente",
+			PixKey: "bruno.lima@example.com", CostHour: 90, MaxUnits: 100, Color: "green", IsActive: true,
+		},
+		{
+			Name: "Carla Mendes", Email: "carla.mendes@example.com", PersonalEmail: "carla.mendes.pessoal@example.com",
+			Phone: "+55 11 3333-1003", Mobile: "+55 11 98888-1003", Role: "Analista de documentação", Department: "Documentação",
+			ManagerName: "Ana Souza", CPF: "98765432100", RG: "34.567.890-1", RGIssuer: "SSP/RJ",
+			CTPS: "3234567", CTPSSeries: "003", PIS: "12034567892",
+			BirthDate: "1994-11-02", Gender: "feminino", MaritalStatus: "solteiro", Nationality: "brasileira",
+			Birthplace: "Rio de Janeiro/RJ", MotherName: "Lúcia Mendes", FatherName: "Paulo Mendes",
+			ZipCode: "20040-020", Street: "Av. Rio Branco", AddressNumber: "156", Neighborhood: "Centro",
+			City: "Rio de Janeiro", State: "RJ", Country: "Brasil",
+			EmergencyContactName: "Lúcia Mendes", EmergencyContactPhone: "+55 21 97777-1003",
+			ContractType: "clt", WorkRegime: "remoto", WorkLocation: "Rio de Janeiro/RJ",
+			HireDate: "2020-09-15", WeeklyHours: 30, Salary: 6500,
+			BankName: "Caixa", BankAgency: "3456", BankAccount: "34567-8", BankAccountType: "poupanca",
+			PixKey: "carla.mendes@example.com", CostHour: 75, MaxUnits: 50, Color: "purple", IsActive: true,
+		},
+		{
+			Name: "Diego Rocha", Email: "diego.rocha@example.com", PersonalEmail: "diego.rocha.pessoal@example.com",
+			Phone: "+55 11 3333-1004", Mobile: "+55 11 98888-1004", Role: "Técnico de instalação", Department: "Campo",
+			ManagerName: "Bruno Lima", CPF: "11144477735", RG: "45.678.901-2", RGIssuer: "SSP/SP",
+			CTPS: "4234567", CTPSSeries: "004", PIS: "12034567893", CNH: "11234567890", CNHCategory: "AB", CNHExpiry: "2027-09-10",
+			BirthDate: "1986-05-30", Gender: "masculino", MaritalStatus: "casado", Nationality: "brasileira",
+			Birthplace: "Santo André/SP", MotherName: "Teresa Rocha", FatherName: "Antônio Rocha",
+			ZipCode: "09010-000", Street: "Rua Oliveira Lima", AddressNumber: "88", Neighborhood: "Centro",
+			City: "Santo André", State: "SP", Country: "Brasil",
+			EmergencyContactName: "Marina Rocha", EmergencyContactPhone: "+55 11 97777-1004",
+			ContractType: "clt", WorkRegime: "presencial", WorkLocation: "Santo André/SP",
+			HireDate: "2018-04-02", WeeklyHours: 44, Salary: 5200,
+			BankName: "Santander", BankAgency: "4567", BankAccount: "45678-9", BankAccountType: "corrente",
+			PixKey: "diego.rocha@example.com", CostHour: 60, MaxUnits: 100, Color: "orange", IsActive: true,
+		},
+		{
+			Name: "Marina Costa", Email: "marina.costa@example.com", PersonalEmail: "marina.costa.pessoal@example.com",
+			Phone: "+55 11 3333-1005", Mobile: "+55 11 98888-1005", Role: "Arquiteta de redes", Department: "Engenharia",
+			ManagerName: "Ana Souza", CPF: "52998224725", RG: "56.789.012-3", RGIssuer: "SSP/SP",
+			CTPS: "5234567", CTPSSeries: "005", PIS: "12034567894",
+			BirthDate: "1989-12-09", Gender: "feminino", MaritalStatus: "casado", Nationality: "brasileira",
+			Birthplace: "São Bernardo do Campo/SP", MotherName: "Sônia Costa", FatherName: "Marcos Costa",
+			ZipCode: "09710-000", Street: "Rua Marechal Deodoro", AddressNumber: "320", Neighborhood: "Centro",
+			City: "São Bernardo do Campo", State: "SP", Country: "Brasil",
+			EmergencyContactName: "Rafael Costa", EmergencyContactPhone: "+55 11 97777-1005",
+			ContractType: "clt", WorkRegime: "hibrido", WorkLocation: "São Paulo/SP",
+			HireDate: "2017-08-21", WeeklyHours: 40, Salary: 15500,
+			BankName: "Nubank", BankAgency: "0001", BankAccount: "56789-0", BankAccountType: "corrente",
+			PixKey: "marina.costa@example.com", CostHour: 130, MaxUnits: 100, Color: "teal", IsActive: true,
+		},
+		{
+			Name: "Paulo Reis", Email: "paulo.reis@example.com", PersonalEmail: "paulo.reis.pessoal@example.com",
+			Phone: "+55 11 3333-1006", Mobile: "+55 11 98888-1006", Role: "Analista de infraestrutura", Department: "Infraestrutura",
+			ManagerName: "Marina Costa", CPF: "16899535009", RG: "67.890.123-4", RGIssuer: "SSP/MG",
+			CTPS: "6234567", CTPSSeries: "006", PIS: "12034567895",
+			BirthDate: "1993-02-17", Gender: "masculino", MaritalStatus: "solteiro", Nationality: "brasileira",
+			Birthplace: "Belo Horizonte/MG", MotherName: "Regina Reis", FatherName: "Fernando Reis",
+			ZipCode: "30140-071", Street: "Rua da Bahia", AddressNumber: "1200", Neighborhood: "Centro",
+			City: "Belo Horizonte", State: "MG", Country: "Brasil",
+			EmergencyContactName: "Regina Reis", EmergencyContactPhone: "+55 31 97777-1006",
+			ContractType: "clt", WorkRegime: "remoto", WorkLocation: "Belo Horizonte/MG",
+			HireDate: "2022-03-07", WeeklyHours: 40, Salary: 8900,
+			BankName: "Inter", BankAgency: "0001", BankAccount: "67890-1", BankAccountType: "corrente",
+			PixKey: "paulo.reis@example.com", CostHour: 85, MaxUnits: 100, Color: "gray", IsActive: true,
+		},
+		{
+			Name: "Fernanda Alves", Email: "fernanda.alves@example.com", PersonalEmail: "fernanda.alves.pessoal@example.com",
+			Phone: "+55 11 3333-1007", Mobile: "+55 11 98888-1007", Role: "Product Owner", Department: "Produto",
+			ManagerName: "Ana Souza", CPF: "86288366757", RG: "78.901.234-5", RGIssuer: "SSP/SP",
+			CTPS: "7234567", CTPSSeries: "007", PIS: "12034567896",
+			BirthDate: "1985-09-25", Gender: "feminino", MaritalStatus: "divorciado", Nationality: "brasileira",
+			Birthplace: "Santos/SP", MotherName: "Beatriz Alves", FatherName: "Ricardo Alves",
+			ZipCode: "11010-000", Street: "Av. Ana Costa", AddressNumber: "450", Neighborhood: "Gonzaga",
+			City: "Santos", State: "SP", Country: "Brasil",
+			EmergencyContactName: "Beatriz Alves", EmergencyContactPhone: "+55 13 97777-1007",
+			ContractType: "clt", WorkRegime: "hibrido", WorkLocation: "Santos/SP",
+			HireDate: "2016-06-13", WeeklyHours: 40, Salary: 16500,
+			BankName: "Itaú", BankAgency: "7890", BankAccount: "78901-2", BankAccountType: "corrente",
+			PixKey: "fernanda.alves@example.com", CostHour: 110, MaxUnits: 100, Color: "magenta", IsActive: true,
+		},
+		{
+			Name: "Sofia Martins", Email: "sofia.martins@example.com", PersonalEmail: "sofia.martins.pessoal@example.com",
+			Phone: "+55 11 3333-1008", Mobile: "+55 11 98888-1008", Role: "Analista de qualidade", Department: "Qualidade",
+			ManagerName: "Fernanda Alves", CPF: "15350946056", RG: "89.012.345-6", RGIssuer: "SSP/PR",
+			CTPS: "8234567", CTPSSeries: "008", PIS: "12034567897",
+			BirthDate: "1996-01-08", Gender: "feminino", MaritalStatus: "solteiro", Nationality: "brasileira",
+			Birthplace: "Curitiba/PR", MotherName: "Cláudia Martins", FatherName: "Sérgio Martins",
+			ZipCode: "80010-000", Street: "Rua XV de Novembro", AddressNumber: "700", Neighborhood: "Centro",
+			City: "Curitiba", State: "PR", Country: "Brasil",
+			EmergencyContactName: "Cláudia Martins", EmergencyContactPhone: "+55 41 97777-1008",
+			ContractType: "clt", WorkRegime: "remoto", WorkLocation: "Curitiba/PR",
+			HireDate: "2022-05-02", TerminationDate: "2026-08-31", WeeklyHours: 30, Salary: 7200,
+			BankName: "Banco do Brasil", BankAgency: "8901", BankAccount: "89012-3", BankAccountType: "corrente",
+			PixKey: "sofia.martins@example.com", CostHour: 80, MaxUnits: 50, Color: "cyan", IsActive: false,
+			Notes: "Desligada em 31/08/2026. Histórico preservado.",
+		},
+	}
+	ids := make(map[string]int64, len(seeds))
+	for _, input := range seeds {
+		if existing, err := m.FindCollaboratorByEmail(input.Email); err == nil {
+			if existing.CPF == nil || *existing.CPF == "" {
+				if updated, updateErr := m.UpdateCollaborator(existing.ID, input); updateErr == nil {
+					ids[updated.Name] = updated.ID
+					continue
+				}
+			}
+			ids[existing.Name] = existing.ID
+			continue
+		}
+		created, err := m.CreateCollaborator(input)
+		if err != nil {
+			return nil, err
+		}
+		ids[created.Name] = created.ID
+	}
+	return ids, nil
 }
 
 func seedTasks(m *modules.Store, admin models.User) error {
@@ -287,7 +439,7 @@ type projectSeed struct {
 	Baseline     string
 }
 
-func seedProjects(m *modules.Store, admin models.User) error {
+func seedProjects(m *modules.Store, admin models.User, collaborators map[string]int64) error {
 	existing, err := m.ListProjects(true)
 	if err != nil {
 		return err
@@ -301,7 +453,7 @@ func seedProjects(m *modules.Store, admin models.User) error {
 	expansionStart := today.AddDate(0, 0, -7)
 	expansionDate := expansionStart.Format("2006-01-02")
 	if !known[seedProjectExpansionName] {
-		if err := createSeedProject(m, admin, projectSeed{
+		if err := createSeedProject(m, admin, collaborators, projectSeed{
 			Name:        seedProjectExpansionName,
 			Description: "Implantação e integração de estações 5G no lote SP: engenharia, documentação, aceite do cliente e acompanhamento de custos.",
 			Status:      "em_andamento",
@@ -362,7 +514,7 @@ func seedProjects(m *modules.Store, admin models.User) error {
 	backboneStart := today.AddDate(0, 0, 14)
 	backboneDate := backboneStart.Format("2006-01-02")
 	if !known[seedProjectBackboneName] {
-		if err := createSeedProject(m, admin, projectSeed{
+		if err := createSeedProject(m, admin, collaborators, projectSeed{
 			Name:        seedProjectBackboneName,
 			Description: "Estudo e planejamento da expansão do backbone metropolitano, com análise de capacidade e aprovação de orçamento.",
 			Status:      "planejamento",
@@ -401,7 +553,12 @@ func seedProjects(m *modules.Store, admin models.User) error {
 	return nil
 }
 
-func createSeedProject(m *modules.Store, admin models.User, data projectSeed) error {
+func createSeedProject(m *modules.Store, admin models.User, collaborators map[string]int64, data projectSeed) error {
+	for index := range data.Resources {
+		if collaboratorID, ok := collaborators[data.Resources[index].Name]; ok {
+			data.Resources[index].CollaboratorID = collaboratorID
+		}
+	}
 	project, err := m.CreateProject(admin.ID, modules.ProjectInput{
 		Name:        data.Name,
 		Description: data.Description,
