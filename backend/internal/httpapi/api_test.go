@@ -1280,6 +1280,18 @@ func TestRadioLinks(t *testing.T) {
 		t.Fatalf("unexpected radio link detail: %v", payload["data"])
 	}
 
+	res, payload = app.request(http.MethodPost, fmt.Sprintf("/api/v1/radio-links/%d/comments", linkID), map[string]any{
+		"body": "Comentario de teste",
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("create radio link comment status = %d payload=%v", res.StatusCode, payload)
+	}
+	commentID := int64(payload["data"].(map[string]any)["comment"].(map[string]any)["id"].(float64))
+	res, _ = app.request(http.MethodDelete, fmt.Sprintf("/api/v1/radio-links/%d/comments/%d", linkID, commentID), nil, app.csrf, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("delete radio link comment status = %d", res.StatusCode)
+	}
+
 	res, payload = app.request(http.MethodGet, "/api/v1/radio-links?search=Smoke", nil, "", nil)
 	if res.StatusCode != http.StatusOK || int(payload["meta"].(map[string]any)["total"].(float64)) != 1 {
 		t.Fatalf("radio link list failed: %d %v", res.StatusCode, payload)

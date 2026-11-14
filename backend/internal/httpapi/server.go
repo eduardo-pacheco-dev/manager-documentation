@@ -200,6 +200,11 @@ func (s *Server) Router() http.Handler {
 				radio.Get("/{id}", s.radioLinksShow)
 				radio.Put("/{id}", s.radioLinksUpdate)
 				radio.Delete("/{id}", s.radioLinksDelete)
+				radio.Post("/{id}/attachments", s.radioLinksUploadAttachment)
+				radio.Get("/{id}/attachments/{attachmentId}", s.radioLinksDownloadAttachment)
+				radio.Delete("/{id}/attachments/{attachmentId}", s.radioLinksDeleteAttachment)
+				radio.Post("/{id}/comments", s.radioLinksCreateComment)
+				radio.Delete("/{id}/comments/{commentId}", s.radioLinksDeleteComment)
 			})
 
 			auth.Route("/links", func(links chi.Router) {

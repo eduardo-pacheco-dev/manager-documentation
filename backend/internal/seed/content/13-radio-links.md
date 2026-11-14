@@ -1,6 +1,6 @@
 # Rádio Links
 
-O módulo **Rádio Links** registra enlaces ponto a ponto entre duas estações do inventário: a **ponta A** e a **ponta B**. A página de detalhes mostra os dados técnicos do enlace e as informações das duas estações, com atalho para o cadastro de cada uma.
+O módulo **Rádio Links** registra enlaces ponto a ponto entre duas estações do inventário: a **ponta A** e a **ponta B**. A página de detalhes mostra os dados técnicos do enlace e as informações das duas estações, com atalho para o cadastro de cada uma, além de mapa com a linha do link, **anexos** e **comentários**.
 
 ## Campos
 

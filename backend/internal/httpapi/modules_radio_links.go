@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -143,7 +144,8 @@ func (s *Server) radioLinksDelete(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "Rádio link não encontrado.", nil)
 		return
 	}
-	if err := s.Modules.DeleteRadioLink(id); err != nil {
+	paths, err := s.Modules.DeleteRadioLink(id)
+	if err != nil {
 		if errors.Is(err, modules.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "Rádio link não encontrado.", nil)
 			return
@@ -151,7 +153,125 @@ func (s *Server) radioLinksDelete(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "Não foi possível excluir o rádio link.", nil)
 		return
 	}
+	for _, path := range paths {
+		s.Uploads.DeleteLocal(path)
+	}
 	writeJSON(w, http.StatusOK, map[string]string{"message": "Rádio link removido com sucesso."})
+}
+
+func (s *Server) radioLinksUploadAttachment(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseID(r, "id")
+	if !ok {
+		writeError(w, http.StatusNotFound, "Rádio link não encontrado.", nil)
+		return
+	}
+	if _, err := s.Modules.FindRadioLink(id); err != nil {
+		writeError(w, http.StatusNotFound, "Rádio link não encontrado.", nil)
+		return
+	}
+	if err := r.ParseMultipartForm(40 << 20); err != nil {
+		writeError(w, http.StatusBadRequest, "Arquivo inválido.", nil)
+		return
+	}
+	files := r.MultipartForm.File["files"]
+	if len(files) == 0 {
+		writeValidation(w, validationErrors{"files": "Selecione ao menos um arquivo."})
+		return
+	}
+	if len(files) > 10 {
+		writeValidation(w, validationErrors{"files": "Envie no máximo 10 arquivos por vez."})
+		return
+	}
+	user := currentUser(r)
+	created := 0
+	for _, header := range files {
+		if header.Size > 20<<20 {
+			writeValidation(w, validationErrors{"files": "Cada arquivo deve ter no máximo 20 MB."})
+			return
+		}
+		file, err := header.Open()
+		if err != nil {
+			continue
+		}
+		result, err := s.Uploads.SaveDocument(r.Context(), file, header, "radio-links")
+		file.Close()
+		if err != nil {
+			writeValidation(w, validationErrors{"files": "Formato de arquivo não permitido."})
+			return
+		}
+		if _, err := s.Modules.CreateRadioLinkAttachment(id, user.ID, header.Filename, result.Path, "local", header.Header.Get("Content-Type"), header.Size); err == nil {
+			created++
+		}
+	}
+	writeJSON(w, http.StatusCreated, map[string]any{"message": fmt.Sprintf("%d anexo(s) enviado(s).", created)})
+}
+
+func (s *Server) radioLinksDownloadAttachment(w http.ResponseWriter, r *http.Request) {
+	id, _ := parseID(r, "id")
+	attachmentID, _ := parseID(r, "attachmentId")
+	attachment, err := s.Modules.FindRadioLinkAttachment(id, attachmentID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "Anexo não encontrado.", nil)
+		return
+	}
+	http.Redirect(w, r, "/uploads/"+attachment.Path, http.StatusTemporaryRedirect)
+}
+
+func (s *Server) radioLinksDeleteAttachment(w http.ResponseWriter, r *http.Request) {
+	id, _ := parseID(r, "id")
+	attachmentID, _ := parseID(r, "attachmentId")
+	path, err := s.Modules.DeleteRadioLinkAttachment(id, attachmentID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "Anexo não encontrado.", nil)
+		return
+	}
+	s.Uploads.DeleteLocal(path)
+	writeJSON(w, http.StatusOK, map[string]string{"message": "Anexo removido com sucesso."})
+}
+
+func (s *Server) radioLinksCreateComment(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseID(r, "id")
+	if !ok {
+		writeError(w, http.StatusNotFound, "Rádio link não encontrado.", nil)
+		return
+	}
+	var payload struct {
+		Body string `json:"body"`
+	}
+	if !decodeJSON(w, r, &payload) {
+		return
+	}
+	body := strings.TrimSpace(payload.Body)
+	if len([]rune(body)) < 2 {
+		writeValidation(w, validationErrors{"body": "O comentário precisa ter pelo menos 2 caracteres."})
+		return
+	}
+	comment, err := s.Modules.CreateRadioLinkComment(id, currentUser(r).ID, body)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Não foi possível publicar o comentário.", nil)
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]any{"message": "Comentário publicado.", "data": map[string]any{"comment": comment}})
+}
+
+func (s *Server) radioLinksDeleteComment(w http.ResponseWriter, r *http.Request) {
+	id, _ := parseID(r, "id")
+	commentID, _ := parseID(r, "commentId")
+	comment, err := s.Modules.FindRadioLinkComment(id, commentID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "Comentário não encontrado.", nil)
+		return
+	}
+	auth := authFrom(r)
+	if !auth.User.IsAdmin && (comment.UserID == nil || *comment.UserID != auth.User.ID) {
+		writeError(w, http.StatusForbidden, "Você não pode remover este comentário.", nil)
+		return
+	}
+	if err := s.Modules.DeleteRadioLinkComment(id, commentID); err != nil {
+		writeError(w, http.StatusInternalServerError, "Não foi possível remover o comentário.", nil)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"message": "Comentário removido com sucesso."})
 }
 
 // radioLinkStations feeds the station pickers used for the A and B endpoints.

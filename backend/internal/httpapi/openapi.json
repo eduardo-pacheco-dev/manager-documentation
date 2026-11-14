@@ -270,6 +270,53 @@
         "responses": { "200": { "description": "Removido" }, "404": { "description": "Não encontrado" } }
       }
     },
+    "/radio-links/{id}/attachments": {
+      "post": {
+        "tags": ["Radio links"],
+        "summary": "Envia anexos para o rádio link",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "201": { "description": "Anexos enviados" }, "422": { "description": "Arquivo inválido" } }
+      }
+    },
+    "/radio-links/{id}/attachments/{attachmentId}": {
+      "get": {
+        "tags": ["Radio links"],
+        "summary": "Baixa um anexo do rádio link",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } },
+          { "name": "attachmentId", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": { "307": { "description": "Redireciona para o arquivo" }, "404": { "description": "Não encontrado" } }
+      },
+      "delete": {
+        "tags": ["Radio links"],
+        "summary": "Remove um anexo do rádio link",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } },
+          { "name": "attachmentId", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Removido" }, "404": { "description": "Não encontrado" } }
+      }
+    },
+    "/radio-links/{id}/comments": {
+      "post": {
+        "tags": ["Radio links"],
+        "summary": "Publica um comentário no rádio link",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "201": { "description": "Comentário publicado" }, "422": { "description": "Validação" } }
+      }
+    },
+    "/radio-links/{id}/comments/{commentId}": {
+      "delete": {
+        "tags": ["Radio links"],
+        "summary": "Remove um comentário do rádio link",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } },
+          { "name": "commentId", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Removido" }, "403": { "description": "Sem permissão" } }
+      }
+    },
     "/links": {
       "get": {
         "tags": ["Links curtos"],

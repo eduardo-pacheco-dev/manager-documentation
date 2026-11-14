@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Copy, OverflowMenuVertical } from '@carbon/icons-react';
+import { ArrowLeft, Copy, OverflowMenuVertical, TrashCan } from '@carbon/icons-react';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -9,11 +9,14 @@ import {
   OverflowMenu,
   OverflowMenuItem,
   Tag,
+  TextArea,
+  TextInput,
   Tile,
 } from '@carbon/react';
 import { PageHeader } from '../../components/PageHeader';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { RadioLinkMap } from '../../components/RadioLinkMap';
+import { useAuth } from '../../contexts/AuthContext';
 import {
   RadioLinkFormModal,
   formatRadioDistance,
@@ -64,6 +67,7 @@ export function RadioLinkDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
+  const { user } = useAuth();
   const [link, setLink] = useState<RadioLink | null>(null);
   const [stationA, setStationA] = useState<StationDetails | null>(null);
   const [stationB, setStationB] = useState<StationDetails | null>(null);
@@ -72,6 +76,9 @@ export function RadioLinkDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [comment, setComment] = useState('');
+  const [commentBusy, setCommentBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -118,6 +125,67 @@ export function RadioLinkDetailPage() {
       toast.success('Coordenadas copiadas', value);
     } catch {
       toast.error('Não foi possível copiar as coordenadas', value);
+    }
+  }
+
+  async function uploadAttachments(files: FileList | null) {
+    const linkID = link?.id;
+    if (!linkID || !files || files.length === 0) return;
+    setUploading(true);
+    try {
+      const form = new FormData();
+      Array.from(files).forEach((file) => form.append('files', file));
+      const response = await api.upload<{ message: string }>(`/radio-links/${linkID}/attachments`, form);
+      toast.success('Arquivos enviados', response.message);
+      await load();
+    } catch (error) {
+      toast.error('Não foi possível enviar os arquivos', errorMessage(error));
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function deleteAttachment(attachmentId: number) {
+    const linkID = link?.id;
+    if (!linkID) return;
+    try {
+      await api.delete(`/radio-links/${linkID}/attachments/${attachmentId}`);
+      toast.success('Anexo removido');
+      await load();
+    } catch (error) {
+      toast.error('Não foi possível remover o anexo', errorMessage(error));
+    }
+  }
+
+  async function addComment() {
+    const linkID = link?.id;
+    if (!linkID) return;
+    if (comment.trim().length < 2) {
+      toast.error('O comentário precisa ter pelo menos 2 caracteres');
+      return;
+    }
+    setCommentBusy(true);
+    try {
+      await api.post(`/radio-links/${linkID}/comments`, { body: comment.trim() });
+      setComment('');
+      toast.success('Comentário publicado');
+      await load();
+    } catch (error) {
+      toast.error('Não foi possível publicar o comentário', errorMessage(error));
+    } finally {
+      setCommentBusy(false);
+    }
+  }
+
+  async function deleteComment(commentId: number) {
+    const linkID = link?.id;
+    if (!linkID) return;
+    try {
+      await api.delete(`/radio-links/${linkID}/comments/${commentId}`);
+      toast.success('Comentário removido');
+      await load();
+    } catch (error) {
+      toast.error('Não foi possível remover o comentário', errorMessage(error));
     }
   }
 
@@ -317,6 +385,89 @@ export function RadioLinkDetailPage() {
               </div>
             ) : (
               <p className="muted">Informe latitude e longitude nas duas estações para visualizar o mapa do enlace.</p>
+            )}
+          </Tile>
+
+          <Tile className="nokia-detail-section">
+            <div className="nokia-section-header">
+              <div><h2>Arquivos</h2><p>Documentos e anexos do enlace.</p></div>
+            </div>
+            <div className="inline-form nokia-upload-row">
+              <TextInput
+                id="radio-link-files"
+                type="file"
+                labelText="Arquivos (até 20 MB cada)"
+                multiple
+                disabled={uploading}
+                onChange={(event) => {
+                  void uploadAttachments(event.target.files);
+                  event.target.value = '';
+                }}
+              />
+            </div>
+            {uploading && <InlineLoading description="Enviando arquivos…" />}
+            {link.attachments.length === 0 ? (
+              <p className="muted">Nenhum arquivo anexado.</p>
+            ) : (
+              <div className="nokia-attachment-group">
+                {link.attachments.map((attachment) => (
+                  <div key={attachment.id} className="attachment-row">
+                    <a href={attachment.url} target="_blank" rel="noreferrer">{attachment.original_name}</a>
+                    <span>{attachment.uploader_name ?? 'Usuário removido'} · {relativeTime(attachment.created_at)}</span>
+                    <Button
+                      kind="danger--ghost"
+                      size="xs"
+                      hasIconOnly
+                      renderIcon={TrashCan}
+                      iconDescription="Remover anexo"
+                      onClick={() => void deleteAttachment(attachment.id)}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </Tile>
+
+          <Tile className="nokia-detail-section">
+            <div className="nokia-section-header">
+              <div><h2>Comentários</h2><p>{link.comments.length} comentário(s).</p></div>
+            </div>
+            <div className="inline-form">
+              <TextArea
+                id="radio-link-comment"
+                labelText="Novo comentário"
+                value={comment}
+                onChange={(event) => setComment(event.target.value)}
+                rows={2}
+              />
+              <Button kind="tertiary" onClick={() => void addComment()} disabled={commentBusy}>
+                {commentBusy ? 'Publicando…' : 'Comentar'}
+              </Button>
+            </div>
+            {link.comments.length === 0 ? (
+              <p className="muted">Nenhum comentário publicado.</p>
+            ) : (
+              <div className="nokia-comment-list">
+                {link.comments.map((item) => (
+                  <div key={item.id} className="comment-row">
+                    <div>
+                      <strong>{item.author_name ?? 'Usuário removido'}</strong>
+                      <span>{relativeTime(item.created_at)}</span>
+                      <p className="preserve-lines">{item.body}</p>
+                    </div>
+                    {(user?.is_admin || (item.user_id != null && item.user_id === user?.id)) && (
+                      <Button
+                        kind="danger--ghost"
+                        size="xs"
+                        hasIconOnly
+                        renderIcon={TrashCan}
+                        iconDescription="Remover comentário"
+                        onClick={() => void deleteComment(item.id)}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
           </Tile>
         </div>
