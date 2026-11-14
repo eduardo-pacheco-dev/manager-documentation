@@ -23,7 +23,8 @@ As migrações ficam em **internal/database/database.go** e são aplicadas em or
 O sistema possui um módulo nativo de backups em **Configurações → Backups** (visível apenas para administradores). Cada backup gera um arquivo `.zip` com:
 
 - `database.sql`: dump completo do banco via **mysqldump**;
-- `uploads/`: cópia dos uploads locais;
+- `uploads/`: cópia dos uploads e anexos locais;
+- `objects/`: anexos e imagens armazenados em S3/R2 (quando esse provedor estiver ativo);
 - `backup.json`: metadados do arquivo.
 
 Os backups ficam em **BACKUP_DIR** (padrão `./data/backups`), com retenção de **BACKUP_RETENTION** arquivos. Quando **BACKUP_AUTO=true**, um backup é gerado diariamente no horário de **BACKUP_HOUR** (padrão 3h, fuso local).

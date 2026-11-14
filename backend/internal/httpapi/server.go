@@ -34,16 +34,19 @@ type Server struct {
 }
 
 func New(cfg config.Config, s *store.Store, cipher *crypto.Cipher) *Server {
-	return &Server{
+	uploads := upload.New(s, cfg, cipher)
+	server := &Server{
 		Config:   cfg,
 		Store:    s,
 		Modules:  modules.New(s.DB),
 		Cipher:   cipher,
 		Notifier: notifier.New(s, cfg),
-		Uploads:  upload.New(s, cfg, cipher),
+		Uploads:  uploads,
 		Backups:  backup.New(cfg),
 		Limiter:  newLoginLimiter(5, time.Minute),
 	}
+	server.Backups.SetRemote(uploads)
+	return server
 }
 
 func (s *Server) Router() http.Handler {

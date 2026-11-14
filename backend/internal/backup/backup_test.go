@@ -5,8 +5,10 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -150,5 +152,93 @@ func TestImport(t *testing.T) {
 	}
 	if duplicate.Name == entry.Name {
 		t.Fatal("expected a new name when importing a duplicate")
+	}
+}
+
+type fakeRemote struct {
+	provider string
+	objects  map[string]string
+	imported map[string]string
+}
+
+func (f *fakeRemote) Provider() string { return f.provider }
+
+func (f *fakeRemote) ExportObjects(_ context.Context, add func(key string, body io.Reader) error) error {
+	for key, content := range f.objects {
+		if err := add(key, strings.NewReader(content)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (f *fakeRemote) ImportObject(_ context.Context, key string, body io.Reader) error {
+	raw, err := io.ReadAll(body)
+	if err != nil {
+		return err
+	}
+	f.imported[key] = string(raw)
+	return nil
+}
+
+func openArchive(t *testing.T, files map[string]string) *zip.ReadCloser {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "backup.zip")
+	if err := os.WriteFile(path, zipFile(t, files), 0o600); err != nil {
+		t.Fatalf("write archive: %v", err)
+	}
+	reader, err := zip.OpenReader(path)
+	if err != nil {
+		t.Fatalf("open archive: %v", err)
+	}
+	t.Cleanup(func() { _ = reader.Close() })
+	return reader
+}
+
+func TestRestoreRemoteObjects(t *testing.T) {
+	cfg := testConfig(t)
+	service := New(cfg)
+	remote := &fakeRemote{provider: "aws", imported: map[string]string{}}
+	service.SetRemote(remote)
+
+	reader := openArchive(t, map[string]string{
+		"database.sql":                    "SELECT 1;",
+		"objects/demands/2026/01/a.txt":   "anexo",
+		"objects/uploads/2026/01/img.png": "imagem",
+	})
+	if err := service.restoreObjects(context.Background(), reader.File); err != nil {
+		t.Fatalf("restore objects: %v", err)
+	}
+	if remote.imported["demands/2026/01/a.txt"] != "anexo" {
+		t.Fatalf("missing demand attachment: %v", remote.imported)
+	}
+	if remote.imported["uploads/2026/01/img.png"] != "imagem" {
+		t.Fatalf("missing image: %v", remote.imported)
+	}
+}
+
+func TestRestoreObjectsFallsBackToLocalDir(t *testing.T) {
+	cfg := testConfig(t)
+	service := New(cfg)
+
+	reader := openArchive(t, map[string]string{
+		"database.sql":                    "SELECT 1;",
+		"objects/demands/2026/01/a.txt":   "anexo",
+		"objects/uploads/2026/01/img.png": "imagem",
+	})
+	if err := service.restoreObjects(context.Background(), reader.File); err != nil {
+		t.Fatalf("restore objects: %v", err)
+	}
+	for path, expected := range map[string]string{
+		filepath.Join(cfg.UploadDir, "demands", "2026", "01", "a.txt"): "anexo",
+		filepath.Join(cfg.UploadDir, "2026", "01", "img.png"):          "imagem",
+	} {
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		if string(raw) != expected {
+			t.Fatalf("unexpected content in %s: %q", path, raw)
+		}
 	}
 }

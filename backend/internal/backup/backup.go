@@ -65,14 +65,23 @@ type manifest struct {
 	CreatedAt   time.Time `json:"created_at"`
 	Database    string    `json:"database"`
 	HasUploads  bool      `json:"has_uploads"`
+	HasRemote   bool      `json:"has_remote_attachments"`
 	Description string    `json:"description,omitempty"`
+}
+
+// RemoteStore exposes remote objects (S3/R2) to the backup service.
+type RemoteStore interface {
+	Provider() string
+	ExportObjects(ctx context.Context, add func(key string, body io.Reader) error) error
+	ImportObject(ctx context.Context, key string, body io.Reader) error
 }
 
 // Service owns the backup directory and the external MySQL client binaries.
 type Service struct {
-	cfg config.Config
-	now func() time.Time
-	mu  sync.Mutex
+	cfg    config.Config
+	now    func() time.Time
+	mu     sync.Mutex
+	remote RemoteStore
 }
 
 // New creates the service and ensures the backup directory exists.
@@ -82,6 +91,12 @@ func New(cfg config.Config) *Service {
 		log.Printf("backup: could not create directory %s: %v", cfg.BackupDir, err)
 	}
 	return service
+}
+
+// SetRemote registers the remote object store used for attachments kept in
+// S3/R2. It is safe to call once at startup.
+func (s *Service) SetRemote(remote RemoteStore) {
+	s.remote = remote
 }
 
 // Settings returns the active backup configuration.
@@ -167,6 +182,7 @@ func (s *Service) Create(ctx context.Context) (Entry, error) {
 
 	archive := zip.NewWriter(file)
 	uploadsIncluded := s.uploadsAvailable()
+	remoteIncluded := s.remote != nil && s.remote.Provider() != "local"
 
 	meta := manifest{
 		App:         "documentation-center",
@@ -174,7 +190,8 @@ func (s *Service) Create(ctx context.Context) (Entry, error) {
 		CreatedAt:   s.now().UTC(),
 		Database:    s.cfg.DatabaseName,
 		HasUploads:  uploadsIncluded,
-		Description: "Backup do banco de dados e dos uploads locais.",
+		HasRemote:   remoteIncluded,
+		Description: "Backup do banco de dados, uploads locais e anexos remotos.",
 	}
 	metaWriter, err := archive.Create("backup.json")
 	if err != nil {
@@ -197,6 +214,11 @@ func (s *Service) Create(ctx context.Context) (Entry, error) {
 	if uploadsIncluded {
 		if err := s.addUploads(archive); err != nil {
 			return Entry{}, fmt.Errorf("add uploads: %w", err)
+		}
+	}
+	if remoteIncluded {
+		if err := s.addRemoteObjects(ctx, archive); err != nil {
+			return Entry{}, fmt.Errorf("add remote attachments: %w", err)
 		}
 	}
 
@@ -369,6 +391,21 @@ func (s *Service) addUploads(archive *zip.Writer) error {
 	})
 }
 
+func (s *Service) addRemoteObjects(ctx context.Context, archive *zip.Writer) error {
+	return s.remote.ExportObjects(ctx, func(key string, body io.Reader) error {
+		key = strings.TrimPrefix(strings.TrimSpace(key), "/")
+		if key == "" || strings.Contains(key, "..") {
+			return fmt.Errorf("invalid remote object key %q", key)
+		}
+		writer, err := archive.Create("objects/" + key)
+		if err != nil {
+			return err
+		}
+		_, err = io.Copy(writer, body)
+		return err
+	})
+}
+
 // Path validates a backup name and returns its absolute path.
 func (s *Service) Path(name string) (string, error) {
 	name = strings.TrimSpace(name)
@@ -469,7 +506,63 @@ func (s *Service) Restore(ctx context.Context, name string) error {
 	if err := s.restoreUploads(reader.File); err != nil {
 		return fmt.Errorf("restore uploads: %w", err)
 	}
+	if err := s.restoreObjects(ctx, reader.File); err != nil {
+		return fmt.Errorf("restore attachments: %w", err)
+	}
 	return nil
+}
+
+func (s *Service) restoreObjects(ctx context.Context, files []*zip.File) error {
+	for _, file := range files {
+		if !strings.HasPrefix(file.Name, "objects/") || file.FileInfo().IsDir() {
+			continue
+		}
+		key := strings.TrimPrefix(file.Name, "objects/")
+		if key == "" || strings.Contains(key, "..") {
+			return fmt.Errorf("invalid attachment path %q", file.Name)
+		}
+		source, err := file.Open()
+		if err != nil {
+			return err
+		}
+		if s.remote != nil {
+			err = s.remote.ImportObject(ctx, key, source)
+		} else {
+			err = writeLocalFile(s.cfg.UploadDir, strings.TrimPrefix(key, "uploads/"), source)
+		}
+		_ = source.Close()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func writeLocalFile(root, relative string, body io.Reader) error {
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		return err
+	}
+	absTarget, err := filepath.Abs(filepath.Join(absRoot, filepath.FromSlash(relative)))
+	if err != nil {
+		return err
+	}
+	if absTarget != absRoot && !strings.HasPrefix(absTarget, absRoot+string(os.PathSeparator)) {
+		return fmt.Errorf("invalid attachment path %q", relative)
+	}
+	if err := os.MkdirAll(filepath.Dir(absTarget), 0o755); err != nil {
+		return err
+	}
+	destination, err := os.Create(absTarget)
+	if err != nil {
+		return err
+	}
+	_, copyErr := io.Copy(destination, body)
+	closeErr := destination.Close()
+	if copyErr != nil {
+		return copyErr
+	}
+	return closeErr
 }
 
 func (s *Service) restoreUploads(files []*zip.File) error {

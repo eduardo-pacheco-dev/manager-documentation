@@ -177,7 +177,7 @@ export function BackupsPanel() {
             `${settings.automatic
               ? `Um backup automático é gerado todos os dias às ${String(settings.hour).padStart(2, '0')}:00.`
               : 'O backup automático está desativado; use o botão acima para gerar manualmente.'} ` +
-            `Os arquivos ficam em ${settings.directory} e incluem o banco e os uploads locais.`
+            `Os arquivos ficam em ${settings.directory} e incluem banco, uploads locais e anexos remotos (S3/R2), quando configurados.`
           }
         />
       )}

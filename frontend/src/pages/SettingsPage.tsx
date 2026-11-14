@@ -591,7 +591,7 @@ export function SettingsPage() {
             <SettingsSection
               id="backups"
               title="Backups"
-              description="Gere, importe, baixe e restaure cópias de segurança do banco de dados e dos uploads locais."
+              description="Gere, importe, baixe e restaure cópias de segurança do banco de dados, uploads e anexos."
               icon={DataBase}
             >
               <BackupsPanel />
