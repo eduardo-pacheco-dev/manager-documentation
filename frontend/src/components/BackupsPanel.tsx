@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { DataBase, OverflowMenuVertical, Renew, Upload, WarningAlt } from '@carbon/icons-react';
+import { DataBase, OverflowMenuVertical, Upload } from '@carbon/icons-react';
 import {
   Button,
   Checkbox,
@@ -10,13 +10,12 @@ import {
   OverflowMenuItem,
   Tag,
   TextInput,
-  Tile,
 } from '@carbon/react';
 import { ConfirmModal } from './ConfirmModal';
 import { EmptyState } from './Feedback';
 import { useToast } from '../contexts/ToastContext';
 import { api } from '../lib/api';
-import { errorMessage, formatNumber, fullDate } from '../lib/format';
+import { errorMessage, fullDate } from '../lib/format';
 
 interface BackupEntry {
   name: string;
@@ -143,8 +142,6 @@ export function BackupsPanel() {
     link.remove();
   }
 
-  const totalSize = entries.reduce((sum, entry) => sum + entry.size, 0);
-
   return (
     <div className="backups-panel">
       <input
@@ -168,24 +165,6 @@ export function BackupsPanel() {
         <Button renderIcon={DataBase} onClick={() => void createBackup()} disabled={creating || importing}>
           {creating ? 'Gerando backup…' : 'Criar backup agora'}
         </Button>
-      </div>
-
-      <div className="stats-grid">
-        <Tile className="stat-card stat-card--blue">
-          <div className="stat-card__icon"><DataBase size={20} /></div>
-          <span className="stat-card__label">Backups armazenados</span>
-          <strong className="stat-card__value">{formatNumber(entries.length)}</strong>
-        </Tile>
-        <Tile className="stat-card stat-card--green">
-          <div className="stat-card__icon"><Renew size={20} /></div>
-          <span className="stat-card__label">Backup automático</span>
-          <strong className="stat-card__value">{settings?.automatic ? 'Ativado' : 'Desativado'}</strong>
-        </Tile>
-        <Tile className="stat-card stat-card--purple">
-          <div className="stat-card__icon"><WarningAlt size={20} /></div>
-          <span className="stat-card__label">Espaço utilizado</span>
-          <strong className="stat-card__value">{formatBytes(totalSize)}</strong>
-        </Tile>
       </div>
 
       {settings && (
