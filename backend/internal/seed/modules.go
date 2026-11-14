@@ -248,16 +248,28 @@ func seedFollowUps(m *modules.Store, admin models.User) error {
 
 func seedStations(m *modules.Store) error {
 	items, _, _, _, _, err := m.ListStations(modules.StationFilter{Page: 1, PerPage: 1})
-	if err != nil || len(items) > 0 {
+	if err != nil {
 		return err
 	}
 	stations := []modules.StationInput{
 		{SiteID: "SPJAB051M", EnderecoID: "SPSPO_2360", TipoDeElemento: "eNodeB", Tecnologia: "LTE", TipoDeConexao: "Fibra", Classificacao: "Acesso", DetentorArea: "Eletropaulo", TipoDeInfra: "Greenfield", Logradouro: "Rua das Palmas", Numero: "213", Bairro: "Jabaquara", Municipio: "São Paulo", Estado: "SP", CEP: "04339000", Regional: "TSP", Latitude: "-23.665278", Longitude: "-46.641111", Status: "Aquisitado", StationID: "SPJAB051M"},
 		{SiteID: "SPFORA01J", TipoDeElemento: "MSAN", Tecnologia: "IP", Logradouro: "Av. Paulista", Numero: "1000", Bairro: "Bela Vista", Municipio: "São Paulo", Estado: "SP", Regional: "TSP", Latitude: "-23.561389", Longitude: "-46.656389", Status: "Ativo", StationID: "SPFORA01J"},
-		{SiteID: "RJCAM001", TipoDeElemento: "ERB", Tecnologia: "5G", Municipio: "Rio de Janeiro", Estado: "RJ", Regional: "TRJ", Status: "Em análise"},
+		{SiteID: "RJCAM001", TipoDeElemento: "ERB", Tecnologia: "5G", Municipio: "Rio de Janeiro", Estado: "RJ", Regional: "TRJ", Latitude: "-22.906847", Longitude: "-43.172897", Status: "Em análise"},
 	}
+	if len(items) == 0 {
+		for _, input := range stations {
+			if _, err := m.CreateStation(input); err != nil {
+				return err
+			}
+		}
+	}
+	// Keep the demo stations usable on the map even when they were seeded
+	// before coordinates were added.
 	for _, input := range stations {
-		if _, err := m.CreateStation(input); err != nil {
+		if input.Latitude == "" || input.Longitude == "" {
+			continue
+		}
+		if err := m.EnsureStationCoordinates(input.SiteID, input.Latitude, input.Longitude); err != nil {
 			return err
 		}
 	}

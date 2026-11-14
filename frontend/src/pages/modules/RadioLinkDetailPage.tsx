@@ -13,6 +13,7 @@ import {
 } from '@carbon/react';
 import { PageHeader } from '../../components/PageHeader';
 import { ConfirmModal } from '../../components/ConfirmModal';
+import { RadioLinkMap } from '../../components/RadioLinkMap';
 import {
   RadioLinkFormModal,
   formatRadioDistance,
@@ -132,6 +133,10 @@ export function RadioLinkDetailPage() {
     );
   }
 
+  const hasBothCoordinates = Boolean(
+    stationA?.latitude && stationA?.longitude && stationB?.latitude && stationB?.longitude,
+  );
+
   function endpointFields(station: StationDetails | null) {
     return [
       ['Site ID', station?.site_id ?? '—'],
@@ -145,13 +150,14 @@ export function RadioLinkDetailPage() {
     ];
   }
 
-  function endpointCard(title: string, station: StationDetails | null, stationId: number) {
-    return (
-      <div className="station-field-group">
-        <p className="field-label">{title}</p>
-        <div className="radio-link-endpoint">
-          <strong>{station?.site_id ?? '—'}</strong>
-          <Button kind="ghost" size="xs" onClick={() => navigate(`/stations/${stationId}`)}>
+  function endpointSection(title: string, subtitle: string, station: StationDetails | null, stationId: number) {    return (
+      <Tile className="nokia-detail-section radio-link-endpoint">
+        <div className="nokia-section-header">
+          <div>
+            <h2>{title}</h2>
+            <p>{subtitle} — {station?.site_id ?? '—'}</p>
+          </div>
+          <Button kind="ghost" size="sm" onClick={() => navigate(`/stations/${stationId}`)}>
             Abrir estação
           </Button>
         </div>
@@ -174,12 +180,16 @@ export function RadioLinkDetailPage() {
             </div>
           </div>
         </div>
-        <dl>
-          {endpointFields(station).map(([label, value]) => (
-            <div key={label}><dt>{label}</dt><dd>{valueOrDash(value)}</dd></div>
-          ))}
-        </dl>
-      </div>
+        <div className="station-field-groups">
+          <div className="station-field-group">
+            <dl>
+              {endpointFields(station).map(([label, value]) => (
+                <div key={label}><dt>{label}</dt><dd>{valueOrDash(value)}</dd></div>
+              ))}
+            </dl>
+          </div>
+        </div>
+      </Tile>
     );
   }
 
@@ -231,7 +241,7 @@ export function RadioLinkDetailPage() {
         </Tile>
       </div>
 
-      <div className="nokia-detail-layout">
+      <div className="nokia-detail-layout radio-link-detail-layout">
         <div className="nokia-detail-main">
           <Tile className="nokia-detail-section">
             <div className="nokia-section-header">
@@ -259,16 +269,6 @@ export function RadioLinkDetailPage() {
             </div>
           </Tile>
 
-          <Tile className="nokia-detail-section">
-            <div className="nokia-section-header">
-              <div><h2>Pontas do enlace</h2><p>Estações de origem e destino com dados do inventário.</p></div>
-            </div>
-            <div className="station-field-groups">
-              {endpointCard('Ponta A', stationA, link.station_a_id)}
-              {endpointCard('Ponta B', stationB, link.station_b_id)}
-            </div>
-          </Tile>
-
           {link.notes && (
             <Tile className="nokia-detail-section">
               <div className="nokia-section-header">
@@ -277,7 +277,54 @@ export function RadioLinkDetailPage() {
               <p className="preserve-lines">{link.notes}</p>
             </Tile>
           )}
+
+          <Tile className="nokia-detail-section">
+            <div className="nokia-section-header">
+              <div><h2>Mapa do enlace</h2><p>Distribuição geográfica das pontas A e B, com a linha tracejada representando o link.</p></div>
+              {hasBothCoordinates && (
+                <Button
+                  kind="ghost"
+                  size="sm"
+                  onClick={() => window.open(
+                    `https://www.google.com/maps/dir/?api=1&origin=${stationA?.latitude},${stationA?.longitude}&destination=${stationB?.latitude},${stationB?.longitude}`,
+                    '_blank',
+                  )}
+                >
+                  Abrir no Google Maps
+                </Button>
+              )}
+            </div>
+            {hasBothCoordinates && stationA && stationB ? (
+              <div className="radio-link-map">
+                <RadioLinkMap
+                  key={`${link.station_a_id}-${link.station_b_id}`}
+                  pointA={{
+                    siteId: stationA.site_id,
+                    latitude: stationA.latitude ?? '',
+                    longitude: stationA.longitude ?? '',
+                    municipio: stationA.municipio,
+                    estado: stationA.estado,
+                  }}
+                  pointB={{
+                    siteId: stationB.site_id,
+                    latitude: stationB.latitude ?? '',
+                    longitude: stationB.longitude ?? '',
+                    municipio: stationB.municipio,
+                    estado: stationB.estado,
+                  }}
+                  distanceKm={link.distance_km}
+                />
+              </div>
+            ) : (
+              <p className="muted">Informe latitude e longitude nas duas estações para visualizar o mapa do enlace.</p>
+            )}
+          </Tile>
         </div>
+
+        <aside className="nokia-detail-aside">
+          {endpointSection('Ponta A', 'Estação de origem', stationA, link.station_a_id)}
+          {endpointSection('Ponta B', 'Estação de destino', stationB, link.station_b_id)}
+        </aside>
       </div>
 
       <RadioLinkFormModal

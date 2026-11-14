@@ -222,6 +222,17 @@ func (s *Store) UpdateStation(id int64, input StationInput) (Station, error) {
 	return s.FindStation(id)
 }
 
+// EnsureStationCoordinates fills in missing coordinates for a station. It is
+// used by the demo seeds so stations stay usable on maps without overwriting
+// coordinates edited by users.
+func (s *Store) EnsureStationCoordinates(siteID, latitude, longitude string) error {
+	_, err := s.DB.Exec(`
+		UPDATE stations SET latitude = ?, longitude = ?, updated_at = ?
+		WHERE site_id = ? AND (latitude IS NULL OR latitude = '' OR longitude IS NULL OR longitude = '')`,
+		latitude, longitude, now(), siteID)
+	return err
+}
+
 func (s *Store) DeleteStation(id int64) ([]string, error) {
 	paths := []string{}
 	_ = s.DB.Select(&paths, `SELECT path FROM station_attachments WHERE station_id = ?`, id)
