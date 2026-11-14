@@ -35,6 +35,13 @@ type Config struct {
 	SeedDemoData     bool
 	Timezone         string
 
+	BackupDir       string
+	BackupRetention int
+	BackupAuto      bool
+	BackupHour      int
+	MySQLDumpBin    string
+	MySQLBin        string
+
 	SMTPHost     string
 	SMTPPort     int
 	SMTPUser     string
@@ -71,6 +78,12 @@ func Load() (Config, error) {
 		SeedAdminPass:    env("SEED_ADMIN_PASSWORD", "password"),
 		SeedDemoData:     envBool("SEED_DEMO_DATA", true),
 		Timezone:         env("APP_TIMEZONE", "America/Sao_Paulo"),
+		BackupDir:        env("BACKUP_DIR", "./data/backups"),
+		BackupRetention:  envInt("BACKUP_RETENTION", 7),
+		BackupAuto:       envBool("BACKUP_AUTO", true),
+		BackupHour:       envInt("BACKUP_HOUR", 3),
+		MySQLDumpBin:     env("MYSQLDUMP_BIN", ""),
+		MySQLBin:         env("MYSQL_BIN", ""),
 		SMTPHost:         env("SMTP_HOST", ""),
 		SMTPPort:         envInt("SMTP_PORT", 587),
 		SMTPUser:         env("SMTP_USER", ""),
@@ -92,6 +105,18 @@ func Load() (Config, error) {
 	}
 	if strings.TrimSpace(cfg.DatabaseUser) == "" {
 		cfg.DatabaseUser = "root"
+	}
+	if cfg.BackupRetention < 1 {
+		cfg.BackupRetention = 7
+	}
+	if cfg.BackupRetention > 90 {
+		cfg.BackupRetention = 90
+	}
+	if cfg.BackupHour < 0 || cfg.BackupHour > 23 {
+		cfg.BackupHour = 3
+	}
+	if strings.TrimSpace(cfg.BackupDir) == "" {
+		cfg.BackupDir = "./data/backups"
 	}
 	if len(cfg.AllowedOrigins) == 0 {
 		cfg.AllowedOrigins = []string{"http://localhost:5173", "http://localhost:8080"}

@@ -26,6 +26,7 @@ import {
 import { PageHeader } from '../components/PageHeader';
 import { Loading } from '../components/Feedback';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { BackupsPanel } from '../components/BackupsPanel';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { ApiError, api } from '../lib/api';
@@ -38,6 +39,7 @@ const SECTION_LINKS = [
   { id: 'notificacoes', label: 'Notificações' },
   { id: 'sistema', label: 'Sistema', admin: true },
   { id: 'armazenamento', label: 'Armazenamento', admin: true },
+  { id: 'backups', label: 'Backups', admin: true },
   { id: 'senha', label: 'Alterar senha' },
   { id: 'conta', label: 'Excluir conta', danger: true },
 ];
@@ -292,7 +294,7 @@ export function SettingsPage() {
       <PageHeader
         eyebrow="Conta"
         title="Configurações"
-        description="Personalize a aparência, os módulos, as notificações e a segurança da sua conta."
+        description="Personalize a aparência, os módulos, as notificações, os backups e a segurança da sua conta."
       />
 
       <div className="settings-layout">
@@ -582,6 +584,17 @@ export function SettingsPage() {
                   {saving === 'storage' ? 'Salvando…' : 'Salvar armazenamento'}
                 </Button>
               </div>
+            </SettingsSection>
+          )}
+
+          {data.is_admin && (
+            <SettingsSection
+              id="backups"
+              title="Backups"
+              description="Gere, importe, baixe e restaure cópias de segurança do banco de dados e dos uploads locais."
+              icon={DataBase}
+            >
+              <BackupsPanel />
             </SettingsSection>
           )}
 

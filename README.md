@@ -23,7 +23,7 @@ Reescrita do **Documentation Center** em **Go + React + IBM Carbon Design System
 - **Dashboard**: widgets de usuários e usuários recentes, modo edição, arrastar para reordenar, redimensionar (1–3 colunas), ocultar e restaurar widgets.
 - **Usuários**: busca, filtros por perfil/status, ordenação, paginação, visualização em tabela/cards/lista compacta, criação, edição, ativação/desativação e exclusão. Administradores não podem desativar nem excluir a própria conta.
 - **Wiki de desenvolvimento**: categorias, busca, rascunhos/publicados, navegação lateral, Markdown sanitizado, CRUD completo e upload de imagens no editor.
-- **Configurações**: tema sistema/claro/escuro, módulos habilitados, ordem e seção de navegação, notificações por e-mail, fuso horário (admin), armazenamento (admin), alteração de senha e exclusão da conta.
+- **Configurações**: tema sistema/claro/escuro, módulos habilitados, ordem e seção de navegação, notificações por e-mail, fuso horário (admin), armazenamento (admin), **backups (admin)**, alteração de senha e exclusão da conta.
 - **Notificações**: central com níveis, contador de não lidas, marcar como lida, marcar todas, remover e limpar.
 - **Perfil**: dados básicos, papel e data de entrada.
 - **Agenda**: calendários próprios e compartilhados, eventos, participantes, recorrências, lembretes, visão mensal/lista e importação/exportação ICS.
@@ -33,6 +33,7 @@ Reescrita do **Documentation Center** em **Go + React + IBM Carbon Design System
 - **Projetos Nokia**: sites, ROMs, tarefas, checklist de FAMs, datas, interrupções, rejeições, anexos, comentários e widget. Os sites Nokia são sincronizados automaticamente com o cadastro de Estações e cada novo site cria follow-ups automáticos para **FAM Entrega**, **FAM Instalação** e **FAM Panorâmica**. As datas planejadas, realizadas e aprovações são espelhadas como eventos de dia inteiro no calendário dedicado **Projetos Nokia** da Agenda.
 - **Links curtos**: encurtador com código personalizado, expiração, ativação/desativação, QR Code, anexos para download, exportação CSV, contagem de cliques, visitantes únicos, origens e histórico de acessos. Redirecionamento público em `/s/{código}`; quando há anexos, o link abre uma página pública de downloads.
 - **Demandas**: acionamento de colaboradores com responsável, prioridade, prazo, status, histórico de atualizações, anexos, cliente/e-mail do cliente, estação vinculada (busca), operadora, tipo de demanda, OC TIM, OS do cliente, chave, escopo da atividade, **links públicos de upload (colaborador) e download (cliente) integrados ao módulo Links curtos**, exportação CSV, notificações, deep link e widget “Minhas demandas” no dashboard.
+- **Backups**: em Configurações → Backups, geração manual e automática diária de arquivos `.zip` com dump do MySQL e uploads locais, retenção configurável, download, exclusão, importação de `.zip` externo e restauração com confirmação. Restrito a administradores.
 - **Projetos**: portfólio com planejamento no estilo Microsoft Project — EAP hierárquica com tarefas resumo e marcos, dependências FS/SS/FF/SF com lag, calendário de dias úteis e feriados, recursos com custo/hora e alocações, custos consolidados, caminho crítico, linha de base com variações de prazo/custo, gráfico de Gantt e exportação CSV.
 - **Integração entre módulos**: tarefas, follow-ups e eventos da agenda podem ser vinculados a estações e sites Nokia direto das páginas de detalhes, com criação rápida e desvinculação. A **Central de trabalho** no dashboard reúne prazos, follow-ups e compromissos, e as notificações cruzam os módulos com links diretos (follow-up atribuído/atualizado, convites da agenda, rejeições Nokia e lembretes de prazos).
 - **Responsividade**: sidebar em gaveta no mobile, grids adaptáveis, tabelas com rolagem e ações empilhadas.
@@ -212,6 +213,12 @@ Consulte [`backend/.env.example`](backend/.env.example). As principais:
 | `DB_PASSWORD` | `admin` | Senha do MySQL |
 | `DB_DSN` | vazio | DSN completa opcional (sobrepõe DB_*) |
 | `UPLOAD_DIR` | `./data/uploads` | Uploads locais |
+| `BACKUP_DIR` | `./data/backups` | Diretório dos backups |
+| `BACKUP_RETENTION` | `7` | Backups mantidos (1–90) |
+| `BACKUP_AUTO` | `true` | Backup automático diário |
+| `BACKUP_HOUR` | `3` | Hora local do backup automático |
+| `MYSQLDUMP_BIN` | detectado | Caminho opcional do `mysqldump` |
+| `MYSQL_BIN` | detectado | Caminho opcional do `mysql` |
 | `STATIC_DIR` | `../frontend/dist` | Build do frontend |
 | `PUBLIC_URL` | `http://localhost:8080` | URL pública usada em links |
 | `ALLOWED_ORIGINS` | `http://localhost:5173,...` | Origens CORS |
@@ -377,6 +384,10 @@ pm2 logs documentation-center
 O `deploy.sh` mantém as 5 releases mais recentes. O rollback troca o symlink `current`, recarrega o PM2 e valida o health check novamente.
 
 ### 5. Backup do banco
+
+O módulo **Backups**, em Configurações → Backups (admin), gera arquivos `.zip` com o dump do MySQL e os uploads locais, mantém os **BACKUP_RETENTION** mais recentes e executa um backup automático diário às **BACKUP_HOUR**. Os arquivos ficam em `shared/data/backups` e podem ser baixados, importados, restaurados ou excluídos pela interface.
+
+Também é possível gerar um dump manual:
 
 ```bash
 mysqldump --single-transaction -u documentation -p documentation_center_go > backup-$(date +%F).sql

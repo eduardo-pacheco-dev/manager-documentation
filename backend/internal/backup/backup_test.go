@@ -1,0 +1,154 @@
+package backup
+
+import (
+	"archive/zip"
+	"bytes"
+	"context"
+	"errors"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"github.com/eduardo-pacheco-dev/manager-documentation/backend/internal/config"
+)
+
+func testConfig(t *testing.T) config.Config {
+	t.Helper()
+	dir := t.TempDir()
+	return config.Config{
+		BackupDir:       filepath.Join(dir, "backups"),
+		UploadDir:       filepath.Join(dir, "uploads"),
+		BackupRetention: 3,
+		BackupAuto:      true,
+		BackupHour:      3,
+	}
+}
+
+func TestListPathAndDelete(t *testing.T) {
+	cfg := testConfig(t)
+	service := New(cfg)
+
+	valid := "backup-20260101-030000.zip"
+	if err := os.WriteFile(filepath.Join(cfg.BackupDir, valid), []byte("zip"), 0o600); err != nil {
+		t.Fatalf("write backup: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(cfg.BackupDir, "notes.txt"), []byte("ignore"), 0o600); err != nil {
+		t.Fatalf("write junk: %v", err)
+	}
+
+	entries, err := service.List()
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(entries) != 1 || entries[0].Name != valid {
+		t.Fatalf("unexpected entries: %+v", entries)
+	}
+
+	if _, err := service.Path(valid); err != nil {
+		t.Fatalf("path valid: %v", err)
+	}
+	for _, name := range []string{"", "../" + valid, "backup-2026.zip", "notes.txt"} {
+		if _, err := service.Path(name); err == nil {
+			t.Fatalf("expected invalid name %q", name)
+		}
+	}
+
+	if err := service.Delete(valid); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	if err := service.Delete(valid); err == nil {
+		t.Fatal("expected error deleting missing backup")
+	}
+}
+
+func TestNextRun(t *testing.T) {
+	cfg := testConfig(t)
+	service := New(cfg)
+
+	service.now = func() time.Time {
+		return time.Date(2026, 11, 14, 2, 30, 0, 0, time.Local)
+	}
+	if next := service.NextRun(); !next.Equal(time.Date(2026, 11, 14, 3, 0, 0, 0, time.Local)) {
+		t.Fatalf("expected same-day run, got %s", next)
+	}
+
+	service.now = func() time.Time {
+		return time.Date(2026, 11, 14, 4, 0, 0, 0, time.Local)
+	}
+	if next := service.NextRun(); !next.Equal(time.Date(2026, 11, 15, 3, 0, 0, 0, time.Local)) {
+		t.Fatalf("expected next-day run, got %s", next)
+	}
+}
+
+func TestSettingsMarksNextRun(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.BackupAuto = false
+	service := New(cfg)
+	if settings := service.Settings(); settings.NextRun != nil {
+		t.Fatalf("expected no next run when automatic is disabled, got %s", settings.NextRun)
+	}
+	cfg.BackupAuto = true
+	service = New(cfg)
+	if settings := service.Settings(); settings.NextRun == nil {
+		t.Fatal("expected a next run when automatic is enabled")
+	}
+}
+
+func zipFile(t *testing.T, files map[string]string) []byte {
+	t.Helper()
+	var buffer bytes.Buffer
+	writer := zip.NewWriter(&buffer)
+	for name, content := range files {
+		entry, err := writer.Create(name)
+		if err != nil {
+			t.Fatalf("create zip entry: %v", err)
+		}
+		if _, err := entry.Write([]byte(content)); err != nil {
+			t.Fatalf("write zip entry: %v", err)
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close zip: %v", err)
+	}
+	return buffer.Bytes()
+}
+
+func TestImport(t *testing.T) {
+	cfg := testConfig(t)
+	service := New(cfg)
+
+	invalid := zipFile(t, map[string]string{"notes.txt": "sem dump"})
+	if _, err := service.Import(context.Background(), bytes.NewReader(invalid), "backup-20260101-030000.zip"); !errors.Is(err, ErrInvalidArchive) {
+		t.Fatalf("expected invalid archive error, got %v", err)
+	}
+
+	unsafe := zipFile(t, map[string]string{"database.sql": "SELECT 1;", "../evil.txt": "x"})
+	if _, err := service.Import(context.Background(), bytes.NewReader(unsafe), "backup-20260101-030001.zip"); !errors.Is(err, ErrInvalidArchive) {
+		t.Fatalf("expected unsafe path error, got %v", err)
+	}
+
+	valid := zipFile(t, map[string]string{
+		"database.sql":  "CREATE TABLE exemplo (id INT);",
+		"backup.json":   `{"app":"documentation-center"}`,
+		"uploads/a.txt": "arquivo",
+	})
+	entry, err := service.Import(context.Background(), bytes.NewReader(valid), "backup-20260101-030002.zip")
+	if err != nil {
+		t.Fatalf("import: %v", err)
+	}
+	if entry.Name != "backup-20260101-030002.zip" {
+		t.Fatalf("expected original name, got %q", entry.Name)
+	}
+	if _, err := service.Path(entry.Name); err != nil {
+		t.Fatalf("imported backup not listed: %v", err)
+	}
+
+	duplicate, err := service.Import(context.Background(), bytes.NewReader(valid), entry.Name)
+	if err != nil {
+		t.Fatalf("import duplicate: %v", err)
+	}
+	if duplicate.Name == entry.Name {
+		t.Fatal("expected a new name when importing a duplicate")
+	}
+}
