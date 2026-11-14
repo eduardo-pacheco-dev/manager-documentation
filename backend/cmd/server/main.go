@@ -79,6 +79,9 @@ func main() {
 	}
 
 	server := httpapi.New(cfg, repository, cipher)
+	workerCtx, stopWorkers := context.WithCancel(context.Background())
+	defer stopWorkers()
+	go server.Backups.RunScheduler(workerCtx)
 	stopIntegration := server.StartIntegrationWorker(5 * time.Minute)
 	defer stopIntegration()
 	httpServer := &http.Server{

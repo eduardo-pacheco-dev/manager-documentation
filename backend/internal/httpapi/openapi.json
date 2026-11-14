@@ -12,6 +12,7 @@
     { "name": "Dev docs", "description": "Wiki de desenvolvimento (admin)" },
     { "name": "Dashboard", "description": "Widgets do painel" },
     { "name": "Settings", "description": "Preferências e configurações" },
+    { "name": "Backups", "description": "Cópias de segurança do banco de dados e dos uploads (admin)" },
     { "name": "Notifications", "description": "Central de notificações" },
     { "name": "Projetos", "description": "Portfólio, EAP, dependências, recursos, custos e linha de base" },
     { "name": "Colaboradores", "description": "Cadastro central de pessoas usadas como recursos nos projetos" },
@@ -418,6 +419,100 @@
     },
     "/notifications/{id}": {
       "delete": { "tags": ["Notifications"], "summary": "Remove uma notificação", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Removida" } } }
+    },
+    "/backups": {
+      "get": {
+        "tags": ["Backups"],
+        "summary": "Lista os backups disponíveis e a configuração (admin)",
+        "responses": { "200": { "description": "Backups e configuração" }, "403": { "description": "Acesso restrito" } }
+      },
+      "post": {
+        "tags": ["Backups"],
+        "summary": "Cria um backup do banco de dados e dos uploads (admin)",
+        "responses": { "201": { "description": "Backup criado" }, "500": { "description": "Falha ao gerar o backup" } }
+      }
+    },
+    "/backups/schedule": {
+      "put": {
+        "tags": ["Backups"],
+        "summary": "Salva o agendamento do backup automático (admin)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["enabled", "hour", "minute", "weekdays"],
+                "properties": {
+                  "enabled": { "type": "boolean" },
+                  "hour": { "type": "integer", "minimum": 0, "maximum": 23 },
+                  "minute": { "type": "integer", "minimum": 0, "maximum": 59 },
+                  "weekdays": { "type": "array", "items": { "type": "integer", "minimum": 1, "maximum": 7 }, "description": "1=segunda ... 7=domingo" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Agendamento salvo" }, "422": { "description": "Validação" } }
+      }
+    },
+    "/backups/import": {
+      "post": {
+        "tags": ["Backups"],
+        "summary": "Importa um arquivo .zip de backup (admin)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["file"],
+                "properties": {
+                  "file": { "type": "string", "format": "binary" },
+                  "restore": { "type": "string", "enum": ["true", "false"], "description": "Restaura o backup após importar" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Backup importado" }, "422": { "description": "Arquivo inválido" } }
+      }
+    },
+    "/backups/{name}/download": {
+      "get": {
+        "tags": ["Backups"],
+        "summary": "Baixa um backup em zip (admin)",
+        "parameters": [{ "name": "name", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Arquivo zip" }, "404": { "description": "Backup não encontrado" } }
+      }
+    },
+    "/backups/{name}/restore": {
+      "post": {
+        "tags": ["Backups"],
+        "summary": "Restaura o banco e os uploads a partir de um backup (admin)",
+        "parameters": [{ "name": "name", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["confirm"],
+                "properties": { "confirm": { "type": "string", "description": "Nome exato do backup" } }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Backup restaurado" }, "422": { "description": "Confirmação inválida" } }
+      }
+    },
+    "/backups/{name}": {
+      "delete": {
+        "tags": ["Backups"],
+        "summary": "Remove um backup (admin)",
+        "parameters": [{ "name": "name", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Backup removido" }, "404": { "description": "Backup não encontrado" } }
+      }
     },
     "/uploads": {
       "post": {

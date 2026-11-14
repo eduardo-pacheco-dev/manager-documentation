@@ -20,8 +20,21 @@ As migrações ficam em **internal/database/database.go** e são aplicadas em or
 
 ## Backup
 
-Com o servidor em execução, use **mysqldump** para gerar um backup consistente:
+O sistema possui um módulo nativo de backups em **Configurações → Backups** (visível apenas para administradores). Cada backup gera um arquivo `.zip` com:
+
+- `database.sql`: dump completo do banco via **mysqldump**;
+- `uploads/`: cópia dos uploads e anexos locais;
+- `objects/`: anexos e imagens armazenados em S3/R2 (quando esse provedor estiver ativo);
+- `backup.json`: metadados do arquivo.
+
+Os backups ficam em **BACKUP_DIR** (padrão `./data/backups`), com retenção de **BACKUP_RETENTION** arquivos. O agendamento — ativar/desativar, dias da semana e horário — é configurável em **Configurações → Backups**. As variáveis **BACKUP_AUTO** e **BACKUP_HOUR** servem apenas como padrão inicial até o primeiro salvamento pela interface.
+
+Na interface é possível criar um backup manual, baixar o `.zip`, excluir arquivos antigos, importar um `.zip` gerado em outra instalação e restaurar um backup. A restauração substitui o banco e os uploads locais e exige digitar o nome do arquivo para confirmação.
+
+Para gerar um backup manual fora da aplicação, use **mysqldump**:
 
 ```bash
 mysqldump --single-transaction -u root -p documentation_center_go > backup.sql
 ```
+
+Guarde também `BACKUP_DIR` e `UPLOAD_DIR`. Em instalações via PM2, esses caminhos ficam em `shared/data/` para sobreviver aos deploys.

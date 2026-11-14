@@ -15,10 +15,10 @@ COPY backend/ ./
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/server ./cmd/server
 
 FROM alpine:3.20
-RUN apk add --no-cache ca-certificates tzdata \
+RUN apk add --no-cache ca-certificates tzdata mariadb-client \
     && addgroup -S app \
     && adduser -S app -G app \
-    && mkdir -p /data/uploads /app \
+    && mkdir -p /data/uploads /data/backups /app \
     && chown -R app:app /data /app
 WORKDIR /app
 COPY --from=backend /out/server /app/server
@@ -26,6 +26,7 @@ COPY --from=frontend /app/frontend/dist /app/static
 ENV ADDR=:8080 \
     STATIC_DIR=/app/static \
     UPLOAD_DIR=/data/uploads \
+    BACKUP_DIR=/data/backups \
     DB_HOST=mysql \
     DB_PORT=3306 \
     DB_NAME=documentation_center \

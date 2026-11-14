@@ -70,6 +70,7 @@ export default function App() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/backups" element={<Navigate to="/settings#backups" replace />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/agenda" element={<AgendaPage />} />
         <Route path="/tasks" element={<TasksPage />} />

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -21,6 +22,7 @@ import (
 
 	"github.com/eduardo-pacheco-dev/manager-documentation/backend/internal/config"
 	"github.com/eduardo-pacheco-dev/manager-documentation/backend/internal/crypto"
+	"github.com/eduardo-pacheco-dev/manager-documentation/backend/internal/models"
 	"github.com/eduardo-pacheco-dev/manager-documentation/backend/internal/store"
 )
 
@@ -171,13 +173,135 @@ func (s *Service) uploadToS3(ctx context.Context, key, contentType string, file 
 	if err != nil {
 		return Result{}, err
 	}
-	provider := settings.Provider
+	target, err := s.s3Target(ctx, settings)
+	if err != nil {
+		return Result{}, err
+	}
+	_, err = target.client.PutObject(ctx, &s3.PutObjectInput{
+		Bucket:      aws.String(target.bucket),
+		Key:         aws.String(key),
+		Body:        file,
+		ContentType: aws.String(contentType),
+	})
+	if err != nil {
+		log.Printf("upload: s3 put failed: %v", err)
+		return Result{}, err
+	}
+	return Result{URL: target.publicURLFor(key), Path: key}, nil
+}
 
+// ExportObjects streams every application object stored in the configured
+// remote bucket (uploads, images and module attachments). It is a no-op when
+// the provider is local.
+func (s *Service) ExportObjects(ctx context.Context, add func(key string, body io.Reader) error) error {
+	settings, err := s.store.GetStorageSettings()
+	if err != nil {
+		return err
+	}
+	if !settings.Configured(settings.Provider) || settings.Provider == "local" {
+		return nil
+	}
+	target, err := s.s3Target(ctx, settings)
+	if err != nil {
+		return err
+	}
+	paginator := s3.NewListObjectsV2Paginator(target.client, &s3.ListObjectsV2Input{
+		Bucket: aws.String(target.bucket),
+	})
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
+			return err
+		}
+		for _, object := range page.Contents {
+			key := aws.ToString(object.Key)
+			if !isApplicationObject(key) {
+				continue
+			}
+			result, err := target.client.GetObject(ctx, &s3.GetObjectInput{
+				Bucket: aws.String(target.bucket),
+				Key:    aws.String(key),
+			})
+			if err != nil {
+				return fmt.Errorf("download %s: %w", key, err)
+			}
+			exportErr := add(key, result.Body)
+			_ = result.Body.Close()
+			if exportErr != nil {
+				return exportErr
+			}
+		}
+	}
+	return nil
+}
+
+// ImportObject writes an object back to the active storage. For remote
+// providers it uploads to the bucket; otherwise it saves under UPLOAD_DIR.
+func (s *Service) ImportObject(ctx context.Context, key string, body io.Reader) error {
+	settings, err := s.store.GetStorageSettings()
+	if err != nil {
+		return err
+	}
+	if !settings.Configured(settings.Provider) || settings.Provider == "local" {
+		relative := strings.TrimPrefix(key, "uploads/")
+		target := filepath.Join(s.config.UploadDir, filepath.FromSlash(relative))
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			return err
+		}
+		output, err := os.Create(target)
+		if err != nil {
+			return err
+		}
+		_, copyErr := io.Copy(output, body)
+		closeErr := output.Close()
+		if copyErr != nil {
+			return copyErr
+		}
+		return closeErr
+	}
+	target, err := s.s3Target(ctx, settings)
+	if err != nil {
+		return err
+	}
+	contentType := mime.TypeByExtension(filepath.Ext(key))
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+	_, err = target.client.PutObject(ctx, &s3.PutObjectInput{
+		Bucket:      aws.String(target.bucket),
+		Key:         aws.String(key),
+		Body:        body,
+		ContentType: aws.String(contentType),
+	})
+	return err
+}
+
+type s3Target struct {
+	client    *s3.Client
+	bucket    string
+	endpoint  string
+	region    string
+	publicURL string
+}
+
+func (t s3Target) publicURLFor(key string) string {
+	publicURL := t.publicURL
+	if publicURL == "" {
+		if t.endpoint != "" {
+			publicURL = strings.TrimRight(t.endpoint, "/") + "/" + t.bucket
+		} else {
+			publicURL = fmt.Sprintf("https://%s.s3.%s.amazonaws.com", t.bucket, t.region)
+		}
+	}
+	return strings.TrimRight(publicURL, "/") + "/" + key
+}
+
+func (s *Service) s3Target(ctx context.Context, settings models.StorageSettings) (s3Target, error) {
 	var (
 		accessKey, secretKey, region, bucket, endpoint, publicURL string
 		pathStyle                                                 bool
 	)
-	switch provider {
+	switch settings.Provider {
 	case "aws":
 		accessKey = deref(settings.AwsAccessKey)
 		secretKey = deref(settings.AwsSecretKey)
@@ -198,16 +322,16 @@ func (s *Service) uploadToS3(ctx context.Context, key, contentType string, file 
 		publicURL = deref(settings.CloudflarePublicURL)
 		pathStyle = true
 	default:
-		return Result{}, fmt.Errorf("unsupported storage provider %q", provider)
+		return s3Target{}, fmt.Errorf("unsupported storage provider %q", settings.Provider)
 	}
 
-	secretKey, err = s.cipher.Decrypt(secretKey)
+	secretKey, err := s.cipher.Decrypt(secretKey)
 	if err != nil {
-		return Result{}, err
+		return s3Target{}, err
 	}
 	accessKey, err = s.cipher.Decrypt(accessKey)
 	if err != nil {
-		return Result{}, err
+		return s3Target{}, err
 	}
 	if region == "" {
 		region = "us-east-1"
@@ -218,7 +342,7 @@ func (s *Service) uploadToS3(ctx context.Context, key, contentType string, file 
 		awsconfig.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(accessKey, secretKey, "")),
 	)
 	if err != nil {
-		return Result{}, err
+		return s3Target{}, err
 	}
 	client := s3.NewFromConfig(awsCfg, func(options *s3.Options) {
 		if endpoint != "" {
@@ -226,26 +350,26 @@ func (s *Service) uploadToS3(ctx context.Context, key, contentType string, file 
 		}
 		options.UsePathStyle = pathStyle
 	})
+	return s3Target{
+		client:    client,
+		bucket:    bucket,
+		endpoint:  endpoint,
+		region:    region,
+		publicURL: publicURL,
+	}, nil
+}
 
-	_, err = client.PutObject(ctx, &s3.PutObjectInput{
-		Bucket:      aws.String(bucket),
-		Key:         aws.String(key),
-		Body:        file,
-		ContentType: aws.String(contentType),
-	})
-	if err != nil {
-		log.Printf("upload: s3 put failed: %v", err)
-		return Result{}, err
-	}
+// applicationPrefixes lists the key prefixes used by images and module
+// attachments. Other objects in the bucket are ignored by backups.
+var applicationPrefixes = []string{"uploads/", "demands/", "links/", "nokia/", "stations/", "projects/"}
 
-	if publicURL == "" {
-		if endpoint != "" {
-			publicURL = strings.TrimRight(endpoint, "/") + "/" + bucket
-		} else {
-			publicURL = fmt.Sprintf("https://%s.s3.%s.amazonaws.com", bucket, region)
+func isApplicationObject(key string) bool {
+	for _, prefix := range applicationPrefixes {
+		if strings.HasPrefix(key, prefix) {
+			return true
 		}
 	}
-	return Result{URL: strings.TrimRight(publicURL, "/") + "/" + key, Path: key}, nil
+	return false
 }
 
 func deref(value *string) string {

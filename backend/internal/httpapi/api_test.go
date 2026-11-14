@@ -46,6 +46,7 @@ func newTestApp(t *testing.T) *testApp {
 	cfg.Addr = ":0"
 	cfg.DatabaseName = fmt.Sprintf("documentation_center_test_%d", time.Now().UnixNano())
 	cfg.UploadDir = filepath.Join(dir, "uploads")
+	cfg.BackupDir = filepath.Join(dir, "backups")
 	cfg.StaticDir = filepath.Join(dir, "static")
 	cfg.PublicURL = "http://example.test"
 	cfg.AllowedOrigins = []string{"http://example.test"}
@@ -1195,5 +1196,54 @@ func TestProjects(t *testing.T) {
 	res, _ = app.request(http.MethodDelete, fmt.Sprintf("/api/v1/projects/%d", projectID), nil, app.csrf, nil)
 	if res.StatusCode != http.StatusOK {
 		t.Fatalf("excluir projeto status = %d", res.StatusCode)
+	}
+}
+
+func TestBackupsAdmin(t *testing.T) {
+	app := newTestApp(t)
+
+	res, payload := app.request(http.MethodGet, "/api/v1/backups", nil, "", nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("backups index status = %d payload = %v", res.StatusCode, payload)
+	}
+	if _, ok := payload["settings"].(map[string]any); !ok {
+		t.Fatalf("missing backup settings: %v", payload)
+	}
+	if entries, ok := payload["data"].([]any); !ok || len(entries) != 0 {
+		t.Fatalf("expected empty backup list, got %v", payload["data"])
+	}
+
+	res, _ = app.request(http.MethodGet, "/api/v1/backups/backup-20260101-030000.zip/download", nil, "", nil)
+	if res.StatusCode != http.StatusNotFound {
+		t.Fatalf("missing backup download status = %d", res.StatusCode)
+	}
+
+	res, payload = app.request(http.MethodPost, "/api/v1/backups/backup-20260101-030000.zip/restore", map[string]any{
+		"confirm": "outro.zip",
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusUnprocessableEntity {
+		t.Fatalf("restore confirmation status = %d payload = %v", res.StatusCode, payload)
+	}
+}
+
+func TestBackupSchedule(t *testing.T) {
+	app := newTestApp(t)
+
+	res, payload := app.request(http.MethodPut, "/api/v1/backups/schedule", map[string]any{
+		"enabled": true, "hour": 22, "minute": 30, "weekdays": []int{1, 3, 5},
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("update schedule status = %d payload = %v", res.StatusCode, payload)
+	}
+	settings := payload["settings"].(map[string]any)
+	if settings["hour"].(float64) != 22 || settings["minute"].(float64) != 30 {
+		t.Fatalf("unexpected schedule settings: %v", settings)
+	}
+
+	res, _ = app.request(http.MethodPut, "/api/v1/backups/schedule", map[string]any{
+		"enabled": true, "hour": 3, "minute": 0, "weekdays": []int{},
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusUnprocessableEntity {
+		t.Fatalf("expected validation error without weekdays, got %d", res.StatusCode)
 	}
 }

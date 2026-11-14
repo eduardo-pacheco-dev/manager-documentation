@@ -348,6 +348,11 @@ UPLOAD_DIR=${APP_DIR}/shared/data/uploads
 UPLOAD_MAX_MB=40
 SESSION_TTL_HOURS=168
 
+BACKUP_DIR=${APP_DIR}/shared/data/backups
+BACKUP_RETENTION=7
+BACKUP_AUTO=true
+BACKUP_HOUR=3
+
 DB_HOST=127.0.0.1
 DB_PORT=3306
 DB_NAME=${DB_NAME}
@@ -383,6 +388,16 @@ DB_USER=${DB_USER}
 DB_PASSWORD=${DB_PASSWORD}
 EOF
 			log "Variáveis do MySQL adicionadas ao .env existente."
+		fi
+		if ! grep -q '^BACKUP_DIR=' "$APP_DIR/shared/.env"; then
+			cat >> "$APP_DIR/shared/.env" <<EOF
+
+BACKUP_DIR=${APP_DIR}/shared/data/backups
+BACKUP_RETENTION=7
+BACKUP_AUTO=true
+BACKUP_HOUR=3
+EOF
+			log "Variáveis de backup adicionadas ao .env existente."
 		fi
 	fi
 

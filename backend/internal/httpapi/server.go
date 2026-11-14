@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 
+	"github.com/eduardo-pacheco-dev/manager-documentation/backend/internal/backup"
 	"github.com/eduardo-pacheco-dev/manager-documentation/backend/internal/config"
 	"github.com/eduardo-pacheco-dev/manager-documentation/backend/internal/crypto"
 	"github.com/eduardo-pacheco-dev/manager-documentation/backend/internal/modules"
@@ -28,19 +29,25 @@ type Server struct {
 	Cipher   *crypto.Cipher
 	Notifier *notifier.Notifier
 	Uploads  *upload.Service
+	Backups  *backup.Service
 	Limiter  *loginLimiter
 }
 
 func New(cfg config.Config, s *store.Store, cipher *crypto.Cipher) *Server {
-	return &Server{
+	uploads := upload.New(s, cfg, cipher)
+	server := &Server{
 		Config:   cfg,
 		Store:    s,
 		Modules:  modules.New(s.DB),
 		Cipher:   cipher,
 		Notifier: notifier.New(s, cfg),
-		Uploads:  upload.New(s, cfg, cipher),
+		Uploads:  uploads,
+		Backups:  backup.New(cfg),
 		Limiter:  newLoginLimiter(5, time.Minute),
 	}
+	server.Backups.SetRemote(uploads)
+	server.Backups.SetConfigStore(s)
+	return server
 }
 
 func (s *Server) Router() http.Handler {
@@ -313,6 +320,13 @@ func (s *Server) Router() http.Handler {
 				admin.Delete("/dev-docs/{id}", s.deleteDoc)
 				admin.Put("/settings/system", s.updateTimezone)
 				admin.Put("/settings/storage", s.updateStorage)
+				admin.Get("/backups", s.backupsIndex)
+				admin.Post("/backups", s.backupsCreate)
+				admin.Post("/backups/import", s.backupsImport)
+				admin.Put("/backups/schedule", s.backupsUpdateSchedule)
+				admin.Get("/backups/{name}/download", s.backupsDownload)
+				admin.Post("/backups/{name}/restore", s.backupsRestore)
+				admin.Delete("/backups/{name}", s.backupsDelete)
 			})
 		})
 	})
