@@ -96,6 +96,37 @@ func (s *Server) backupsImport(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// backupsUpdateSchedule persists the automatic backup schedule.
+func (s *Server) backupsUpdateSchedule(w http.ResponseWriter, r *http.Request) {
+	var payload struct {
+		Enabled  bool  `json:"enabled"`
+		Hour     int   `json:"hour"`
+		Minute   int   `json:"minute"`
+		Weekdays []int `json:"weekdays"`
+	}
+	if !decodeJSON(w, r, &payload) {
+		return
+	}
+	schedule := backup.Schedule{
+		Enabled:  payload.Enabled,
+		Hour:     payload.Hour,
+		Minute:   payload.Minute,
+		Weekdays: payload.Weekdays,
+	}.Normalized()
+	if err := schedule.Validate(); err != nil {
+		writeValidation(w, validationErrors{"schedule": "Agendamento inválido: " + err.Error()})
+		return
+	}
+	if err := s.Backups.UpdateSchedule(schedule); err != nil {
+		writeError(w, http.StatusInternalServerError, "Não foi possível salvar o agendamento.", nil)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"message":  "Agendamento atualizado com sucesso.",
+		"settings": s.Backups.Settings(),
+	})
+}
+
 // backupsDownload streams a backup archive to the administrator.
 func (s *Server) backupsDownload(w http.ResponseWriter, r *http.Request) {
 	path, err := s.Backups.Path(chi.URLParam(r, "name"))

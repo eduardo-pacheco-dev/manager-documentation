@@ -242,3 +242,64 @@ func TestRestoreObjectsFallsBackToLocalDir(t *testing.T) {
 		}
 	}
 }
+
+type fakeConfigStore struct {
+	values map[string]string
+}
+
+func (f *fakeConfigStore) GetSetting(key string) (string, error) {
+	if value, ok := f.values[key]; ok {
+		return value, nil
+	}
+	return "", errors.New("not found")
+}
+
+func (f *fakeConfigStore) SetSetting(key, value string) error {
+	if f.values == nil {
+		f.values = map[string]string{}
+	}
+	f.values[key] = value
+	return nil
+}
+
+func TestScheduleNextUsesSelectedWeekdays(t *testing.T) {
+	location := time.FixedZone("test", -3*60*60)
+	now := time.Date(2026, 11, 14, 10, 0, 0, 0, location) // sabado
+	schedule := Schedule{Enabled: true, Hour: 3, Minute: 30, Weekdays: []int{1, 3}}
+	next, ok := schedule.Next(now)
+	if !ok {
+		t.Fatal("expected a next run")
+	}
+	expected := time.Date(2026, 11, 16, 3, 30, 0, 0, location) // segunda
+	if !next.Equal(expected) {
+		t.Fatalf("next = %s, esperado %s", next, expected)
+	}
+	if _, ok := (Schedule{Enabled: false, Weekdays: []int{1}}).Next(now); ok {
+		t.Fatal("expected no run when disabled")
+	}
+}
+
+func TestUpdateSchedulePersists(t *testing.T) {
+	cfg := testConfig(t)
+	service := New(cfg)
+	store := &fakeConfigStore{values: map[string]string{}}
+	service.SetConfigStore(store)
+
+	schedule := Schedule{Enabled: true, Hour: 22, Minute: 15, Weekdays: []int{5, 1, 3, 1}}
+	if err := service.UpdateSchedule(schedule); err != nil {
+		t.Fatalf("update schedule: %v", err)
+	}
+	if store.values[scheduleHourKey] != "22" || store.values[scheduleMinuteKey] != "15" {
+		t.Fatalf("unexpected persisted time: %v", store.values)
+	}
+	if store.values[scheduleWeekdaysKey] != "1,3,5" {
+		t.Fatalf("weekdays not normalized: %q", store.values[scheduleWeekdaysKey])
+	}
+	loaded := service.Schedule()
+	if !loaded.Enabled || loaded.Hour != 22 || loaded.Minute != 15 || len(loaded.Weekdays) != 3 {
+		t.Fatalf("unexpected loaded schedule: %+v", loaded)
+	}
+	if err := (Schedule{Enabled: true, Hour: 3, Minute: 0}).Validate(); err == nil {
+		t.Fatal("expected validation error without weekdays")
+	}
+}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { DataBase, OverflowMenuVertical, Upload } from '@carbon/icons-react';
+import { DataBase, OverflowMenuVertical, Save, Upload } from '@carbon/icons-react';
 import {
   Button,
   Checkbox,
@@ -10,6 +10,7 @@ import {
   OverflowMenuItem,
   Tag,
   TextInput,
+  Toggle,
 } from '@carbon/react';
 import { ConfirmModal } from './ConfirmModal';
 import { EmptyState } from './Feedback';
@@ -28,6 +29,8 @@ interface BackupSettings {
   retention: number;
   automatic: boolean;
   hour: number;
+  minute: number;
+  weekdays: number[];
   next_run?: string;
   uploads_dir: string;
 }
@@ -38,6 +41,20 @@ interface ListResponse {
 }
 
 type PendingAction = { type: 'delete'; entry: BackupEntry } | { type: 'restore'; entry: BackupEntry };
+
+const WEEKDAYS = [
+  { value: 1, label: 'Seg' },
+  { value: 2, label: 'Ter' },
+  { value: 3, label: 'Qua' },
+  { value: 4, label: 'Qui' },
+  { value: 5, label: 'Sex' },
+  { value: 6, label: 'Sáb' },
+  { value: 7, label: 'Dom' },
+];
+
+function formatScheduleTime(hour: number, minute: number): string {
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
 
 function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
@@ -59,6 +76,10 @@ export function BackupsPanel() {
   const [pendingImport, setPendingImport] = useState<File | null>(null);
   const [importRestore, setImportRestore] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [scheduleEnabled, setScheduleEnabled] = useState(true);
+  const [scheduleTime, setScheduleTime] = useState('03:00');
+  const [scheduleDays, setScheduleDays] = useState<number[]>([1, 2, 3, 4, 5, 6, 7]);
+  const [savingSchedule, setSavingSchedule] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -66,6 +87,11 @@ export function BackupsPanel() {
       const response = await api.get<ListResponse>('/backups');
       setEntries(response.data ?? []);
       setSettings(response.settings);
+      if (response.settings) {
+        setScheduleEnabled(response.settings.automatic);
+        setScheduleTime(formatScheduleTime(response.settings.hour, response.settings.minute));
+        setScheduleDays(response.settings.weekdays?.length ? response.settings.weekdays : [1, 2, 3, 4, 5, 6, 7]);
+      }
     } catch (error) {
       toast.error('Não foi possível carregar os backups', errorMessage(error));
     } finally {
@@ -109,6 +135,36 @@ export function BackupsPanel() {
     }
   }
 
+  async function saveSchedule() {
+    const [hourText, minuteText] = scheduleTime.split(':');
+    const hour = Number(hourText);
+    const minute = Number(minuteText);
+    setSavingSchedule(true);
+    try {
+      const response = await api.put<{ message: string; settings: BackupSettings }>('/backups/schedule', {
+        enabled: scheduleEnabled,
+        hour,
+        minute,
+        weekdays: scheduleDays,
+      });
+      setSettings(response.settings);
+      toast.success('Agendamento salvo', response.message);
+    } catch (error) {
+      toast.error('Não foi possível salvar o agendamento', errorMessage(error));
+    } finally {
+      setSavingSchedule(false);
+    }
+  }
+
+  function toggleDay(day: number, checked: boolean) {
+    setScheduleDays((current) => {
+      if (checked) {
+        return [...new Set([...current, day])].sort((left, right) => left - right);
+      }
+      return current.filter((value) => value !== day);
+    });
+  }
+
   async function confirmAction() {
     if (!pending) return;
     setWorking(true);
@@ -142,6 +198,10 @@ export function BackupsPanel() {
     link.remove();
   }
 
+  const daysLabel = settings
+    ? WEEKDAYS.filter((day) => settings.weekdays?.includes(day.value)).map((day) => day.label).join(', ')
+    : '';
+
   return (
     <div className="backups-panel">
       <input
@@ -167,6 +227,47 @@ export function BackupsPanel() {
         </Button>
       </div>
 
+      <div className="backup-schedule">
+        <div className="backup-schedule__row">
+          <Toggle
+            id="backup-schedule-enabled"
+            labelText="Backup automático"
+            labelA="Desativado"
+            labelB="Ativado"
+            toggled={scheduleEnabled}
+            onToggle={(checked) => setScheduleEnabled(checked)}
+          />
+          <TextInput
+            id="backup-schedule-time"
+            type="time"
+            labelText="Horário"
+            value={scheduleTime}
+            onChange={(event) => setScheduleTime(event.target.value)}
+          />
+        </div>
+        <fieldset className="backup-schedule__days">
+          <legend>Dias da semana</legend>
+          {WEEKDAYS.map((day) => (
+            <Checkbox
+              key={day.value}
+              id={`backup-weekday-${day.value}`}
+              labelText={day.label}
+              checked={scheduleDays.includes(day.value)}
+              onChange={(_event, { checked }) => toggleDay(day.value, checked)}
+            />
+          ))}
+        </fieldset>
+        <div className="section-actions section-actions--start">
+          <Button
+            renderIcon={Save}
+            onClick={() => void saveSchedule()}
+            disabled={savingSchedule || (scheduleEnabled && scheduleDays.length === 0)}
+          >
+            {savingSchedule ? 'Salvando…' : 'Salvar agendamento'}
+          </Button>
+        </div>
+      </div>
+
       {settings && (
         <InlineNotification
           kind="info"
@@ -175,7 +276,7 @@ export function BackupsPanel() {
           title={`Retenção de ${settings.retention} backup(s)`}
           subtitle={
             `${settings.automatic
-              ? `Um backup automático é gerado todos os dias às ${String(settings.hour).padStart(2, '0')}:00.`
+              ? `Um backup automático é gerado${daysLabel ? ` (${daysLabel})` : ''} às ${formatScheduleTime(settings.hour, settings.minute)}.`
               : 'O backup automático está desativado; use o botão acima para gerar manualmente.'} ` +
             `Os arquivos ficam em ${settings.directory} e incluem banco, uploads locais e anexos remotos (S3/R2), quando configurados.`
           }

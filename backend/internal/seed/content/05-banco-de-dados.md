@@ -27,7 +27,7 @@ O sistema possui um módulo nativo de backups em **Configurações → Backups**
 - `objects/`: anexos e imagens armazenados em S3/R2 (quando esse provedor estiver ativo);
 - `backup.json`: metadados do arquivo.
 
-Os backups ficam em **BACKUP_DIR** (padrão `./data/backups`), com retenção de **BACKUP_RETENTION** arquivos. Quando **BACKUP_AUTO=true**, um backup é gerado diariamente no horário de **BACKUP_HOUR** (padrão 3h, fuso local).
+Os backups ficam em **BACKUP_DIR** (padrão `./data/backups`), com retenção de **BACKUP_RETENTION** arquivos. O agendamento — ativar/desativar, dias da semana e horário — é configurável em **Configurações → Backups**. As variáveis **BACKUP_AUTO** e **BACKUP_HOUR** servem apenas como padrão inicial até o primeiro salvamento pela interface.
 
 Na interface é possível criar um backup manual, baixar o `.zip`, excluir arquivos antigos, importar um `.zip` gerado em outra instalação e restaurar um backup. A restauração substitui o banco e os uploads locais e exige digitar o nome do arquivo para confirmação.
 

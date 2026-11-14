@@ -33,7 +33,7 @@ Reescrita do **Documentation Center** em **Go + React + IBM Carbon Design System
 - **Projetos Nokia**: sites, ROMs, tarefas, checklist de FAMs, datas, interrupções, rejeições, anexos, comentários e widget. Os sites Nokia são sincronizados automaticamente com o cadastro de Estações e cada novo site cria follow-ups automáticos para **FAM Entrega**, **FAM Instalação** e **FAM Panorâmica**. As datas planejadas, realizadas e aprovações são espelhadas como eventos de dia inteiro no calendário dedicado **Projetos Nokia** da Agenda.
 - **Links curtos**: encurtador com código personalizado, expiração, ativação/desativação, QR Code, anexos para download, exportação CSV, contagem de cliques, visitantes únicos, origens e histórico de acessos. Redirecionamento público em `/s/{código}`; quando há anexos, o link abre uma página pública de downloads.
 - **Demandas**: acionamento de colaboradores com responsável, prioridade, prazo, status, histórico de atualizações, anexos, cliente/e-mail do cliente, estação vinculada (busca), operadora, tipo de demanda, OC TIM, OS do cliente, chave, escopo da atividade, **links públicos de upload (colaborador) e download (cliente) integrados ao módulo Links curtos**, exportação CSV, notificações, deep link e widget “Minhas demandas” no dashboard.
-- **Backups**: em Configurações → Backups, geração manual e automática diária de arquivos `.zip` com dump do MySQL, uploads locais e anexos remotos (S3/R2), retenção configurável, download, exclusão, importação de `.zip` externo e restauração com confirmação. Restrito a administradores.
+- **Backups**: em Configurações → Backups, geração manual e automática de arquivos `.zip` com dump do MySQL, uploads locais e anexos remotos (S3/R2), **agendamento configurável (ativar/desativar, dias da semana e horário)**, retenção ajustável, download, exclusão, importação de `.zip` externo e restauração com confirmação. Restrito a administradores.
 - **Projetos**: portfólio com planejamento no estilo Microsoft Project — EAP hierárquica com tarefas resumo e marcos, dependências FS/SS/FF/SF com lag, calendário de dias úteis e feriados, recursos com custo/hora e alocações, custos consolidados, caminho crítico, linha de base com variações de prazo/custo, gráfico de Gantt e exportação CSV.
 - **Integração entre módulos**: tarefas, follow-ups e eventos da agenda podem ser vinculados a estações e sites Nokia direto das páginas de detalhes, com criação rápida e desvinculação. A **Central de trabalho** no dashboard reúne prazos, follow-ups e compromissos, e as notificações cruzam os módulos com links diretos (follow-up atribuído/atualizado, convites da agenda, rejeições Nokia e lembretes de prazos).
 - **Responsividade**: sidebar em gaveta no mobile, grids adaptáveis, tabelas com rolagem e ações empilhadas.
@@ -215,8 +215,8 @@ Consulte [`backend/.env.example`](backend/.env.example). As principais:
 | `UPLOAD_DIR` | `./data/uploads` | Uploads locais |
 | `BACKUP_DIR` | `./data/backups` | Diretório dos backups |
 | `BACKUP_RETENTION` | `7` | Backups mantidos (1–90) |
-| `BACKUP_AUTO` | `true` | Backup automático diário |
-| `BACKUP_HOUR` | `3` | Hora local do backup automático |
+| `BACKUP_AUTO` | `true` | Backup automático (padrão inicial) |
+| `BACKUP_HOUR` | `3` | Hora inicial do backup automático |
 | `MYSQLDUMP_BIN` | detectado | Caminho opcional do `mysqldump` |
 | `MYSQL_BIN` | detectado | Caminho opcional do `mysql` |
 | `STATIC_DIR` | `../frontend/dist` | Build do frontend |
@@ -385,7 +385,7 @@ O `deploy.sh` mantém as 5 releases mais recentes. O rollback troca o symlink `c
 
 ### 5. Backup do banco
 
-O módulo **Backups**, em Configurações → Backups (admin), gera arquivos `.zip` com o dump do MySQL e os uploads locais, mantém os **BACKUP_RETENTION** mais recentes e executa um backup automático diário às **BACKUP_HOUR**. Os arquivos ficam em `shared/data/backups` e podem ser baixados, importados, restaurados ou excluídos pela interface.
+O módulo **Backups**, em Configurações → Backups (admin), gera arquivos `.zip` com o dump do MySQL, uploads locais e anexos remotos, mantém os **BACKUP_RETENTION** mais recentes e executa o backup automático conforme o **agendamento configurado na interface** (ativar/desativar, dias da semana e horário). Os arquivos ficam em `shared/data/backups` e podem ser baixados, importados, restaurados ou excluídos pela interface.
 
 Também é possível gerar um dump manual:
 

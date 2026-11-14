@@ -1225,3 +1225,25 @@ func TestBackupsAdmin(t *testing.T) {
 		t.Fatalf("restore confirmation status = %d payload = %v", res.StatusCode, payload)
 	}
 }
+
+func TestBackupSchedule(t *testing.T) {
+	app := newTestApp(t)
+
+	res, payload := app.request(http.MethodPut, "/api/v1/backups/schedule", map[string]any{
+		"enabled": true, "hour": 22, "minute": 30, "weekdays": []int{1, 3, 5},
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("update schedule status = %d payload = %v", res.StatusCode, payload)
+	}
+	settings := payload["settings"].(map[string]any)
+	if settings["hour"].(float64) != 22 || settings["minute"].(float64) != 30 {
+		t.Fatalf("unexpected schedule settings: %v", settings)
+	}
+
+	res, _ = app.request(http.MethodPut, "/api/v1/backups/schedule", map[string]any{
+		"enabled": true, "hour": 3, "minute": 0, "weekdays": []int{},
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusUnprocessableEntity {
+		t.Fatalf("expected validation error without weekdays, got %d", res.StatusCode)
+	}
+}

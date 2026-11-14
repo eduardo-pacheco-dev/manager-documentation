@@ -20,6 +20,7 @@ import (
 	"regexp"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -55,8 +56,18 @@ type Settings struct {
 	Retention  int        `json:"retention"`
 	Automatic  bool       `json:"automatic"`
 	Hour       int        `json:"hour"`
+	Minute     int        `json:"minute"`
+	Weekdays   []int      `json:"weekdays"`
 	NextRun    *time.Time `json:"next_run,omitempty"`
 	UploadsDir string     `json:"uploads_dir"`
+}
+
+// Schedule controls the automatic backup routine.
+type Schedule struct {
+	Enabled  bool  `json:"enabled"`
+	Hour     int   `json:"hour"`
+	Minute   int   `json:"minute"`
+	Weekdays []int `json:"weekdays"`
 }
 
 type manifest struct {
@@ -76,21 +87,34 @@ type RemoteStore interface {
 	ImportObject(ctx context.Context, key string, body io.Reader) error
 }
 
+// ConfigStore persists the schedule choices changed by administrators.
+type ConfigStore interface {
+	GetSetting(key string) (string, error)
+	SetSetting(key, value string) error
+}
+
 // Service owns the backup directory and the external MySQL client binaries.
 type Service struct {
 	cfg    config.Config
 	now    func() time.Time
 	mu     sync.Mutex
 	remote RemoteStore
+	store  ConfigStore
+	wake   chan struct{}
 }
 
 // New creates the service and ensures the backup directory exists.
 func New(cfg config.Config) *Service {
-	service := &Service{cfg: cfg, now: time.Now}
+	service := &Service{cfg: cfg, now: time.Now, wake: make(chan struct{}, 1)}
 	if err := os.MkdirAll(cfg.BackupDir, 0o750); err != nil {
 		log.Printf("backup: could not create directory %s: %v", cfg.BackupDir, err)
 	}
 	return service
+}
+
+// SetConfigStore enables persistent schedule settings.
+func (s *Service) SetConfigStore(store ConfigStore) {
+	s.store = store
 }
 
 // SetRemote registers the remote object store used for attachments kept in
@@ -103,18 +127,189 @@ func (s *Service) SetRemote(remote RemoteStore) {
 func (s *Service) Settings() Settings {
 	dir, _ := filepath.Abs(s.cfg.BackupDir)
 	uploads, _ := filepath.Abs(s.cfg.UploadDir)
+	schedule := s.Schedule()
 	settings := Settings{
 		Directory:  dir,
 		Retention:  s.cfg.BackupRetention,
-		Automatic:  s.cfg.BackupAuto,
-		Hour:       s.cfg.BackupHour,
+		Automatic:  schedule.Enabled,
+		Hour:       schedule.Hour,
+		Minute:     schedule.Minute,
+		Weekdays:   append([]int{}, schedule.Weekdays...),
 		UploadsDir: uploads,
 	}
-	if s.cfg.BackupAuto {
-		next := s.NextRun()
+	if next, ok := schedule.Next(s.now()); ok {
 		settings.NextRun = &next
 	}
 	return settings
+}
+
+const (
+	scheduleEnabledKey  = "backup.enabled"
+	scheduleHourKey     = "backup.hour"
+	scheduleMinuteKey   = "backup.minute"
+	scheduleWeekdaysKey = "backup.weekdays"
+)
+
+func defaultSchedule(cfg config.Config) Schedule {
+	return Schedule{
+		Enabled:  cfg.BackupAuto,
+		Hour:     cfg.BackupHour,
+		Minute:   0,
+		Weekdays: []int{1, 2, 3, 4, 5, 6, 7},
+	}
+}
+
+// Schedule reads the persisted schedule, falling back to the environment
+// defaults when nothing has been saved yet.
+func (s *Service) Schedule() Schedule {
+	schedule := defaultSchedule(s.cfg)
+	if s.store == nil {
+		return schedule
+	}
+	if value, err := s.store.GetSetting(scheduleEnabledKey); err == nil {
+		schedule.Enabled = value == "1" || strings.EqualFold(value, "true")
+	}
+	if value, err := s.store.GetSetting(scheduleHourKey); err == nil {
+		if hour, parseErr := strconv.Atoi(strings.TrimSpace(value)); parseErr == nil && hour >= 0 && hour <= 23 {
+			schedule.Hour = hour
+		}
+	}
+	if value, err := s.store.GetSetting(scheduleMinuteKey); err == nil {
+		if minute, parseErr := strconv.Atoi(strings.TrimSpace(value)); parseErr == nil && minute >= 0 && minute <= 59 {
+			schedule.Minute = minute
+		}
+	}
+	if value, err := s.store.GetSetting(scheduleWeekdaysKey); err == nil {
+		if days, parseErr := parseWeekdays(value); parseErr == nil && len(days) > 0 {
+			schedule.Weekdays = days
+		}
+	}
+	return schedule
+}
+
+// UpdateSchedule validates and persists a new schedule.
+func (s *Service) UpdateSchedule(schedule Schedule) error {
+	schedule = schedule.Normalized()
+	if err := schedule.Validate(); err != nil {
+		return err
+	}
+	if s.store == nil {
+		return errors.New("armazenamento de configurações indisponível")
+	}
+	values := []struct {
+		key   string
+		value string
+	}{
+		{scheduleEnabledKey, "0"},
+		{scheduleHourKey, strconv.Itoa(schedule.Hour)},
+		{scheduleMinuteKey, strconv.Itoa(schedule.Minute)},
+		{scheduleWeekdaysKey, weekdaysString(schedule.Weekdays)},
+	}
+	if schedule.Enabled {
+		values[0].value = "1"
+	}
+	for _, item := range values {
+		if err := s.store.SetSetting(item.key, item.value); err != nil {
+			return err
+		}
+	}
+	s.NotifyScheduleChanged()
+	return nil
+}
+
+// NotifyScheduleChanged wakes the scheduler so it recomputes the next run.
+func (s *Service) NotifyScheduleChanged() {
+	select {
+	case s.wake <- struct{}{}:
+	default:
+	}
+}
+
+// Validate checks whether the schedule values are usable.
+func (schedule Schedule) Validate() error {
+	if schedule.Hour < 0 || schedule.Hour > 23 {
+		return errors.New("hora inválida")
+	}
+	if schedule.Minute < 0 || schedule.Minute > 59 {
+		return errors.New("minuto inválido")
+	}
+	for _, day := range schedule.Weekdays {
+		if day < 1 || day > 7 {
+			return errors.New("dia da semana inválido")
+		}
+	}
+	if schedule.Enabled && len(schedule.Weekdays) == 0 {
+		return errors.New("selecione ao menos um dia da semana")
+	}
+	return nil
+}
+
+// Normalized removes duplicate weekdays and sorts them.
+func (schedule Schedule) Normalized() Schedule {
+	seen := map[int]bool{}
+	days := make([]int, 0, len(schedule.Weekdays))
+	for _, day := range schedule.Weekdays {
+		if !seen[day] {
+			seen[day] = true
+			days = append(days, day)
+		}
+	}
+	sort.Ints(days)
+	schedule.Weekdays = days
+	return schedule
+}
+
+// Next returns the next scheduled run after the given time.
+func (schedule Schedule) Next(after time.Time) (time.Time, bool) {
+	if !schedule.Enabled || len(schedule.Weekdays) == 0 {
+		return time.Time{}, false
+	}
+	allowed := make(map[int]bool, len(schedule.Weekdays))
+	for _, day := range schedule.Weekdays {
+		allowed[day] = true
+	}
+	for offset := 0; offset <= 7; offset++ {
+		day := after.AddDate(0, 0, offset)
+		candidate := time.Date(day.Year(), day.Month(), day.Day(), schedule.Hour, schedule.Minute, 0, 0, after.Location())
+		if !allowed[isoWeekday(candidate.Weekday())] {
+			continue
+		}
+		if candidate.After(after) {
+			return candidate, true
+		}
+	}
+	return time.Time{}, false
+}
+
+func isoWeekday(day time.Weekday) int {
+	if day == time.Sunday {
+		return 7
+	}
+	return int(day)
+}
+
+func parseWeekdays(value string) ([]int, error) {
+	days := make([]int, 0, 7)
+	for _, part := range strings.Split(value, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		day, err := strconv.Atoi(part)
+		if err != nil || day < 1 || day > 7 {
+			return nil, fmt.Errorf("dia inválido %q", part)
+		}
+		days = append(days, day)
+	}
+	return Schedule{Weekdays: days}.Normalized().Weekdays, nil
+}
+
+func weekdaysString(days []int) string {
+	parts := make([]string, 0, len(days))
+	for _, day := range days {
+		parts = append(parts, strconv.Itoa(day))
+	}
+	return strings.Join(parts, ",")
 }
 
 // List returns the backups ordered from newest to oldest.
@@ -608,20 +803,29 @@ func (s *Service) restoreUploads(files []*zip.File) error {
 	return nil
 }
 
-// RunScheduler creates one backup per day at the configured local hour until
-// the context is cancelled.
+// RunScheduler creates backups according to the persisted schedule until the
+// context is cancelled. Schedule changes wake the loop immediately.
 func (s *Service) RunScheduler(ctx context.Context) {
-	if !s.cfg.BackupAuto {
-		log.Printf("backup: automatic backups disabled")
-		return
-	}
-	log.Printf("backup: automatic backups enabled, next run at %s", s.NextRun().Format(time.RFC3339))
 	for {
-		timer := time.NewTimer(time.Until(s.NextRun()))
+		schedule := s.Schedule()
+		next, ok := schedule.Next(s.now())
+		if !ok {
+			select {
+			case <-ctx.Done():
+				return
+			case <-s.wake:
+				continue
+			}
+		}
+		log.Printf("backup: automatic backups enabled, next run at %s", next.Format(time.RFC3339))
+		timer := time.NewTimer(time.Until(next))
 		select {
 		case <-ctx.Done():
 			timer.Stop()
 			return
+		case <-s.wake:
+			timer.Stop()
+			continue
 		case <-timer.C:
 			runCtx, cancel := context.WithTimeout(ctx, 30*time.Minute)
 			entry, err := s.Create(runCtx)
@@ -637,12 +841,10 @@ func (s *Service) RunScheduler(ctx context.Context) {
 
 // NextRun returns the next scheduled automatic backup time.
 func (s *Service) NextRun() time.Time {
-	now := s.now()
-	next := time.Date(now.Year(), now.Month(), now.Day(), s.cfg.BackupHour, 0, 0, 0, time.Local)
-	if !next.After(now) {
-		next = next.AddDate(0, 0, 1)
+	if next, ok := s.Schedule().Next(s.now()); ok {
+		return next
 	}
-	return next
+	return time.Time{}
 }
 
 func (s *Service) prune() {

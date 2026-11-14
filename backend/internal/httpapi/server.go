@@ -46,6 +46,7 @@ func New(cfg config.Config, s *store.Store, cipher *crypto.Cipher) *Server {
 		Limiter:  newLoginLimiter(5, time.Minute),
 	}
 	server.Backups.SetRemote(uploads)
+	server.Backups.SetConfigStore(s)
 	return server
 }
 
@@ -322,6 +323,7 @@ func (s *Server) Router() http.Handler {
 				admin.Get("/backups", s.backupsIndex)
 				admin.Post("/backups", s.backupsCreate)
 				admin.Post("/backups/import", s.backupsImport)
+				admin.Put("/backups/schedule", s.backupsUpdateSchedule)
 				admin.Get("/backups/{name}/download", s.backupsDownload)
 				admin.Post("/backups/{name}/restore", s.backupsRestore)
 				admin.Delete("/backups/{name}", s.backupsDelete)
