@@ -20,6 +20,9 @@ func ModuleData(m *modules.Store, admin models.User) error {
 	if err := seedStations(m); err != nil {
 		return err
 	}
+	if err := seedRadioLinks(m); err != nil {
+		return err
+	}
 	if err := seedDemands(m, admin); err != nil {
 		return err
 	}
@@ -256,6 +259,61 @@ func seedStations(m *modules.Store) error {
 	for _, input := range stations {
 		if _, err := m.CreateStation(input); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+// seedRadioLinks registers demo point-to-point links between the seeded
+// stations. It is skipped when any radio link already exists.
+func seedRadioLinks(m *modules.Store) error {
+	if _, total, _, _, _, err := m.ListRadioLinks(modules.RadioLinkFilter{Page: 1, PerPage: 1}); err != nil {
+		return err
+	} else if total > 0 {
+		return nil
+	}
+
+	stations, _, _, _, _, err := m.ListStations(modules.StationFilter{Page: 1, PerPage: 50})
+	if err != nil {
+		return err
+	}
+	bySite := make(map[string]int64, len(stations))
+	for _, station := range stations {
+		bySite[station.SiteID] = station.ID
+	}
+	stationA, okA := bySite["SPJAB051M"]
+	stationB, okB := bySite["SPFORA01J"]
+	if !okA || !okB {
+		return nil
+	}
+	stationC, okC := bySite["RJCAM001"]
+
+	seeds := []modules.RadioLinkInput{
+		{
+			Name: "Enlace SPJAB051M x SPFORA01J", Code: "RL-001",
+			StationAID: stationA, StationBID: stationB, Status: "ativo", Technology: "MW",
+			FrequencyMHz: floatPtr(18000), CapacityMbps: floatPtr(400), DistanceKm: floatPtr(2.4),
+			Notes: "Enlace principal de backbone entre as estações.",
+		},
+		{
+			Name: "Backup SPJAB051M x SPFORA01J", Code: "RL-002",
+			StationAID: stationA, StationBID: stationB, Status: "planejado", Technology: "UHF",
+			FrequencyMHz: floatPtr(5800), CapacityMbps: floatPtr(100), DistanceKm: floatPtr(2.4),
+			Notes: "Rota de contingência para o enlace principal.",
+		},
+	}
+	if okC {
+		seeds = append(seeds, modules.RadioLinkInput{
+			Name: "Enlace SPFORA01J x RJCAM001", Code: "RL-003",
+			StationAID: stationB, StationBID: stationC, Status: "manutencao", Technology: "MW",
+			FrequencyMHz: floatPtr(15000), CapacityMbps: floatPtr(300), DistanceKm: floatPtr(357.8),
+			Notes: "Interligação regional em manutenção programada.",
+		})
+	}
+
+	for _, input := range seeds {
+		if _, err := m.CreateRadioLink(input); err != nil {
+			return fmt.Errorf("seed radio link %s: %w", input.Code, err)
 		}
 	}
 	return nil
@@ -705,3 +763,5 @@ func seedAgenda(m *modules.Store, admin models.User) error {
 }
 
 func intPtr(value int) *int { return &value }
+
+func floatPtr(value float64) *float64 { return &value }

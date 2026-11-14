@@ -1264,7 +1264,7 @@ func TestRadioLinks(t *testing.T) {
 	stationB := createStation("RADIO-B")
 
 	res, payload := app.request(http.MethodPost, "/api/v1/radio-links", map[string]any{
-		"name": "Enlace A-B", "code": "RL-001", "station_a_id": stationA, "station_b_id": stationB,
+		"name": "Smoke link A-B", "code": "RL-TEST", "station_a_id": stationA, "station_b_id": stationB,
 		"status": "ativo", "technology": "MW", "frequency_mhz": 18000, "capacity_mbps": 400, "distance_km": 12.5,
 	}, app.csrf, nil)
 	if res.StatusCode != http.StatusCreated {
@@ -1272,13 +1272,13 @@ func TestRadioLinks(t *testing.T) {
 	}
 	linkID := int64(payload["data"].(map[string]any)["radio_link"].(map[string]any)["id"].(float64))
 
-	res, payload = app.request(http.MethodGet, "/api/v1/radio-links?search=Enlace", nil, "", nil)
+	res, payload = app.request(http.MethodGet, "/api/v1/radio-links?search=Smoke", nil, "", nil)
 	if res.StatusCode != http.StatusOK || int(payload["meta"].(map[string]any)["total"].(float64)) != 1 {
 		t.Fatalf("radio link list failed: %d %v", res.StatusCode, payload)
 	}
 
 	res, payload = app.request(http.MethodPut, fmt.Sprintf("/api/v1/radio-links/%d", linkID), map[string]any{
-		"name": "Enlace A-B", "station_a_id": stationA, "station_b_id": stationB, "status": "manutencao",
+		"name": "Smoke link A-B", "station_a_id": stationA, "station_b_id": stationB, "status": "manutencao",
 	}, app.csrf, nil)
 	if res.StatusCode != http.StatusOK {
 		t.Fatalf("update radio link status = %d payload=%v", res.StatusCode, payload)
