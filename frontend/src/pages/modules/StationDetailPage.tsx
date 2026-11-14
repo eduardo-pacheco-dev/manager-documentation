@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Download, Edit, TrashCan } from '@carbon/icons-react';
+import { ArrowLeft, Copy, OverflowMenuVertical, TrashCan } from '@carbon/icons-react';
 import {
   Breadcrumb,
   BreadcrumbItem,
   Button,
   InlineLoading,
   Modal,
+  OverflowMenu,
+  OverflowMenuItem,
   Select,
   SelectItem,
   Tag,
@@ -258,6 +260,17 @@ export function StationDetailPage() {
   const lat = Number(station.latitude);
   const lng = Number(station.longitude);
   const hasCoordinates = Boolean(station.latitude && station.longitude && Number.isFinite(lat) && Number.isFinite(lng));
+  const coordinates = `${station.latitude}, ${station.longitude}`;
+
+  async function copyCoordinates() {
+    try {
+      await navigator.clipboard.writeText(coordinates);
+      toast.success('Coordenadas copiadas', coordinates);
+    } catch {
+      toast.error('Não foi possível copiar as coordenadas', coordinates);
+    }
+  }
+
   const delta = 0.01;
   const mapUrl = hasCoordinates
     ? `https://www.openstreetmap.org/export/embed.html?bbox=${lng - delta}%2C${lat - delta}%2C${lng + delta}%2C${lat + delta}&layer=mapnik&marker=${lat}%2C${lng}`
@@ -287,16 +300,46 @@ export function StationDetailPage() {
         actions={
           <>
             <Button kind="ghost" renderIcon={ArrowLeft} onClick={() => navigate('/stations')}>Voltar</Button>
-            <Button kind="ghost" renderIcon={Download} onClick={() => window.open(`/api/v1/stations/${station.id}/export`, '_blank')}>Exportar</Button>
-            <Button renderIcon={Edit} onClick={openEdit}>Editar</Button>
-            <Button kind="danger--ghost" renderIcon={TrashCan} onClick={() => setDeleteOpen(true)}>Excluir</Button>
+            <OverflowMenu
+              aria-label="Ações da estação"
+              iconDescription="Ações da estação"
+              renderIcon={OverflowMenuVertical}
+              flipped
+            >
+              <OverflowMenuItem
+                itemText="Exportar"
+                onClick={() => window.open(`/api/v1/stations/${station.id}/export`, '_blank')}
+              />
+              <OverflowMenuItem itemText="Editar" onClick={openEdit} />
+              <OverflowMenuItem
+                itemText="Excluir"
+                isDelete
+                hasDivider
+                onClick={() => setDeleteOpen(true)}
+              />
+            </OverflowMenu>
           </>
         }
       />
 
       <div className="station-summary-grid">
         <Tile><span>Endereço</span><strong>{fullAddress(station)}</strong></Tile>
-        <Tile><span>Coordenadas</span><strong>{hasCoordinates ? `${station.latitude}, ${station.longitude}` : 'Não informadas'}</strong></Tile>
+        <Tile>
+          <span>Coordenadas</span>
+          <div className="station-summary-value">
+            <strong>{hasCoordinates ? `${station.latitude}, ${station.longitude}` : 'Não informadas'}</strong>
+            {hasCoordinates && (
+              <Button
+                kind="ghost"
+                size="xs"
+                hasIconOnly
+                renderIcon={Copy}
+                iconDescription="Copiar coordenadas"
+                onClick={() => void copyCoordinates()}
+              />
+            )}
+          </div>
+        </Tile>
         <Tile><span>Atualizado</span><strong>{relativeTime(station.updated_at)}</strong></Tile>
       </div>
 

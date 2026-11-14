@@ -2736,6 +2736,18 @@ p {
   font-weight: 500;
 }
 
+.station-summary-value {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.station-summary-value strong {
+  flex: 1;
+  min-width: 0;
+}
+
 .station-field-groups {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
