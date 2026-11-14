@@ -146,8 +146,8 @@ func TestAuthenticationAndCSRF(t *testing.T) {
 	if data["user"].(map[string]any)["email"] != "admin@test.local" {
 		t.Fatalf("unexpected user payload: %v", data["user"])
 	}
-	if len(data["modules"].([]any)) != 12 {
-		t.Fatalf("expected 12 modules, got %v", data["modules"])
+	if len(data["modules"].([]any)) != 13 {
+		t.Fatalf("expected 13 modules, got %v", data["modules"])
 	}
 
 	res, _ = app.request(http.MethodPost, "/api/v1/users", map[string]any{
@@ -1245,5 +1245,54 @@ func TestBackupSchedule(t *testing.T) {
 	}, app.csrf, nil)
 	if res.StatusCode != http.StatusUnprocessableEntity {
 		t.Fatalf("expected validation error without weekdays, got %d", res.StatusCode)
+	}
+}
+
+func TestRadioLinks(t *testing.T) {
+	app := newTestApp(t)
+
+	createStation := func(site string) int64 {
+		res, payload := app.request(http.MethodPost, "/api/v1/stations", map[string]any{
+			"site_id": site, "municipio": "Campinas", "estado": "SP",
+		}, app.csrf, nil)
+		if res.StatusCode != http.StatusCreated {
+			t.Fatalf("create station %s status = %d payload=%v", site, res.StatusCode, payload)
+		}
+		return int64(payload["data"].(map[string]any)["station"].(map[string]any)["id"].(float64))
+	}
+	stationA := createStation("RADIO-A")
+	stationB := createStation("RADIO-B")
+
+	res, payload := app.request(http.MethodPost, "/api/v1/radio-links", map[string]any{
+		"name": "Enlace A-B", "code": "RL-001", "station_a_id": stationA, "station_b_id": stationB,
+		"status": "ativo", "technology": "MW", "frequency_mhz": 18000, "capacity_mbps": 400, "distance_km": 12.5,
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("create radio link status = %d payload=%v", res.StatusCode, payload)
+	}
+	linkID := int64(payload["data"].(map[string]any)["radio_link"].(map[string]any)["id"].(float64))
+
+	res, payload = app.request(http.MethodGet, "/api/v1/radio-links?search=Enlace", nil, "", nil)
+	if res.StatusCode != http.StatusOK || int(payload["meta"].(map[string]any)["total"].(float64)) != 1 {
+		t.Fatalf("radio link list failed: %d %v", res.StatusCode, payload)
+	}
+
+	res, payload = app.request(http.MethodPut, fmt.Sprintf("/api/v1/radio-links/%d", linkID), map[string]any{
+		"name": "Enlace A-B", "station_a_id": stationA, "station_b_id": stationB, "status": "manutencao",
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("update radio link status = %d payload=%v", res.StatusCode, payload)
+	}
+
+	res, _ = app.request(http.MethodPost, "/api/v1/radio-links", map[string]any{
+		"name": "Invalido", "station_a_id": stationA, "station_b_id": stationA,
+	}, app.csrf, nil)
+	if res.StatusCode != http.StatusUnprocessableEntity {
+		t.Fatalf("expected validation error for equal endpoints, got %d", res.StatusCode)
+	}
+
+	res, _ = app.request(http.MethodDelete, fmt.Sprintf("/api/v1/radio-links/%d", linkID), nil, app.csrf, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("delete radio link status = %d", res.StatusCode)
 	}
 }

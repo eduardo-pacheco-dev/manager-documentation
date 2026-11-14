@@ -1043,6 +1043,30 @@ var migrations = [][]string{
 		`ALTER TABLE project_tasks ADD CONSTRAINT fk_project_tasks_stage
 			FOREIGN KEY (pipeline_stage_id) REFERENCES project_pipeline_stages(id) ON DELETE SET NULL`,
 	},
+	{
+		`CREATE TABLE radio_links (
+			id BIGINT NOT NULL AUTO_INCREMENT,
+			name VARCHAR(255) NOT NULL,
+			code VARCHAR(64) NULL,
+			station_a_id BIGINT NOT NULL,
+			station_b_id BIGINT NOT NULL,
+			status VARCHAR(32) NOT NULL DEFAULT 'planejado',
+			technology VARCHAR(64) NULL,
+			frequency_mhz DECIMAL(10,3) NULL,
+			capacity_mbps DECIMAL(10,2) NULL,
+			distance_km DECIMAL(10,2) NULL,
+			notes TEXT NULL,
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL,
+			PRIMARY KEY (id),
+			UNIQUE KEY uq_radio_links_code (code),
+			KEY idx_radio_links_station_a (station_a_id),
+			KEY idx_radio_links_station_b (station_b_id),
+			KEY idx_radio_links_status (status),
+			CONSTRAINT fk_radio_links_station_a FOREIGN KEY (station_a_id) REFERENCES stations(id) ON DELETE CASCADE,
+			CONSTRAINT fk_radio_links_station_b FOREIGN KEY (station_b_id) REFERENCES stations(id) ON DELETE CASCADE
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+	},
 }
 
 // CleanupSessions removes expired sessions and tokens. It is safe to call at

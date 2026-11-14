@@ -23,9 +23,11 @@ interface Props {
   valueLabel?: string | null;
   onChange: (id: number | null, station?: StationOption) => void;
   disabled?: boolean;
+  endpoint?: string;
+  labelText?: string;
 }
 
-export function StationSearch({ id, value, valueLabel, onChange, disabled }: Props) {
+export function StationSearch({ id, value, valueLabel, onChange, disabled, endpoint = '/demands/stations', labelText = 'Estação' }: Props) {
   const [options, setOptions] = useState<StationOption[]>([]);
   const [selectedStation, setSelectedStation] = useState<StationOption | null>(null);
   const [loading, setLoading] = useState(false);
@@ -34,14 +36,14 @@ export function StationSearch({ id, value, valueLabel, onChange, disabled }: Pro
   const load = useCallback(async (search: string) => {
     setLoading(true);
     try {
-      const response = await api.get<{ data: StationOption[] }>(`/demands/stations?limit=30&search=${encodeURIComponent(search)}`);
+      const response = await api.get<{ data: StationOption[] }>(`${endpoint}?limit=30&search=${encodeURIComponent(search)}`);
       setOptions(response.data ?? []);
     } catch {
       setOptions([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [endpoint]);
 
   useEffect(() => {
     void load('');
@@ -70,7 +72,7 @@ export function StationSearch({ id, value, valueLabel, onChange, disabled }: Pro
   return (
     <ComboBox
       id={id}
-      titleText="Estação"
+      titleText={labelText}
       placeholder={loading ? 'Buscando estações…' : 'Buscar por Site ID, estação, endereço ou município'}
       items={options}
       itemToString={(item) => (item ? stationLabel(item) : '')}

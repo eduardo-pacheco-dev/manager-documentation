@@ -103,6 +103,12 @@ p {
   gap: 1rem;
 }
 
+.form-error {
+  margin: -0.25rem 0 0;
+  color: var(--cds-text-error);
+  font-size: 0.75rem;
+}
+
 .backup-schedule {
   display: flex;
   flex-direction: column;

@@ -107,6 +107,7 @@ var starterDocs = []docMeta{
 	{"content/10-testes.md", "Testes e qualidade", "testing", "Como executar testes do backend, verificar build do frontend e validar a API."},
 	{"content/11-projetos.md", "Projetos", "modules", "EAP, dependências, calendário, recursos, custos, linha de base e caminho crítico."},
 	{"content/12-colaboradores.md", "Colaboradores", "modules", "Cadastro central de pessoas, custos e capacidade usados como recursos nos projetos."},
+	{"content/13-radio-links.md", "Rádio Links", "modules", "Enlaces ponto a ponto entre estações, com ponta A e ponta B."},
 }
 
 func ensureDocs(s *store.Store, authorID int64) error {

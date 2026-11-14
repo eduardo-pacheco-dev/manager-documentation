@@ -16,6 +16,7 @@
     { "name": "Notifications", "description": "Central de notificações" },
     { "name": "Projetos", "description": "Portfólio, EAP, dependências, recursos, custos e linha de base" },
     { "name": "Colaboradores", "description": "Cadastro central de pessoas usadas como recursos nos projetos" },
+    { "name": "Radio links", "description": "Enlaces ponto a ponto entre estações (ponta A e ponta B)" },
     { "name": "Uploads", "description": "Envio de imagens" }
   ],
   "components": {
@@ -218,6 +219,56 @@
     },
     "/work-items": {
       "post": { "tags": ["Integrações"], "summary": "Cria e vincula tarefa, follow-up ou evento em uma única chamada", "responses": { "201": { "description": "Item criado e vinculado" }, "422": { "description": "Validação" } } }
+    },
+    "/radio-links": {
+      "get": {
+        "tags": ["Radio links"],
+        "summary": "Lista os rádio links",
+        "parameters": [
+          { "name": "search", "in": "query", "schema": { "type": "string" } },
+          { "name": "status", "in": "query", "schema": { "type": "string" } },
+          { "name": "technology", "in": "query", "schema": { "type": "string" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Rádio links" } }
+      },
+      "post": {
+        "tags": ["Radio links"],
+        "summary": "Cria um rádio link entre duas estações",
+        "responses": { "201": { "description": "Criado" }, "422": { "description": "Validação" } }
+      }
+    },
+    "/radio-links/stations": {
+      "get": {
+        "tags": ["Radio links"],
+        "summary": "Busca estações para as pontas A e B",
+        "parameters": [
+          { "name": "search", "in": "query", "schema": { "type": "string" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Estações" } }
+      }
+    },
+    "/radio-links/{id}": {
+      "get": {
+        "tags": ["Radio links"],
+        "summary": "Detalha um rádio link",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Rádio link" }, "404": { "description": "Não encontrado" } }
+      },
+      "put": {
+        "tags": ["Radio links"],
+        "summary": "Atualiza um rádio link",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Atualizado" }, "422": { "description": "Validação" } }
+      },
+      "delete": {
+        "tags": ["Radio links"],
+        "summary": "Exclui um rádio link",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Removido" }, "404": { "description": "Não encontrado" } }
+      }
     },
     "/links": {
       "get": {
