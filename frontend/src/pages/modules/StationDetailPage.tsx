@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Download, Edit, TrashCan } from '@carbon/icons-react';
+import { ArrowLeft, OverflowMenuVertical, TrashCan } from '@carbon/icons-react';
 import {
   Breadcrumb,
   BreadcrumbItem,
   Button,
   InlineLoading,
   Modal,
+  OverflowMenu,
+  OverflowMenuItem,
   Select,
   SelectItem,
   Tag,
@@ -287,9 +289,24 @@ export function StationDetailPage() {
         actions={
           <>
             <Button kind="ghost" renderIcon={ArrowLeft} onClick={() => navigate('/stations')}>Voltar</Button>
-            <Button kind="ghost" renderIcon={Download} onClick={() => window.open(`/api/v1/stations/${station.id}/export`, '_blank')}>Exportar</Button>
-            <Button renderIcon={Edit} onClick={openEdit}>Editar</Button>
-            <Button kind="danger--ghost" renderIcon={TrashCan} onClick={() => setDeleteOpen(true)}>Excluir</Button>
+            <OverflowMenu
+              aria-label="Ações da estação"
+              iconDescription="Ações da estação"
+              renderIcon={OverflowMenuVertical}
+              flipped
+            >
+              <OverflowMenuItem
+                itemText="Exportar"
+                onClick={() => window.open(`/api/v1/stations/${station.id}/export`, '_blank')}
+              />
+              <OverflowMenuItem itemText="Editar" onClick={openEdit} />
+              <OverflowMenuItem
+                itemText="Excluir"
+                isDelete
+                hasDivider
+                onClick={() => setDeleteOpen(true)}
+              />
+            </OverflowMenu>
           </>
         }
       />
