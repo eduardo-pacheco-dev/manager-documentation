@@ -1272,6 +1272,14 @@ func TestRadioLinks(t *testing.T) {
 	}
 	linkID := int64(payload["data"].(map[string]any)["radio_link"].(map[string]any)["id"].(float64))
 
+	res, payload = app.request(http.MethodGet, fmt.Sprintf("/api/v1/radio-links/%d", linkID), nil, "", nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("radio link show status = %d payload=%v", res.StatusCode, payload)
+	}
+	if payload["data"].(map[string]any)["radio_link"].(map[string]any)["name"] != "Smoke link A-B" {
+		t.Fatalf("unexpected radio link detail: %v", payload["data"])
+	}
+
 	res, payload = app.request(http.MethodGet, "/api/v1/radio-links?search=Smoke", nil, "", nil)
 	if res.StatusCode != http.StatusOK || int(payload["meta"].(map[string]any)["total"].(float64)) != 1 {
 		t.Fatalf("radio link list failed: %d %v", res.StatusCode, payload)

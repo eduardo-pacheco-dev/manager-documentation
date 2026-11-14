@@ -109,6 +109,18 @@ p {
   font-size: 0.75rem;
 }
 
+.radio-link-endpoint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.preserve-lines {
+  white-space: pre-line;
+}
+
 .backup-schedule {
   display: flex;
   flex-direction: column;
