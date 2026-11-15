@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
   Edit,
+  OverflowMenuVertical,
   TrashCan,
   Warning,
 } from '@carbon/icons-react';
@@ -13,6 +14,8 @@ import {
   Checkbox,
   InlineLoading,
   Modal,
+  OverflowMenu,
+  OverflowMenuItem,
   ProgressBar,
   Select,
   SelectItem,
@@ -60,7 +63,7 @@ const CHECKLISTS = [
   { field: 'checklist_fam_instalacao', label: 'FAM Instalação', status: 'checklist_fam_instalacao_status' },
   { field: 'checklist_fam_panoramica', label: 'FAM Panorâmica', status: 'checklist_fam_panoramica_status' },
 ];
-const STATUS_LABEL: Record<string, string> = { pending: 'Pendente', analysis: 'Análise TIM', rejected: 'Rejeitado', sent: 'Aprovado' };
+const STATUS_LABEL: Record<string, string> = { pending: 'Pendente', analysis: 'Análise TIM', rejected: 'Rejeitado', sent: 'Aprovado', cancelled: 'Cancelado' };
 const FAM_LABEL: Record<string, string> = {
   checklist_fam_entrega: 'FAM Entrega',
   checklist_fam_instalacao: 'FAM Instalação',
@@ -356,8 +359,16 @@ export function NokiaDetailPage() {
         actions={
           <>
             <Button kind="ghost" renderIcon={ArrowLeft} onClick={() => navigate('/nokia')}>Voltar</Button>
-            <Button renderIcon={Edit} onClick={openEdit}>Editar site</Button>
-            <Button kind="danger--ghost" renderIcon={TrashCan} onClick={() => setDeleteOpen(true)}>Excluir</Button>
+            <OverflowMenu
+              aria-label="Ações do site"
+              iconDescription="Ações do site"
+              renderIcon={OverflowMenuVertical}
+              size="md"
+              flipped
+            >
+              <OverflowMenuItem itemText="Editar site" onClick={openEdit} />
+              <OverflowMenuItem itemText="Excluir site" isDelete hasDivider onClick={() => setDeleteOpen(true)} />
+            </OverflowMenu>
           </>
         }
       />
@@ -625,11 +636,19 @@ export function NokiaDetailPage() {
             </dl>
           </Tile>
           <Tile className="nokia-detail-aside__card">
-            <h2>Ações</h2>
-            <div className="nokia-aside-actions">
-              <Button kind="ghost" size="sm" renderIcon={Warning} onClick={() => { setInterruption({ reason: site.interruption_reason ?? '', return_days: site.interruption_return_days ?? 7 }); setInterruptionOpen(true); }}>Interrupção</Button>
-              <Button kind="ghost" size="sm" renderIcon={Edit} onClick={openEdit}>Editar site</Button>
-              <Button kind="danger--ghost" size="sm" renderIcon={TrashCan} onClick={() => setDeleteOpen(true)}>Excluir site</Button>
+            <div className="module-sidebar__heading">
+              <h2>Ações</h2>
+              <OverflowMenu
+                aria-label="Ações do site"
+                iconDescription="Ações do site"
+                renderIcon={OverflowMenuVertical}
+                size="sm"
+                flipped
+              >
+                <OverflowMenuItem itemText="Interrupção" onClick={() => { setInterruption({ reason: site.interruption_reason ?? '', return_days: site.interruption_return_days ?? 7 }); setInterruptionOpen(true); }} />
+                <OverflowMenuItem itemText="Editar site" onClick={openEdit} />
+                <OverflowMenuItem itemText="Excluir site" isDelete hasDivider onClick={() => setDeleteOpen(true)} />
+              </OverflowMenu>
             </div>
           </Tile>
         </aside>

@@ -667,6 +667,7 @@ var nokiaStatusDefinitions = []struct {
 	{"analysis", "Análise TIM", "#f59e0b"},
 	{"first_send", "Primeiro Envio", "#f97316"},
 	{"rejected", "Rejeitado", "#ef4444"},
+	{"cancelled", "Cancelado", "#6b7280"},
 	{"no_os", "Sem OS MOS", "#6b7280"},
 }
 
@@ -674,6 +675,7 @@ const nokiaStatusExpression = `CASE
 	WHEN s.fam_instalacao_approved_at IS NOT NULL THEN 'accepted'
 	WHEN s.checklist_fam_instalacao_status = 'rejected' THEN 'rejected'
 	WHEN s.checklist_fam_instalacao_status = 'analysis' THEN 'analysis'
+	WHEN s.checklist_fam_instalacao_status = 'cancelled' THEN 'cancelled'
 	WHEN s.os_fam_entrega IS NULL OR s.os_fam_entrega = '' THEN 'no_os'
 	ELSE 'first_send'
 END`
@@ -694,6 +696,8 @@ func nokiaSiteStatus(site NokiaSite) string {
 		return "rejected"
 	case site.ChecklistFamInstalacaoStatus == "analysis":
 		return "analysis"
+	case site.ChecklistFamInstalacaoStatus == "cancelled":
+		return "cancelled"
 	case site.OSFamEntrega == nil || strings.TrimSpace(*site.OSFamEntrega) == "":
 		return "no_os"
 	default:
@@ -959,7 +963,7 @@ func formatPercent(value float64) string {
 }
 
 func nokiaChecklistStatusLabel(status string) string {
-	labels := map[string]string{"pending": "Pendente", "analysis": "Análise TIM", "rejected": "Rejeitado", "sent": "Aprovado"}
+	labels := map[string]string{"pending": "Pendente", "analysis": "Análise TIM", "rejected": "Rejeitado", "sent": "Aprovado", "cancelled": "Cancelado"}
 	if label, ok := labels[status]; ok {
 		return label
 	}

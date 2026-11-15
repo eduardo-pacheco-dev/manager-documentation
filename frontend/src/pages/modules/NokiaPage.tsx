@@ -62,7 +62,7 @@ const CHECKLISTS = [
   { field: 'checklist_fam_instalacao', label: 'FAM Instalação', status: 'checklist_fam_instalacao_status' },
   { field: 'checklist_fam_panoramica', label: 'FAM Panorâmica', status: 'checklist_fam_panoramica_status' },
 ];
-const STATUS_LABEL: Record<string, string> = { pending: 'Pendente', analysis: 'Análise TIM', rejected: 'Rejeitado', sent: 'Aprovado' };
+const STATUS_LABEL: Record<string, string> = { pending: 'Pendente', analysis: 'Análise TIM', rejected: 'Rejeitado', sent: 'Aprovado', cancelled: 'Cancelado' };
 const statusTag = (value: string) => value === 'sent' ? 'green' : value === 'rejected' ? 'red' : value === 'analysis' ? 'magenta' : 'gray';
 const siteStatusTag = (value: string): 'green' | 'red' | 'magenta' | 'blue' | 'gray' => {
   switch (value) {

@@ -223,7 +223,7 @@ func (s *Server) nokiaUpdateChecklist(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &payload) {
 		return
 	}
-	valid := map[string]bool{"pending": true, "analysis": true, "rejected": true, "sent": true}
+	valid := map[string]bool{"pending": true, "analysis": true, "rejected": true, "sent": true, "cancelled": true}
 	if !valid[payload.Status] {
 		writeValidation(w, validationErrors{"status": "Status inválido."})
 		return
