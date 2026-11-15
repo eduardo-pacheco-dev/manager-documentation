@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Add, Download, Edit, TrashCan, Upload } from '@carbon/icons-react';
+import { Add, Edit, OverflowMenuVertical, TrashCan } from '@carbon/icons-react';
 import {
   Button,
   InlineLoading,
   Modal,
+  OverflowMenu,
+  OverflowMenuItem,
   Search,
   Select,
   SelectItem,
@@ -141,6 +143,25 @@ export function StationsPage() {
     }
   }
 
+  function importStations() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.csv,.xlsx';
+    input.onchange = async () => {
+      if (!input.files?.[0]) return;
+      const formData = new FormData();
+      formData.append('file', input.files[0]);
+      try {
+        const response = await api.upload<{ message: string }>('/stations/import', formData);
+        toast.success(response.message);
+        await load();
+      } catch (error) {
+        toast.error('Falha na importação', errorMessage(error));
+      }
+    };
+    input.click();
+  }
+
   const items = data?.data ?? [];
 
   return (
@@ -151,10 +172,18 @@ export function StationsPage() {
         description="Cadastro de estações e elementos de rede, anexos e comentários."
         actions={
           <>
-            <Button kind="ghost" renderIcon={Download} onClick={() => window.open('/api/v1/stations/export', '_blank')}>Exportar</Button>
-            <Button kind="ghost" renderIcon={Download} onClick={() => window.open('/api/v1/stations/template', '_blank')}>Modelo XLSX</Button>
-            <Button kind="ghost" renderIcon={Upload} onClick={() => { const input = document.createElement('input'); input.type = 'file'; input.accept = '.csv,.xlsx'; input.onchange = async () => { if (!input.files?.[0]) return; const formData = new FormData(); formData.append('file', input.files[0]); try { const response = await api.upload<{ message: string }>('/stations/import', formData); toast.success(response.message); await load(); } catch (error) { toast.error('Falha na importação', errorMessage(error)); } }; input.click(); }}>Importar</Button>
             <Button renderIcon={Add} onClick={openCreate}>Nova estação</Button>
+            <OverflowMenu
+              aria-label="Ações de importação e exportação"
+              iconDescription="Mais ações"
+              renderIcon={OverflowMenuVertical}
+              size="md"
+              flipped
+            >
+              <OverflowMenuItem itemText="Exportar" onClick={() => window.open('/api/v1/stations/export', '_blank')} />
+              <OverflowMenuItem itemText="Modelo XLSX" onClick={() => window.open('/api/v1/stations/template', '_blank')} />
+              <OverflowMenuItem itemText="Importar" hasDivider onClick={importStations} />
+            </OverflowMenu>
           </>
         }
       />
