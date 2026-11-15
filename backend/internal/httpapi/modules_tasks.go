@@ -307,9 +307,24 @@ func (s *Server) tasksDeleteStep(w http.ResponseWriter, r *http.Request) {
 func (s *Server) tasksExport(w http.ResponseWriter, r *http.Request) {
 	user := currentUser(r)
 	query := r.URL.Query()
+	view := taskView(query.Get("view"))
+	var listID int64
+	if raw := query.Get("list"); raw != "" {
+		parsed, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil || parsed <= 0 {
+			writeError(w, http.StatusNotFound, "Lista não encontrada.", nil)
+			return
+		}
+		if _, err := s.Modules.FindTodoList(user.ID, parsed); err != nil {
+			writeError(w, http.StatusNotFound, "Lista não encontrada.", nil)
+			return
+		}
+		listID = parsed
+		view = "list"
+	}
 	today := time.Now().Format("2006-01-02")
 	tasks, err := s.Modules.TodoTasks(user.ID, modules.TaskFilter{
-		View: taskView(query.Get("view")), Search: query.Get("search"), Sort: query.Get("sort"),
+		View: view, ListID: listID, Search: query.Get("search"), Sort: query.Get("sort"),
 		Today: today, WeekEnd: time.Now().AddDate(0, 0, 7).Format("2006-01-02"),
 	})
 	if err != nil {

@@ -2,12 +2,17 @@ import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Add,
+  Calendar,
   Checkmark,
-  ChevronRight,
+  CheckmarkFilled,
+  Download,
   Edit,
+  EventSchedule,
   List,
   OverflowMenuVertical,
   Star,
+  StarFilled,
+  Sun,
   Time,
   TrashCan,
   Warning,
@@ -16,6 +21,7 @@ import {
   Button,
   Checkbox,
   InlineLoading,
+  InlineNotification,
   Modal,
   OverflowMenu,
   OverflowMenuItem,
@@ -46,13 +52,13 @@ interface TasksData {
 }
 
 const VIEWS = [
-  { key: 'my_day', label: 'Meu Dia', icon: Star, count: 'my_day' },
-  { key: 'important', label: 'Importante', icon: Star, count: 'important' },
-  { key: 'planned', label: 'Planejado', icon: Time, count: 'planned' },
+  { key: 'my_day', label: 'Meu Dia', icon: Sun, count: 'my_day' },
+  { key: 'important', label: 'Importante', icon: StarFilled, count: 'important' },
+  { key: 'planned', label: 'Planejado', icon: Calendar, count: 'planned' },
   { key: 'today', label: 'Hoje', icon: Time, count: 'today' },
-  { key: 'week', label: 'Próximos 7 dias', icon: ChevronRight, count: 'week' },
+  { key: 'week', label: 'Próximos 7 dias', icon: EventSchedule, count: 'week' },
   { key: 'all', label: 'Todas as tarefas', icon: List, count: 'all' },
-  { key: 'completed', label: 'Concluídas', icon: Checkmark, count: 'completed' },
+  { key: 'completed', label: 'Concluídas', icon: CheckmarkFilled, count: 'completed' },
 ];
 
 const REPEATS = [
@@ -63,7 +69,7 @@ const REPEATS = [
 
 const COLORS = ['indigo', 'blue', 'sky', 'teal', 'green', 'lime', 'amber', 'orange', 'rose', 'pink', 'violet', 'slate'];
 
-function TaskRow({ task, onRefresh, onOpen }: { task: TodoTask; onRefresh: () => void; onOpen: (task: TodoTask) => void }) {
+function TaskRow({ task, today, canMove, onRefresh, onOpen }: { task: TodoTask; today: string; canMove: boolean; onRefresh: () => void; onOpen: (task: TodoTask) => void }) {
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   async function action(path: string, method: 'patch' | 'delete' = 'patch') {
@@ -79,6 +85,7 @@ function TaskRow({ task, onRefresh, onOpen }: { task: TodoTask; onRefresh: () =>
     }
   }
   const completedSteps = task.steps.filter((step) => step.completed_at).length;
+  const inMyDay = Boolean(task.my_day_on && task.my_day_on === today);
   async function moveTask(direction: 'up' | 'down') {
     setBusy(true);
     try {
@@ -114,25 +121,25 @@ function TaskRow({ task, onRefresh, onOpen }: { task: TodoTask; onRefresh: () =>
       </button>
       <div className="task-actions">
         <Button
-          kind="ghost"
+          kind={inMyDay ? 'primary' : 'ghost'}
           size="sm"
           hasIconOnly
-          renderIcon={Star}
-          iconDescription="Meu Dia"
+          renderIcon={Sun}
+          iconDescription={inMyDay ? 'Remover do Meu Dia' : 'Adicionar ao Meu Dia'}
           onClick={() => void action(`/tasks/${task.id}/my-day`)}
         />
         <Button
           kind={task.is_important ? 'primary' : 'ghost'}
           size="sm"
           hasIconOnly
-          renderIcon={Star}
-          iconDescription="Importante"
+          renderIcon={task.is_important ? StarFilled : Star}
+          iconDescription={task.is_important ? 'Remover importância' : 'Marcar como importante'}
           onClick={() => void action(`/tasks/${task.id}/important`)}
         />
         <OverflowMenu iconDescription="Ações da tarefa" renderIcon={OverflowMenuVertical} size="sm" flipped>
           <OverflowMenuItem itemText="Detalhes" onClick={() => onOpen(task)} />
-          <OverflowMenuItem itemText="Mover para cima" onClick={() => void moveTask('up')} />
-          <OverflowMenuItem itemText="Mover para baixo" onClick={() => void moveTask('down')} />
+          {canMove && <OverflowMenuItem itemText="Mover para cima" onClick={() => void moveTask('up')} />}
+          {canMove && <OverflowMenuItem itemText="Mover para baixo" onClick={() => void moveTask('down')} />}
           <OverflowMenuItem itemText="Excluir" isDelete hasDivider onClick={() => void action(`/tasks/${task.id}`, 'delete')} />
         </OverflowMenu>
       </div>
@@ -296,6 +303,13 @@ export function TasksPage() {
     await load();
   }
 
+  function exportTasks() {
+    const params = new URLSearchParams({ view, sort });
+    if (listId > 0) params.set('list', String(listId));
+    if (search) params.set('search', search);
+    window.open(`/api/v1/tasks/export?${params.toString()}`, '_blank');
+  }
+
   const tasks = data?.tasks ?? [];
   const activeView = VIEWS.find((item) => item.key === view);
 
@@ -307,6 +321,7 @@ export function TasksPage() {
         description="Organize listas, planeje o dia e acompanhe suas etapas."
         actions={
           <>
+            <Button kind="ghost" renderIcon={Download} onClick={exportTasks}>Exportar</Button>
             <Button kind="tertiary" renderIcon={Add} onClick={() => { setListForm({ name: '', color: 'indigo', icon: 'check-circle' }); setListModal({ open: true, list: null }); }}>
               Nova lista
             </Button>
@@ -381,14 +396,14 @@ export function TasksPage() {
             <EmptyState icon={Checkmark} title="Nenhuma tarefa nesta visão" description="Crie uma tarefa para começar." action={<Button renderIcon={Add} onClick={openCreateTask} disabled={lists.length === 0}>Nova tarefa</Button>} />
           ) : (
             <div className="task-list">
-              {tasks.map((task) => <TaskRow key={task.id} task={task} onRefresh={() => void load()} onOpen={(item) => setDetail(item)} />)}
+              {tasks.map((task) => <TaskRow key={task.id} task={task} today={data?.today ?? ''} canMove={sort === 'manual' && listId > 0} onRefresh={() => void load()} onOpen={(item) => setDetail(item)} />)}
             </div>
           )}
 
           {(data?.completed.length ?? 0) > 0 && view !== 'completed' && (
             <Tile className="module-subcard">
               <h3>Concluídas ({data?.completed.length})</h3>
-              {data?.completed.map((task) => <TaskRow key={task.id} task={task} onRefresh={() => void load()} onOpen={(item) => setDetail(item)} />)}
+              {data?.completed.map((task) => <TaskRow key={task.id} task={task} today={data?.today ?? ''} canMove={false} onRefresh={() => void load()} onOpen={(item) => setDetail(item)} />)}
             </Tile>
           )}
         </div>
@@ -413,6 +428,13 @@ export function TasksPage() {
             <TextInput id="task-due" type="date" labelText="Vencimento" value={taskForm.due_at} onChange={(event) => setTaskForm({ ...taskForm, due_at: event.target.value })} />
             <TextInput id="task-remind" type="datetime-local" labelText="Lembrete" value={taskForm.remind_at} onChange={(event) => setTaskForm({ ...taskForm, remind_at: event.target.value })} />
           </div>
+          <InlineNotification
+            kind="info"
+            lowContrast
+            hideCloseButton
+            title="Lembrete"
+            subtitle="O horário fica salvo na tarefa, mas o envio automático de avisos ainda não está disponível."
+          />
           <Select id="task-repeat" labelText="Repetição" value={taskForm.repeat_type} onChange={(event) => setTaskForm({ ...taskForm, repeat_type: event.target.value })}>
             {REPEATS.map((item) => <SelectItem key={item.value} value={item.value} text={item.label} />)}
           </Select>
