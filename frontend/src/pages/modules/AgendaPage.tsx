@@ -30,7 +30,7 @@ interface Occurrence {
   start: string; end: string; is_all_day: boolean; is_recurring: boolean; status: string; color: string;
   calendar_id: number; calendar_name: string; organizer_name: string | null;
 }
-interface AgendaData { calendars: AgendaCalendar[]; occurrences: Occurrence[]; colors: Record<string, string> }
+interface AgendaData { calendars: AgendaCalendar[]; occurrences: Occurrence[]; colors: Record<string, string>; timezones?: string[] }
 interface EventDetail {
   id: number; calendar_id: number; title: string; description: string | null; location: string | null;
   meeting_url: string | null; start_at: string; end_at: string; is_all_day: boolean; status: string;
@@ -68,6 +68,7 @@ export function AgendaPage() {
   const [calendars, setCalendars] = useState<AgendaCalendar[]>([]);
   const [occurrences, setOccurrences] = useState<Occurrence[]>([]);
   const [colors, setColors] = useState<Record<string, string>>({});
+  const [timezones, setTimezones] = useState<string[]>([]);
   const [date, setDate] = useState(new Date());
   const [view, setView] = useState<'month' | 'week' | 'day' | 'list'>('month');
   const [search, setSearch] = useState('');
@@ -96,6 +97,7 @@ export function AgendaPage() {
       setCalendars(response.data.calendars);
       setOccurrences(response.data.occurrences);
       setColors(response.data.colors);
+      setTimezones(response.data.timezones ?? []);
       if (visible.length === 0) setVisible(response.data.calendars.filter((calendar) => calendar.role !== 'owner' || calendar.is_visible).map((calendar) => calendar.id));
     } catch (error) {
       toast.error('Não foi possível carregar a agenda', errorMessage(error));
@@ -115,6 +117,11 @@ export function AgendaPage() {
   }, [searchParams]);
 
   const days = useMemo(() => monthDays(date), [date]);
+  const timezoneOptions = useMemo(() => {
+    const options = timezones.length > 0 ? timezones : ['UTC'];
+    if (!calendarForm.timezone || options.includes(calendarForm.timezone)) return options;
+    return [calendarForm.timezone, ...options];
+  }, [timezones, calendarForm.timezone]);
   const filtered = occurrences.filter((occurrence) => visible.includes(occurrence.calendar_id));
   const byDay = useMemo(() => {
     const map: Record<string, Occurrence[]> = {};
@@ -455,7 +462,9 @@ export function AgendaPage() {
           <Select id="cal-color" labelText="Cor" value={calendarForm.color} onChange={(event) => setCalendarForm({ ...calendarForm, color: event.target.value })}>
             {Object.keys(colors).map((key) => <SelectItem key={key} value={key} text={key} />)}
           </Select>
-          <TextInput id="cal-timezone" labelText="Fuso horário" value={calendarForm.timezone} onChange={(event) => setCalendarForm({ ...calendarForm, timezone: event.target.value })} />
+          <Select id="cal-timezone" labelText="Fuso horário" value={calendarForm.timezone} onChange={(event) => setCalendarForm({ ...calendarForm, timezone: event.target.value })}>
+            {timezoneOptions.map((zone) => <SelectItem key={zone} value={zone} text={zone} />)}
+          </Select>
           {calendarEditing && calendarEditing.role === 'owner' && (
             <>
               <h4>Compartilhar</h4>
