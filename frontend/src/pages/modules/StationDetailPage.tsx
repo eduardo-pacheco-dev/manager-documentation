@@ -6,7 +6,6 @@ import {
   BreadcrumbItem,
   Button,
   InlineLoading,
-  Modal,
   OverflowMenu,
   OverflowMenuItem,
   Select,
@@ -19,6 +18,7 @@ import {
 import { PageHeader } from '../../components/PageHeader';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { RelatedWork } from '../../components/RelatedWork';
+import { StationFormModal } from '../../components/StationFormModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { api } from '../../lib/api';
@@ -42,21 +42,13 @@ interface Station {
   created_at: string; updated_at: string; attachments: Attachment[]; comments: Comment[];
 }
 
-const UF_OPTIONS = [
-  ['AC', 'Acre'], ['AL', 'Alagoas'], ['AP', 'Amapá'], ['AM', 'Amazonas'], ['BA', 'Bahia'],
-  ['CE', 'Ceará'], ['DF', 'Distrito Federal'], ['ES', 'Espírito Santo'], ['GO', 'Goiás'],
-  ['MA', 'Maranhão'], ['MT', 'Mato Grosso'], ['MS', 'Mato Grosso do Sul'], ['MG', 'Minas Gerais'],
-  ['PA', 'Pará'], ['PB', 'Paraíba'], ['PR', 'Paraná'], ['PE', 'Pernambuco'], ['PI', 'Piauí'],
-  ['RJ', 'Rio de Janeiro'], ['RN', 'Rio Grande do Norte'], ['RS', 'Rio Grande do Sul'],
-  ['RO', 'Rondônia'], ['RR', 'Roraima'], ['SC', 'Santa Catarina'], ['SP', 'São Paulo'],
-  ['SE', 'Sergipe'], ['TO', 'Tocantins'],
-];
+const CATEGORY_LABELS: Record<string, string> = { ppi_tssr: 'PPI/TSSR', attachment: 'Anexos' };
 
 const FIELD_GROUPS = [
   {
     title: 'Identificação',
     fields: [
-      ['site_id', 'ID do site'], ['endereco_id', 'ID do endereço'], ['tipo_de_elemento', 'Tipo de elemento'],
+      ['site_id', 'Site ID'], ['endereco_id', 'End ID'], ['tipo_de_elemento', 'Tipo de elemento'],
       ['tecnologia', 'Tecnologia'], ['tipo_de_conexao', 'Tipo de conexão'], ['classificacao', 'Classificação'],
       ['status', 'Status'],
     ],
@@ -64,25 +56,11 @@ const FIELD_GROUPS = [
   {
     title: 'Infraestrutura',
     fields: [
-      ['station_id', 'ID da estação'], ['detentor_area', 'Detentor da área'], ['tipo_de_infra', 'Tipo de infraestrutura'],
+      ['station_id', 'ID Detentora'], ['detentor_area', 'Detentor da área'], ['tipo_de_infra', 'Tipo de infraestrutura'],
       ['tipo_de_ev', 'Tipo de EV'], ['tipo_da_torre', 'Tipo da torre'], ['regional', 'Regional'],
     ],
   },
-  {
-    title: 'Endereço',
-    fields: [
-      ['cep', 'CEP'], ['tipo_de_logradouro', 'Tipo de logradouro'], ['logradouro', 'Logradouro'],
-      ['numero', 'Número'], ['complemento', 'Complemento'], ['bairro', 'Bairro'],
-      ['municipio', 'Município'], ['estado', 'UF'],
-    ],
-  },
-  {
-    title: 'Localização',
-    fields: [['latitude', 'Latitude'], ['longitude', 'Longitude']],
-  },
 ] as const;
-
-const CATEGORY_LABELS: Record<string, string> = { ppi_tssr: 'PPI/TSSR', attachment: 'Anexos' };
 const CATEGORY_OPTIONS = [
   { value: 'ppi_tssr', label: 'PPI/TSSR' },
   { value: 'attachment', label: 'Anexos' },
@@ -114,13 +92,10 @@ export function StationDetailPage() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const [form, setForm] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [comment, setComment] = useState('');
   const [attachmentCategory, setAttachmentCategory] = useState('attachment');
-  const [cepLoading, setCepLoading] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -140,58 +115,7 @@ export function StationDetailPage() {
 
   function openEdit() {
     if (!station) return;
-    const values: Record<string, string> = {};
-    FIELD_GROUPS.forEach((group) => group.fields.forEach(([field]) => {
-      values[field] = String((station as unknown as Record<string, unknown>)[field] ?? '');
-    }));
-    setForm(values);
     setEditOpen(true);
-  }
-
-  async function lookupCEP() {
-    if (!form.cep) return;
-    const digits = form.cep.replace(/\D/g, '');
-    if (digits.length !== 8) {
-      toast.warning('CEP inválido', 'Informe um CEP com 8 dígitos.');
-      return;
-    }
-    setCepLoading(true);
-    try {
-      const response = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
-      const data = await response.json();
-      if (data.erro) {
-        toast.error('CEP não encontrado', 'Verifique o número informado.');
-        return;
-      }
-      setForm((current) => ({
-        ...current,
-        logradouro: data.logradouro ?? current.logradouro,
-        bairro: data.bairro ?? current.bairro,
-        municipio: data.localidade ?? current.municipio,
-        estado: data.uf ?? current.estado,
-        complemento: current.complemento || data.complemento || '',
-      }));
-      toast.success('Endereço preenchido pelo ViaCEP');
-    } catch {
-      toast.error('Não foi possível consultar o CEP', 'Verifique sua conexão e tente novamente.');
-    } finally {
-      setCepLoading(false);
-    }
-  }
-
-  async function save() {
-    if (!station) return;
-    setSaving(true);
-    try {
-      await api.put(`/stations/${station.id}`, form);
-      toast.success('Estação atualizada com sucesso.');
-      setEditOpen(false);
-      await load();
-    } catch (error) {
-      toast.error('Não foi possível salvar a estação', errorMessage(error));
-    } finally {
-      setSaving(false);
-    }
   }
 
   async function uploadAttachments(files: FileList | null) {
@@ -468,36 +392,12 @@ export function StationDetailPage() {
         </aside>
       </div>
 
-      <Modal open={editOpen} modalHeading="Editar estação" primaryButtonText={saving ? 'Salvando…' : 'Salvar'} secondaryButtonText="Cancelar" primaryButtonDisabled={saving} onRequestSubmit={() => void save()} onRequestClose={() => setEditOpen(false)} size="lg">
-        <div className="modal-form">
-          {FIELD_GROUPS.map((group) => (
-            <div key={group.title} className="nokia-date-stage">
-              <p className="field-label">{group.title}</p>
-              <div className="form-grid">
-                {group.fields.map(([field, label]) => {
-                  if (field === 'estado') {
-                    return (
-                      <Select key={field} id={`station-edit-${field}`} labelText={label} value={form[field] ?? ''} onChange={(event) => setForm({ ...form, [field]: event.target.value })}>
-                        <SelectItem value="" text="Selecione" />
-                        {UF_OPTIONS.map(([uf, name]) => <SelectItem key={uf} value={uf} text={`${uf} — ${name}`} />)}
-                      </Select>
-                    );
-                  }
-                  if (field === 'cep') {
-                    return (
-                      <div key={field} className="station-cep-field">
-                        <TextInput id={`station-edit-${field}`} labelText={label} value={form[field] ?? ''} onChange={(event) => setForm({ ...form, [field]: event.target.value })} />
-                        <Button kind="tertiary" size="sm" onClick={() => void lookupCEP()} disabled={cepLoading}>{cepLoading ? 'Buscando…' : 'Buscar CEP'}</Button>
-                      </div>
-                    );
-                  }
-                  return <TextInput key={field} id={`station-edit-${field}`} labelText={label} value={form[field] ?? ''} onChange={(event) => setForm({ ...form, [field]: event.target.value })} required={field === 'site_id'} />;
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      </Modal>
+      <StationFormModal
+        open={editOpen}
+        station={station}
+        onClose={() => setEditOpen(false)}
+        onSaved={() => { setEditOpen(false); void load(); }}
+      />
 
       <ConfirmModal
         open={deleteOpen}
