@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Add, ArrowDown, ArrowUp, Edit, OverflowMenuVertical, Settings, TrashCan, Warning } from '@carbon/icons-react';
+import { Add, ArrowDown, ArrowUp, Edit, Grid, OverflowMenuVertical, Settings, Table as TableIcon, TrashCan, Warning } from '@carbon/icons-react';
 import {
   Button,
   Checkbox,
@@ -9,6 +9,7 @@ import {
   Modal,
   OverflowMenu,
   OverflowMenuItem,
+  Pagination,
   Search,
   Select,
   SelectItem,
@@ -47,8 +48,14 @@ interface Site {
   fam_entrega_approved_at: string | null; fam_instalacao_approved_at: string | null; fam_panoramica_approved_at: string | null;
   nokia_rom_id: number | null; rom_name: string | null; tasks: Task[]; attachments: Attachment[]; comments: Comment[]; rejections: Rejection[];
   created_at: string; updated_at: string;
+  status: string; status_label: string;
 }
-interface Data { data: Site[]; stats: { total: number; completed: number; pending: number }; tasks_total: number; meta: { total: number } }
+interface Data {
+  data: Site[]; stats: { total: number; completed: number; pending: number }; tasks_total: number;
+  classificacoes: { value: string; label: string }[];
+  meta: { current_page: number; last_page: number; per_page: number; total: number };
+}
+type ViewMode = 'table' | 'cards';
 
 const CHECKLISTS = [
   { field: 'checklist_fam_entrega', label: 'FAM Entrega', status: 'checklist_fam_entrega_status' },
@@ -57,6 +64,15 @@ const CHECKLISTS = [
 ];
 const STATUS_LABEL: Record<string, string> = { pending: 'Pendente', analysis: 'Análise TIM', rejected: 'Rejeitado', sent: 'Aprovado' };
 const statusTag = (value: string) => value === 'sent' ? 'green' : value === 'rejected' ? 'red' : value === 'analysis' ? 'magenta' : 'gray';
+const siteStatusTag = (value: string): 'green' | 'red' | 'magenta' | 'blue' | 'gray' => {
+  switch (value) {
+    case 'accepted': return 'green';
+    case 'rejected': return 'red';
+    case 'analysis': return 'magenta';
+    case 'first_send': return 'blue';
+    default: return 'gray';
+  }
+};
 const DATE_FIELDS = [
   ['mos_plan_at', 'MOS Plan'], ['mos_real_at', 'MOS Real'], ['instalacao_plan_at', 'Instalação Plan'],
   ['instalacao_real_at', 'Instalação Real'], ['integracao_plan_at', 'Integração Plan'], ['integracao_real_at', 'Integração Real'],
@@ -103,6 +119,10 @@ export function NokiaPage() {
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [classificacao, setClassificacao] = useState('');
+  const [view, setView] = useState<ViewMode>('table');
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(15);
   const [roms, setRoms] = useState<ROM[]>([]);
   const [stationSites, setStationSites] = useState<StationSiteOption[]>([]);
   const [modal, setModal] = useState(false);
@@ -127,14 +147,21 @@ export function NokiaPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await api.get<Data>(`/nokia/sites?search=${encodeURIComponent(search)}`);
+      const params = new URLSearchParams({ page: String(page), per_page: String(perPage) });
+      if (search) params.set('search', search);
+      if (classificacao) params.set('classificacao', classificacao);
+      const response = await api.get<Data>(`/nokia/sites?${params.toString()}`);
+      if (response.meta && page > response.meta.last_page) {
+        setPage(response.meta.last_page);
+        return;
+      }
       setData(response);
     } catch (error) {
       toast.error('Não foi possível carregar os sites', errorMessage(error));
     } finally {
       setLoading(false);
     }
-  }, [search, toast]);
+  }, [search, classificacao, page, perPage, toast]);
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => {
@@ -146,6 +173,17 @@ export function NokiaPage() {
     setEditing(null);
     setForm({ ...EMPTY_FORM });
     setModal(true);
+  }
+
+  async function deleteSite(site: Site) {
+    if (!window.confirm(`Excluir o site ${site.site_id}?`)) return;
+    try {
+      await api.delete(`/nokia/sites/${site.id}`);
+      toast.success('Site excluído.');
+      await load();
+    } catch (error) {
+      toast.error('Não foi possível excluir o site', errorMessage(error));
+    }
   }
 
   function openEdit(site: Site) {
@@ -359,17 +397,25 @@ export function NokiaPage() {
 
       <Tile className="module-main__header">
         <div className="module-toolbar">
-          <Search size="lg" labelText="Buscar sites" placeholder="Buscar por Site ID, End ID, OC, OS..." value={search} onChange={(event) => setSearch(event.target.value)} onClear={() => setSearch('')} />
+          <Search size="lg" labelText="Buscar sites" placeholder="Buscar por Site ID, End ID, OC, OS..." value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} onClear={() => { setSearch(''); setPage(1); }} />
+          <Select id="nokia-classificacao" labelText="Classificação" size="sm" value={classificacao} onChange={(event) => { setClassificacao(event.target.value); setPage(1); }}>
+            <SelectItem value="" text="Todas" />
+            {(data?.classificacoes ?? []).map((item) => <SelectItem key={item.value} value={item.value} text={item.label} />)}
+          </Select>
+          <div className="toolbar__views" role="group" aria-label="Modo de visualização">
+            <Button kind={view === 'table' ? 'primary' : 'ghost'} size="sm" hasIconOnly renderIcon={TableIcon} iconDescription="Tabela" onClick={() => setView('table')} />
+            <Button kind={view === 'cards' ? 'primary' : 'ghost'} size="sm" hasIconOnly renderIcon={Grid} iconDescription="Cards" onClick={() => setView('cards')} />
+          </div>
         </div>
       </Tile>
 
       {loading ? <InlineLoading description="Carregando sites…" /> : items.length === 0 ? (
         <EmptyState icon={Add} title="Nenhum site cadastrado" description="Cadastre o primeiro site Nokia." action={<Button renderIcon={Add} onClick={openCreate}>Novo site</Button>} />
-      ) : (
+      ) : view === 'table' ? (
         <div className="table-wrapper">
           <div className="table-scroll">
-            <table className="data-table">
-              <thead><tr><th>Site</th><th>OC</th><th className="hide-sm">ROM</th><th className="hide-sm">Regional</th><th>FAM Instalação</th><th>Progresso</th><th>Ações</th></tr></thead>
+            <table className="data-table" aria-label="Lista de sites Nokia">
+              <thead><tr><th>Site</th><th>OC</th><th className="hide-sm">ROM</th><th className="hide-sm">Regional</th><th>Classificação</th><th>FAM Instalação</th><th>Progresso</th><th className="cell-actions">Ações</th></tr></thead>
               <tbody>
                 {items.map((site) => {
                   const done = CHECKLISTS.filter((item) => (site as unknown as Record<string, string>)[item.status] === 'sent').length + site.tasks.filter((task) => task.completed_at).length;
@@ -380,11 +426,12 @@ export function NokiaPage() {
                       <td>{site.oc ?? '—'}</td>
                       <td className="hide-sm">{site.rom_name ?? 'Sem ROM'}</td>
                       <td className="hide-sm">{site.regional ?? '—'}</td>
+                      <td>{site.status_label ? <Tag type={siteStatusTag(site.status)} size="sm">{site.status_label}</Tag> : '—'}</td>
                       <td><Tag type={statusTag(site.checklist_fam_instalacao_status)} size="sm">{STATUS_LABEL[site.checklist_fam_instalacao_status]}</Tag></td>
                       <td>{done}/{total}</td>
                       <td className="cell-actions">
                         <Button kind="ghost" size="sm" hasIconOnly renderIcon={Edit} iconDescription="Editar" onClick={() => openEdit(site)} />
-                        <Button kind="danger--ghost" size="sm" hasIconOnly renderIcon={TrashCan} iconDescription="Excluir" onClick={async () => { if (!window.confirm(`Excluir o site ${site.site_id}?`)) return; await api.delete(`/nokia/sites/${site.id}`); toast.success('Site excluído.'); await load(); }} />
+                        <Button kind="danger--ghost" size="sm" hasIconOnly renderIcon={TrashCan} iconDescription="Excluir" onClick={() => void deleteSite(site)} />
                       </td>
                     </tr>
                   );
@@ -393,6 +440,57 @@ export function NokiaPage() {
             </table>
           </div>
         </div>
+      ) : (
+        <div className="user-cards">
+          {items.map((site) => {
+            const done = CHECKLISTS.filter((item) => (site as unknown as Record<string, string>)[item.status] === 'sent').length + site.tasks.filter((task) => task.completed_at).length;
+            const total = 3 + site.tasks.length;
+            return (
+              <article key={site.id} className="user-card">
+                <div className="user-card__main">
+                  <div className="user-card__text">
+                    <button type="button" className="link-button" onClick={() => navigate(`/nokia/${site.id}`)}>{site.site_id}</button>
+                    <span>{site.end_id ?? 'Sem End ID'}</span>
+                    <div className="tag-row">
+                      {site.status_label && <Tag type={siteStatusTag(site.status)} size="sm">{site.status_label}</Tag>}
+                      <Tag type={statusTag(site.checklist_fam_instalacao_status)} size="sm">FAM Instalação: {STATUS_LABEL[site.checklist_fam_instalacao_status]}</Tag>
+                    </div>
+                  </div>
+                </div>
+                <p className="user-card__meta">
+                  {[site.rom_name ?? 'Sem ROM', site.regional ?? 'Sem regional', `Progresso ${done}/${total}`].join(' · ')}
+                </p>
+                <div className="user-card__actions">
+                  <Button kind="ghost" size="sm" renderIcon={Edit} onClick={() => openEdit(site)}>Editar</Button>
+                  <Button kind="danger--ghost" size="sm" renderIcon={TrashCan} onClick={() => void deleteSite(site)}>Excluir</Button>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+
+      {data && data.meta.total > 0 && (
+        <Pagination
+          page={page}
+          pageSize={perPage}
+          pageSizes={[10, 15, 25, 50]}
+          totalItems={data.meta.total}
+          onChange={({ page: nextPage, pageSize: nextPerPage }) => {
+            setPage(nextPage);
+            if (nextPerPage !== perPage) {
+              setPerPage(nextPerPage);
+              setPage(1);
+            }
+          }}
+          itemRangeText={(min, max, total) => `${min}–${max} de ${total} sites`}
+          itemsPerPageText="Itens por página"
+          pageRangeText={(_current, total) => `de ${total} página(s)`}
+          pageSelectLabelText={(total) => `Página de ${total}`}
+          pageText={(current) => `Página ${current}`}
+          backwardText="Página anterior"
+          forwardText="Próxima página"
+        />
       )}
 
       <Modal open={modal} modalHeading={editing ? 'Editar site' : 'Novo site'} primaryButtonText={saving ? 'Salvando…' : 'Salvar'} secondaryButtonText="Cancelar" primaryButtonDisabled={saving} onRequestSubmit={() => void save()} onRequestClose={() => setModal(false)} size="md">

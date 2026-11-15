@@ -44,8 +44,15 @@ func (p nokiaSitePayload) input() modules.NokiaSiteInput {
 func (s *Server) nokiaIndex(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	page := parsePositiveInt(query.Get("page"), 1)
+	perPage := parsePositiveInt(query.Get("per_page"), 15)
+	if perPage < 5 {
+		perPage = 5
+	}
+	if perPage > 100 {
+		perPage = 100
+	}
 	items, total, stats, tasksTotal, err := s.Modules.ListNokiaSites(modules.NokiaSiteFilter{
-		Search: query.Get("search"), Page: page, PerPage: 15,
+		Search: query.Get("search"), Classificacao: query.Get("classificacao"), Page: page, PerPage: perPage,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Não foi possível carregar os sites.", nil)
@@ -53,7 +60,8 @@ func (s *Server) nokiaIndex(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"data": items, "stats": stats, "tasks_total": tasksTotal,
-		"meta": paginationMeta(page, 15, total),
+		"classificacoes": modules.NokiaSiteStatusOptions(),
+		"meta":           paginationMeta(page, perPage, total),
 	})
 }
 

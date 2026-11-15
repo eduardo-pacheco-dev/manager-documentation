@@ -106,6 +106,8 @@ type NokiaSite struct {
 	FamInstalacaoApprovedAt      *string               `db:"fam_instalacao_approved_at" json:"fam_instalacao_approved_at"`
 	FamPanoramicaApprovedAt      *string               `db:"fam_panoramica_approved_at" json:"fam_panoramica_approved_at"`
 	NokiaROMID                   *int64                `db:"nokia_rom_id" json:"nokia_rom_id"`
+	Status                       string                `db:"-" json:"status"`
+	StatusLabel                  string                `db:"-" json:"status_label"`
 	CreatedAt                    time.Time             `db:"created_at" json:"created_at"`
 	UpdatedAt                    time.Time             `db:"updated_at" json:"updated_at"`
 	ROMName                      *string               `db:"rom_name" json:"rom_name"`
@@ -158,9 +160,10 @@ func (n NokiaSite) checklistStatus(field string) string {
 }
 
 type NokiaSiteFilter struct {
-	Search  string
-	Page    int
-	PerPage int
+	Search        string
+	Classificacao string
+	Page          int
+	PerPage       int
 }
 
 type NokiaStats struct {
@@ -170,13 +173,18 @@ type NokiaStats struct {
 }
 
 func (s *Store) ListNokiaSites(filter NokiaSiteFilter) ([]NokiaSite, int, NokiaStats, int, error) {
-	where := "1 = 1"
+	conditions := []string{"1 = 1"}
 	args := []any{}
 	if search := strings.TrimSpace(filter.Search); search != "" {
 		like := "%" + search + "%"
-		where = `(s.site_id LIKE ? OR COALESCE(s.end_id, '') LIKE ? OR COALESCE(s.oc, '') LIKE ? OR COALESCE(s.os_fam_entrega, '') LIKE ? OR COALESCE(s.os_fam_instalacao, '') LIKE ?)`
+		conditions = append(conditions, `(s.site_id LIKE ? OR COALESCE(s.end_id, '') LIKE ? OR COALESCE(s.oc, '') LIKE ? OR COALESCE(s.os_fam_entrega, '') LIKE ? OR COALESCE(s.os_fam_instalacao, '') LIKE ?)`)
 		args = append(args, like, like, like, like, like)
 	}
+	if filter.Classificacao != "" {
+		conditions = append(conditions, nokiaStatusExpression+" = ?")
+		args = append(args, filter.Classificacao)
+	}
+	where := strings.Join(conditions, " AND ")
 	if filter.Page < 1 {
 		filter.Page = 1
 	}
@@ -194,17 +202,28 @@ func (s *Store) ListNokiaSites(filter NokiaSiteFilter) ([]NokiaSite, int, NokiaS
 	if err := s.DB.Select(&sites, query, append(args, filter.PerPage, (filter.Page-1)*filter.PerPage)...); err != nil {
 		return nil, 0, NokiaStats{}, 0, err
 	}
+	for i := range sites {
+		sites[i].Status = nokiaSiteStatus(sites[i])
+		sites[i].StatusLabel = nokiaStatusLabel(sites[i].Status)
+	}
 	var tasksTotal int
 	_ = s.DB.Get(&tasksTotal, `SELECT COUNT(*) FROM nokia_tasks`)
 	_ = s.attachNokiaTasks(sites)
 	var stats NokiaStats
 	stats.Total = total
-	for _, site := range sites {
-		done, all := site.ChecklistProgress()
-		if all > 0 && done == all {
-			stats.Completed++
-		}
-	}
+	var completed int
+	_ = s.DB.Get(&completed, `SELECT COUNT(*) FROM nokia_sites s WHERE `+where+`
+		AND s.checklist_fam_entrega_status = 'sent'
+		AND s.checklist_fam_instalacao_status = 'sent'
+		AND s.checklist_fam_panoramica_status = 'sent'
+		AND NOT EXISTS (
+			SELECT 1 FROM nokia_tasks t
+			WHERE NOT EXISTS (
+				SELECT 1 FROM nokia_site_task p
+				WHERE p.nokia_task_id = t.id AND p.nokia_site_id = s.id AND p.completed_at IS NOT NULL
+			)
+		)`, args...)
+	stats.Completed = completed
 	stats.Pending = stats.Total - stats.Completed
 	return sites, total, stats, tasksTotal, nil
 }
@@ -649,6 +668,22 @@ var nokiaStatusDefinitions = []struct {
 	{"first_send", "Primeiro Envio", "#f97316"},
 	{"rejected", "Rejeitado", "#ef4444"},
 	{"no_os", "Sem OS MOS", "#6b7280"},
+}
+
+const nokiaStatusExpression = `CASE
+	WHEN s.fam_instalacao_approved_at IS NOT NULL THEN 'accepted'
+	WHEN s.checklist_fam_instalacao_status = 'rejected' THEN 'rejected'
+	WHEN s.checklist_fam_instalacao_status = 'analysis' THEN 'analysis'
+	WHEN s.os_fam_entrega IS NULL OR s.os_fam_entrega = '' THEN 'no_os'
+	ELSE 'first_send'
+END`
+
+func NokiaSiteStatusOptions() []map[string]string {
+	options := make([]map[string]string, 0, len(nokiaStatusDefinitions))
+	for _, definition := range nokiaStatusDefinitions {
+		options = append(options, map[string]string{"value": definition.Key, "label": definition.Label})
+	}
+	return options
 }
 
 func nokiaSiteStatus(site NokiaSite) string {
