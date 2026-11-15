@@ -103,6 +103,57 @@ p {
   gap: 1rem;
 }
 
+.form-error {
+  margin: -0.25rem 0 0;
+  color: var(--cds-text-error);
+  font-size: 0.75rem;
+}
+
+.preserve-lines {
+  white-space: pre-line;
+}
+
+.nokia-detail-layout.radio-link-detail-layout {
+  grid-template-columns: minmax(0, 1fr) 24rem;
+}
+
+.radio-link-endpoint .station-address-block,
+.radio-link-endpoint .station-field-groups {
+  grid-template-columns: 1fr;
+}
+
+.radio-link-map {
+  height: 380px;
+  border: 1px solid var(--cds-border-subtle-01);
+}
+
+.radio-link-map__leaflet {
+  height: 100%;
+  width: 100%;
+  background: var(--cds-layer-accent-01);
+  font-family: inherit;
+}
+
+.radio-link-map__pill {
+  border: 0;
+  background: transparent;
+}
+
+.radio-link-map__pill span {
+  display: inline-block;
+  transform: translate(-50%, -50%);
+  padding: 0.2rem 0.65rem;
+  border: 1px solid var(--cds-border-strong-01);
+  border-radius: 999px;
+  background: var(--cds-layer-01);
+  color: var(--cds-text-primary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.3);
+}
+
 .backup-schedule {
   display: flex;
   flex-direction: column;
@@ -3373,7 +3424,8 @@ p {
 }
 
 @media (max-width: 1055px) {
-  .nokia-detail-layout {
+  .nokia-detail-layout,
+  .radio-link-detail-layout {
     grid-template-columns: 1fr;
   }
 

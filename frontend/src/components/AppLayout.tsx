@@ -58,6 +58,7 @@ function iconFor(key: string) {
       return List;
     case 'stations':
     case 'nokia':
+    case 'radio-links':
       return SignalStrength;
     case 'links':
       return Link;

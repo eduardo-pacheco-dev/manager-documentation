@@ -24,6 +24,8 @@ import { DemandsPage } from './pages/modules/DemandsPage';
 import { DemandDetailPage } from './pages/modules/DemandDetailPage';
 import { ProjectsPage } from './pages/modules/ProjectsPage';
 import { CollaboratorsPage } from './pages/modules/CollaboratorsPage';
+import { RadioLinksPage } from './pages/modules/RadioLinksPage';
+import { RadioLinkDetailPage } from './pages/modules/RadioLinkDetailPage';
 import { NotFoundPage, ForbiddenPage } from './pages/StatusPages';
 
 function Splash() {
@@ -84,6 +86,8 @@ export default function App() {
         <Route path="/demands/:id" element={<DemandDetailPage />} />
         <Route path="/projects" element={<ProjectsPage />} />
         <Route path="/collaborators" element={<CollaboratorsPage />} />
+        <Route path="/radio-links" element={<RadioLinksPage />} />
+        <Route path="/radio-links/:id" element={<RadioLinkDetailPage />} />
         <Route element={<AdminRoute />}>
           <Route path="/users" element={<UsersPage />} />
           <Route path="/dev-docs" element={<DevDocsPage />} />

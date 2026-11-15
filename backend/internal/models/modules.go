@@ -84,6 +84,14 @@ var CoreModules = []Module{
 		DefaultSection: SectionModules,
 	},
 	{
+		Key:            "radio-links",
+		Label:          "Rádio Links",
+		Icon:           "signal",
+		Path:           "/radio-links",
+		Toggleable:     true,
+		DefaultSection: SectionModules,
+	},
+	{
 		Key:            "nokia",
 		Label:          "Projetos Nokia",
 		Icon:           "signal",

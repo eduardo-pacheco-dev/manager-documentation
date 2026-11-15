@@ -1043,6 +1043,60 @@ var migrations = [][]string{
 		`ALTER TABLE project_tasks ADD CONSTRAINT fk_project_tasks_stage
 			FOREIGN KEY (pipeline_stage_id) REFERENCES project_pipeline_stages(id) ON DELETE SET NULL`,
 	},
+	{
+		`CREATE TABLE radio_links (
+			id BIGINT NOT NULL AUTO_INCREMENT,
+			name VARCHAR(255) NOT NULL,
+			code VARCHAR(64) NULL,
+			station_a_id BIGINT NOT NULL,
+			station_b_id BIGINT NOT NULL,
+			status VARCHAR(32) NOT NULL DEFAULT 'planejado',
+			technology VARCHAR(64) NULL,
+			frequency_mhz DECIMAL(10,3) NULL,
+			capacity_mbps DECIMAL(10,2) NULL,
+			distance_km DECIMAL(10,2) NULL,
+			notes TEXT NULL,
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL,
+			PRIMARY KEY (id),
+			UNIQUE KEY uq_radio_links_code (code),
+			KEY idx_radio_links_station_a (station_a_id),
+			KEY idx_radio_links_station_b (station_b_id),
+			KEY idx_radio_links_status (status),
+			CONSTRAINT fk_radio_links_station_a FOREIGN KEY (station_a_id) REFERENCES stations(id) ON DELETE CASCADE,
+			CONSTRAINT fk_radio_links_station_b FOREIGN KEY (station_b_id) REFERENCES stations(id) ON DELETE CASCADE
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+	},
+	{
+		`CREATE TABLE radio_link_attachments (
+			id BIGINT NOT NULL AUTO_INCREMENT,
+			radio_link_id BIGINT NOT NULL,
+			uploaded_by BIGINT NULL,
+			original_name VARCHAR(255) NOT NULL,
+			path VARCHAR(1024) NOT NULL,
+			disk VARCHAR(32) NOT NULL DEFAULT 'local',
+			mime_type VARCHAR(255) NULL,
+			size BIGINT NOT NULL DEFAULT 0,
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL,
+			PRIMARY KEY (id),
+			KEY idx_radio_link_attachments_link (radio_link_id),
+			CONSTRAINT fk_radio_link_attachments_link FOREIGN KEY (radio_link_id) REFERENCES radio_links(id) ON DELETE CASCADE,
+			CONSTRAINT fk_radio_link_attachments_user FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE SET NULL
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+		`CREATE TABLE radio_link_comments (
+			id BIGINT NOT NULL AUTO_INCREMENT,
+			radio_link_id BIGINT NOT NULL,
+			user_id BIGINT NULL,
+			body TEXT NOT NULL,
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL,
+			PRIMARY KEY (id),
+			KEY idx_radio_link_comments_link (radio_link_id),
+			CONSTRAINT fk_radio_link_comments_link FOREIGN KEY (radio_link_id) REFERENCES radio_links(id) ON DELETE CASCADE,
+			CONSTRAINT fk_radio_link_comments_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+	},
 }
 
 // CleanupSessions removes expired sessions and tokens. It is safe to call at

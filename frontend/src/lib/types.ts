@@ -186,3 +186,54 @@ export interface SettingsResponse {
   is_admin: boolean;
   storage?: StorageSettings;
 }
+
+export interface RadioLink {
+  id: number;
+  name: string;
+  code: string | null;
+  station_a_id: number;
+  station_b_id: number;
+  status: string;
+  technology: string | null;
+  frequency_mhz: number | null;
+  capacity_mbps: number | null;
+  distance_km: number | null;
+  notes: string | null;
+  station_a_site_id: string | null;
+  station_a_station_id: string | null;
+  station_a_municipio: string | null;
+  station_a_estado: string | null;
+  station_a_tipo_de_elemento: string | null;
+  station_b_site_id: string | null;
+  station_b_station_id: string | null;
+  station_b_municipio: string | null;
+  station_b_estado: string | null;
+  station_b_tipo_de_elemento: string | null;
+  created_at: string;
+  updated_at: string;
+  attachments: RadioLinkAttachment[];
+  comments: RadioLinkComment[];
+}
+
+export interface RadioLinkAttachment {
+  id: number;
+  uploaded_by: number | null;
+  original_name: string;
+  path: string;
+  disk: string;
+  mime_type: string | null;
+  size: number;
+  created_at: string;
+  updated_at: string;
+  uploader_name: string | null;
+  url: string;
+}
+
+export interface RadioLinkComment {
+  id: number;
+  user_id: number | null;
+  body: string;
+  created_at: string;
+  updated_at: string;
+  author_name: string | null;
+}

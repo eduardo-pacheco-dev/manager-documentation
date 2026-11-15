@@ -193,6 +193,20 @@ func (s *Server) Router() http.Handler {
 				stations.Delete("/{id}/comments/{commentId}", s.stationsDeleteComment)
 			})
 
+			auth.Route("/radio-links", func(radio chi.Router) {
+				radio.Get("/", s.radioLinksIndex)
+				radio.Post("/", s.radioLinksCreate)
+				radio.Get("/stations", s.radioLinkStations)
+				radio.Get("/{id}", s.radioLinksShow)
+				radio.Put("/{id}", s.radioLinksUpdate)
+				radio.Delete("/{id}", s.radioLinksDelete)
+				radio.Post("/{id}/attachments", s.radioLinksUploadAttachment)
+				radio.Get("/{id}/attachments/{attachmentId}", s.radioLinksDownloadAttachment)
+				radio.Delete("/{id}/attachments/{attachmentId}", s.radioLinksDeleteAttachment)
+				radio.Post("/{id}/comments", s.radioLinksCreateComment)
+				radio.Delete("/{id}/comments/{commentId}", s.radioLinksDeleteComment)
+			})
+
 			auth.Route("/links", func(links chi.Router) {
 				links.Get("/", s.linksIndex)
 				links.Post("/", s.linksCreate)
