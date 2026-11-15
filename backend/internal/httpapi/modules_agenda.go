@@ -50,7 +50,7 @@ func (s *Server) agendaIndex(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"data": map[string]any{
 			"calendars": calendars, "occurrences": occurrences, "from": from, "to": to,
-			"colors": modules.AgendaColors,
+			"colors": modules.AgendaColors, "timezones": timezones(),
 		},
 	})
 }
