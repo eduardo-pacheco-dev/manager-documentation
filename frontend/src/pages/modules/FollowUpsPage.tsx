@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Add, Download, Edit, Send, Settings, TrashCan, Upload } from '@carbon/icons-react';
+import { Add, OverflowMenuVertical, Send, TrashCan } from '@carbon/icons-react';
 import {
   Button,
   InlineLoading,
   Modal,
+  OverflowMenu,
+  OverflowMenuItem,
+  Pagination,
   Search,
   Select,
   SelectItem,
@@ -48,6 +51,9 @@ export function FollowUpsPage() {
   const [priority, setPriority] = useState('');
   const [assigned, setAssigned] = useState('');
   const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState<number | null>(null);
+  const [sort, setSort] = useState('due_date');
+  const [direction, setDirection] = useState<'asc' | 'desc'>('asc');
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<FollowUp | null>(null);
   const [detail, setDetail] = useState<FollowUp | null>(null);
@@ -65,13 +71,18 @@ export function FollowUpsPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const params = new URLSearchParams({ page: String(page) });
+    const params = new URLSearchParams({ page: String(page), sort, direction });
+    if (perPage) params.set('per_page', String(perPage));
     if (search) params.set('search', search);
     if (status) params.set('status', status);
     if (priority) params.set('priority', priority);
     if (assigned) params.set('assigned', assigned);
     try {
       const response = await api.get<Data>(`/follow-ups?${params.toString()}`);
+      if (response.meta && page > response.meta.last_page) {
+        setPage(response.meta.last_page);
+        return;
+      }
       setData(response);
       if (response.settings) setSettingsForm(response.settings);
     } catch (error) {
@@ -79,7 +90,31 @@ export function FollowUpsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, status, priority, assigned, toast]);
+  }, [page, perPage, sort, direction, search, status, priority, assigned, toast]);
+
+  function toggleSort(field: string) {
+    if (sort === field) {
+      setDirection(direction === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSort(field);
+      setDirection('asc');
+    }
+    setPage(1);
+  }
+
+  function sortProps(field: string) {
+    return {
+      'aria-sort': (sort === field ? (direction === 'asc' ? 'ascending' : 'descending') : 'none') as 'ascending' | 'descending' | 'none',
+    };
+  }
+
+  function sortLabel(field: string, label: string) {
+    return (
+      <button type="button" className="sort-button" onClick={() => toggleSort(field)}>
+        {label} {sort === field && <span aria-hidden>{direction === 'asc' ? '↑' : '↓'}</span>}
+      </button>
+    );
+  }
 
   useEffect(() => { void load(); }, [load]);
 
@@ -149,6 +184,25 @@ export function FollowUpsPage() {
     }
   }
 
+  function importFollowUps() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.csv';
+    input.onchange = async () => {
+      if (!input.files?.[0]) return;
+      const formData = new FormData();
+      formData.append('file', input.files[0]);
+      try {
+        const response = await api.upload<{ message: string }>('/follow-ups/import', formData);
+        toast.success(response.message);
+        await load();
+      } catch (error) {
+        toast.error('Falha na importação', errorMessage(error));
+      }
+    };
+    input.click();
+  }
+
   async function saveSettings() {
     if (!settingsForm) return;
     setSaving(true);
@@ -177,10 +231,24 @@ export function FollowUpsPage() {
         description="Acompanhe pendências, prazos, responsáveis e histórico."
         actions={
           <>
-            <Button kind="ghost" renderIcon={Download} onClick={() => window.open('/api/v1/follow-ups/export', '_blank')}>Exportar</Button>
-            <Button kind="ghost" renderIcon={Upload} onClick={() => { const input = document.createElement('input'); input.type = 'file'; input.accept = '.csv'; input.onchange = async () => { if (!input.files?.[0]) return; const formData = new FormData(); formData.append('file', input.files[0]); try { const response = await api.upload<{ message: string }>('/follow-ups/import', formData); toast.success(response.message); await load(); } catch (error) { toast.error('Falha na importação', errorMessage(error)); } }; input.click(); }}>Importar</Button>
-            {user?.is_admin && <Button kind="ghost" renderIcon={Settings} onClick={() => { setSettingsForm(data?.settings ?? null); setSettingsOpen(true); }}>Configurações</Button>}
             <Button renderIcon={Add} onClick={openCreate}>Novo follow-up</Button>
+            <OverflowMenu
+              aria-label="Ações de importação, exportação e configuração"
+              iconDescription="Mais ações"
+              renderIcon={OverflowMenuVertical}
+              size="md"
+              flipped
+            >
+              <OverflowMenuItem itemText="Exportar" onClick={() => window.open('/api/v1/follow-ups/export', '_blank')} />
+              <OverflowMenuItem itemText="Importar" onClick={importFollowUps} />
+              {user?.is_admin && (
+                <OverflowMenuItem
+                  itemText="Configurações"
+                  hasDivider
+                  onClick={() => { setSettingsForm(data?.settings ?? null); setSettingsOpen(true); }}
+                />
+              )}
+            </OverflowMenu>
           </>
         }
       />
@@ -196,7 +264,7 @@ export function FollowUpsPage() {
 
       <Tile className="module-main__header">
         <div className="module-toolbar">
-          <Search size="lg" labelText="Buscar follow-ups" placeholder="Buscar por título, código, cliente..." value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} onClear={() => setSearch('')} />
+          <Search size="lg" labelText="Buscar follow-ups" placeholder="Buscar por título, código, cliente..." value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} onClear={() => { setSearch(''); setPage(1); }} />
           <Select id="fu-status" labelText="Status" size="sm" value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}>
             <SelectItem value="" text="Todos" />
             {Object.entries(STATUS).map(([value, label]) => <SelectItem key={value} value={value} text={label} />)}
@@ -219,35 +287,60 @@ export function FollowUpsPage() {
         <div className="table-wrapper">
           <div className="table-scroll">
             <table className="data-table">
-              <thead><tr><th>Follow-up</th><th>Código</th><th>Status</th><th>Prioridade</th><th className="hide-sm">Responsável</th><th>Prazo</th><th>Ações</th></tr></thead>
+              <thead>
+                <tr>
+                  <th {...sortProps('title')}>{sortLabel('title', 'Follow-up')}</th>
+                  <th {...sortProps('status')}>{sortLabel('status', 'Status')}</th>
+                  <th {...sortProps('priority')}>{sortLabel('priority', 'Prioridade')}</th>
+                  <th {...sortProps('assignee')} className="hide-sm">{sortLabel('assignee', 'Responsável')}</th>
+                  <th {...sortProps('due_date')}>{sortLabel('due_date', 'Prazo')}</th>
+                  <th className="cell-actions">Ações</th>
+                </tr>
+              </thead>
               <tbody>
                 {items.map((item) => (
                   <tr key={item.id}>
                     <td><button type="button" className="link-button" onClick={() => void openDetail(item)}>{item.title}</button>{item.client_name && <span className="cell-secondary">{item.client_name}{item.project_name ? ` · ${item.project_name}` : ''}</span>}</td>
-                    <td>{item.code ?? '—'}</td>
                     <td><Tag type={statusType(item.status)} size="sm">{STATUS[item.status]}</Tag></td>
-                    <td><Tag type={item.priority === 'urgente' ? 'red' : item.priority === 'alta' ? 'magenta' : 'gray'} size="sm">{PRIORITY[item.priority]}</Tag>{item.overdue && <Tag type="red" size="sm">Atrasado</Tag>}</td>
+                    <td><span className="tag-row"><Tag type={item.priority === 'urgente' ? 'red' : item.priority === 'alta' ? 'magenta' : 'gray'} size="sm">{PRIORITY[item.priority]}</Tag>{item.overdue && <Tag type="red" size="sm">Atrasado</Tag>}</span></td>
                     <td className="hide-sm">{item.assignee_name ?? 'Não atribuído'}</td>
                     <td className={item.overdue ? 'text-danger' : ''}>{item.due_date ?? '—'}</td>
                     <td className="cell-actions">
-                      <Button kind="ghost" size="sm" hasIconOnly renderIcon={Edit} iconDescription="Editar" onClick={() => openEdit(item)} />
-                      <Button kind="danger--ghost" size="sm" hasIconOnly renderIcon={TrashCan} iconDescription="Excluir" onClick={async () => { if (!window.confirm(`Excluir “${item.title}”?`)) return; await api.delete(`/follow-ups/${item.id}`); toast.success('Follow-up excluído.'); await load(); }} />
+                      <OverflowMenu iconDescription="Ações do follow-up" renderIcon={OverflowMenuVertical} size="sm" flipped>
+                        <OverflowMenuItem itemText="Detalhes" onClick={() => void openDetail(item)} />
+                        <OverflowMenuItem itemText="Editar" onClick={() => openEdit(item)} />
+                        <OverflowMenuItem itemText="Excluir" isDelete hasDivider onClick={async () => { if (!window.confirm(`Excluir “${item.title}”?`)) return; await api.delete(`/follow-ups/${item.id}`); toast.success('Follow-up excluído.'); await load(); }} />
+                      </OverflowMenu>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <div className="table-footer"><span className="table-footer__order">{data ? `${data.meta.total} follow-up(s)` : ''}</span></div>
         </div>
       )}
 
-      {data && data.meta.last_page > 1 && (
-        <div className="pager">
-          <Button kind="ghost" size="sm" disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>Anterior</Button>
-          <span>Página {data.meta.current_page} de {data.meta.last_page}</span>
-          <Button kind="ghost" size="sm" disabled={page >= data.meta.last_page} onClick={() => setPage((current) => current + 1)}>Próxima</Button>
-        </div>
+      {data && data.meta.total > 0 && (
+        <Pagination
+          page={data.meta.current_page}
+          pageSize={data.meta.per_page}
+          pageSizes={[10, 15, 25, 50]}
+          totalItems={data.meta.total}
+          onChange={({ page: nextPage, pageSize: nextPerPage }) => {
+            setPage(nextPage);
+            if (nextPerPage !== data.meta.per_page) {
+              setPerPage(nextPerPage);
+              setPage(1);
+            }
+          }}
+          itemRangeText={(min, max, total) => `${min}–${max} de ${total} follow-ups`}
+          itemsPerPageText="Itens por página"
+          pageRangeText={(_current, total) => `de ${total} página(s)`}
+          pageSelectLabelText={(total) => `Página de ${total}`}
+          pageText={(current) => `Página ${current}`}
+          backwardText="Página anterior"
+          forwardText="Próxima página"
+        />
       )}
 
       <Modal open={modalOpen} modalHeading={editing ? 'Editar follow-up' : 'Novo follow-up'} primaryButtonText={saving ? 'Salvando…' : 'Salvar'} secondaryButtonText="Cancelar" primaryButtonDisabled={saving} onRequestSubmit={() => void save()} onRequestClose={() => setModalOpen(false)} size="md">
