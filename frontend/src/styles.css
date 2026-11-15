@@ -84,6 +84,37 @@ p {
   margin: 0;
 }
 
+.field-help--danger {
+  color: var(--cds-text-error);
+}
+
+.coord-dms {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 672px) {
+  .coord-dms {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.modal-form .modal-steps {
+  margin-bottom: 0.25rem;
+}
+
+.wizard-step__header h4 {
+  margin: 0 0 0.15rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.wizard-step__header p {
+  margin: 0;
+}
+
 .section-actions {
   display: flex;
   justify-content: flex-end;
