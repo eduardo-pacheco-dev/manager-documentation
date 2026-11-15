@@ -88,11 +88,12 @@ type StationComment struct {
 }
 
 type StationFilter struct {
-	Search     string
-	Status     string
-	Tecnologia string
-	Page       int
-	PerPage    int
+	Search        string
+	Status        string
+	Tecnologia    string
+	Classificacao string
+	Page          int
+	PerPage       int
 }
 
 type StationStats struct {
@@ -106,8 +107,8 @@ func (s *Store) ListStations(filter StationFilter) ([]Station, int, StationStats
 	args := []any{}
 	if search := strings.TrimSpace(filter.Search); search != "" {
 		like := "%" + search + "%"
-		conditions = append(conditions, `(site_id LIKE ? OR COALESCE(station_id, '') LIKE ? OR COALESCE(endereco_id, '') LIKE ? OR COALESCE(tipo_de_elemento, '') LIKE ? OR COALESCE(tecnologia, '') LIKE ? OR COALESCE(logradouro, '') LIKE ? OR COALESCE(bairro, '') LIKE ? OR COALESCE(municipio, '') LIKE ?)`)
-		for i := 0; i < 8; i++ {
+		conditions = append(conditions, `(site_id LIKE ? OR COALESCE(station_id, '') LIKE ? OR COALESCE(endereco_id, '') LIKE ? OR COALESCE(tipo_de_elemento, '') LIKE ? OR COALESCE(tecnologia, '') LIKE ? OR COALESCE(classificacao, '') LIKE ? OR COALESCE(logradouro, '') LIKE ? OR COALESCE(bairro, '') LIKE ? OR COALESCE(municipio, '') LIKE ?)`)
+		for i := 0; i < 9; i++ {
 			args = append(args, like)
 		}
 	}
@@ -118,6 +119,10 @@ func (s *Store) ListStations(filter StationFilter) ([]Station, int, StationStats
 	if filter.Tecnologia != "" {
 		conditions = append(conditions, "tecnologia = ?")
 		args = append(args, filter.Tecnologia)
+	}
+	if filter.Classificacao != "" {
+		conditions = append(conditions, "classificacao = ?")
+		args = append(args, filter.Classificacao)
 	}
 	if filter.Page < 1 {
 		filter.Page = 1
@@ -147,6 +152,12 @@ func (s *Store) ListStations(filter StationFilter) ([]Station, int, StationStats
 	_ = s.DB.Select(&statuses, `SELECT DISTINCT status FROM stations WHERE status IS NOT NULL AND status <> '' ORDER BY status`)
 	_ = s.DB.Select(&tecnologias, `SELECT DISTINCT tecnologia FROM stations WHERE tecnologia IS NOT NULL AND tecnologia <> '' ORDER BY tecnologia`)
 	return stations, total, stats, statuses, tecnologias, nil
+}
+
+func (s *Store) StationClassifications() ([]string, error) {
+	items := []string{}
+	err := s.DB.Select(&items, `SELECT DISTINCT classificacao FROM stations WHERE classificacao IS NOT NULL AND classificacao <> '' ORDER BY classificacao`)
+	return items, err
 }
 
 func (s *Store) FindStation(id int64) (Station, error) {

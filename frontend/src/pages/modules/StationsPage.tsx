@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Add, Edit, OverflowMenuVertical, TrashCan } from '@carbon/icons-react';
+import { Add, Edit, Grid, OverflowMenuVertical, Table as TableIcon, TrashCan } from '@carbon/icons-react';
 import {
   Button,
   InlineLoading,
   Modal,
   OverflowMenu,
   OverflowMenuItem,
+  Pagination,
   ProgressIndicator,
   ProgressStep,
   Search,
@@ -37,7 +38,8 @@ interface Station {
   status: string | null; tipo_da_torre: string | null; station_id: string | null;
   created_at: string; updated_at: string; attachments: Attachment[]; comments: Comment[];
 }
-interface Data { data: Station[]; stats: { total: number; sites: number; municipios: number }; statuses: string[]; tecnologias: string[]; meta: { total: number } }
+interface Data { data: Station[]; stats: { total: number; sites: number; municipios: number }; statuses: string[]; tecnologias: string[]; classificacoes: string[]; meta: { current_page: number; last_page: number; per_page: number; total: number } }
+type ViewMode = 'table' | 'cards';
 
 const EMPTY = {
   site_id: '', endereco_id: '', tipo_de_elemento: '', tecnologia: '', tipo_de_conexao: '',
@@ -84,6 +86,10 @@ function dmsToDecimal(degrees: string, minutes: string, seconds: string, hemisph
   return (hemisphere === negative ? -total : total).toFixed(6);
 }
 
+function statusTagType(value: string): 'green' | 'gray' {
+  return ['ativo', 'ativa', 'aquisitado'].includes(value.toLowerCase()) ? 'green' : 'gray';
+}
+
 export function StationsPage() {
   const { user } = useAuth();
   const toast = useToast();
@@ -93,6 +99,10 @@ export function StationsPage() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [tech, setTech] = useState('');
+  const [classificacao, setClassificacao] = useState('');
+  const [view, setView] = useState<ViewMode>('table');
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(15);
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<Station | null>(null);
   const [detail, setDetail] = useState<Station | null>(null);
@@ -106,12 +116,17 @@ export function StationsPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const params = new URLSearchParams();
+    const params = new URLSearchParams({ page: String(page), per_page: String(perPage) });
     if (search) params.set('search', search);
     if (status) params.set('status', status);
     if (tech) params.set('tecnologia', tech);
+    if (classificacao) params.set('classificacao', classificacao);
     try {
       const response = await api.get<Data>(`/stations?${params.toString()}`);
+      if (response.meta && page > response.meta.last_page) {
+        setPage(response.meta.last_page);
+        return;
+      }
       setData(response);
       if (detail) {
         const refreshed = response.data.find((item) => item.id === detail.id);
@@ -122,9 +137,9 @@ export function StationsPage() {
     } finally {
       setLoading(false);
     }
-  }, [search, status, tech, toast, detail]);
+  }, [search, status, tech, classificacao, page, perPage, toast, detail]);
 
-  useEffect(() => { void load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [search, status, tech]);
+  useEffect(() => { void load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [search, status, tech, classificacao, page, perPage]);
 
   function openCreate() {
     setEditing(null);
@@ -218,6 +233,17 @@ export function StationsPage() {
     }
   }
 
+  async function deleteStation(item: Station) {
+    if (!window.confirm(`Excluir a estação ${item.site_id}?`)) return;
+    try {
+      await api.delete(`/stations/${item.id}`);
+      toast.success('Estação excluída.');
+      await load();
+    } catch (error) {
+      toast.error('Não foi possível excluir a estação', errorMessage(error));
+    }
+  }
+
   async function uploadFiles(files: FileList | null) {
     if (!detail || !files || files.length === 0) return;
     const payload = new FormData();
@@ -300,35 +326,44 @@ export function StationsPage() {
 
       <Tile className="module-main__header">
         <div className="module-toolbar">
-          <Search size="lg" labelText="Buscar estações" placeholder="Buscar por ID, endereço, município..." value={search} onChange={(event) => setSearch(event.target.value)} onClear={() => setSearch('')} />
-          <Select id="station-status" labelText="Status" size="sm" value={status} onChange={(event) => setStatus(event.target.value)}>
+          <Search size="lg" labelText="Buscar estações" placeholder="Buscar por ID, endereço, município..." value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} onClear={() => { setSearch(''); setPage(1); }} />
+          <Select id="station-status" labelText="Status" size="sm" value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}>
             <SelectItem value="" text="Todos" />
             {(data?.statuses ?? []).map((value) => <SelectItem key={value} value={value} text={value} />)}
           </Select>
-          <Select id="station-tech" labelText="Tecnologia" size="sm" value={tech} onChange={(event) => setTech(event.target.value)}>
+          <Select id="station-tech" labelText="Tecnologia" size="sm" value={tech} onChange={(event) => { setTech(event.target.value); setPage(1); }}>
             <SelectItem value="" text="Todas" />
             {(data?.tecnologias ?? []).map((value) => <SelectItem key={value} value={value} text={value} />)}
           </Select>
+          <Select id="station-classificacao" labelText="Classificação" size="sm" value={classificacao} onChange={(event) => { setClassificacao(event.target.value); setPage(1); }}>
+            <SelectItem value="" text="Todas" />
+            {(data?.classificacoes ?? []).map((value) => <SelectItem key={value} value={value} text={value} />)}
+          </Select>
+          <div className="toolbar__views" role="group" aria-label="Modo de visualização">
+            <Button kind={view === 'table' ? 'primary' : 'ghost'} size="sm" hasIconOnly renderIcon={TableIcon} iconDescription="Tabela" onClick={() => setView('table')} />
+            <Button kind={view === 'cards' ? 'primary' : 'ghost'} size="sm" hasIconOnly renderIcon={Grid} iconDescription="Cards" onClick={() => setView('cards')} />
+          </div>
         </div>
       </Tile>
 
       {loading ? <InlineLoading description="Carregando estações…" /> : items.length === 0 ? (
         <EmptyState icon={Add} title="Nenhuma estação encontrada" description="Cadastre a primeira estação ou ajuste os filtros." action={<Button renderIcon={Add} onClick={openCreate}>Nova estação</Button>} />
-      ) : (
+      ) : view === 'table' ? (
         <div className="table-wrapper">
           <div className="table-scroll">
-            <table className="data-table">
-              <thead><tr><th>Site</th><th>Tecnologia</th><th className="hide-sm">Endereço</th><th>Status</th><th>Ações</th></tr></thead>
+            <table className="data-table" aria-label="Lista de estações">
+              <thead><tr><th>Site</th><th>Tecnologia</th><th>Classificação</th><th className="hide-sm">Endereço</th><th>Status</th><th className="cell-actions">Ações</th></tr></thead>
               <tbody>
                 {items.map((item) => (
                   <tr key={item.id}>
                     <td><button type="button" className="link-button" onClick={() => navigate(`/stations/${item.id}`)}>{item.site_id}</button><span className="cell-secondary">{item.station_id ? `ESTAÇÃO ${item.station_id}` : '—'}</span></td>
                     <td>{item.tecnologia ?? 'Sem tecnologia'}<span className="cell-secondary">{item.tipo_de_elemento ?? '—'}</span></td>
+                    <td>{item.classificacao ?? 'Sem classificação'}<span className="cell-secondary">{item.tipo_de_conexao ?? '—'}</span></td>
                     <td className="hide-sm">{[item.logradouro, item.numero, item.bairro, item.municipio].filter(Boolean).join(', ') || '—'}<span className="cell-secondary">{item.regional ?? 'Sem regional'}</span></td>
-                    <td>{item.status ? <Tag type={['ativo', 'ativa', 'aquisitado'].includes(item.status.toLowerCase()) ? 'green' : 'gray'} size="sm">{item.status}</Tag> : '—'}</td>
+                    <td>{item.status ? <Tag type={statusTagType(item.status)} size="sm">{item.status}</Tag> : '—'}</td>
                     <td className="cell-actions">
                       <Button kind="ghost" size="sm" hasIconOnly renderIcon={Edit} iconDescription="Editar" onClick={() => openEdit(item)} />
-                      <Button kind="danger--ghost" size="sm" hasIconOnly renderIcon={TrashCan} iconDescription="Excluir" onClick={async () => { if (!window.confirm(`Excluir a estação ${item.site_id}?`)) return; await api.delete(`/stations/${item.id}`); toast.success('Estação excluída.'); await load(); }} />
+                      <Button kind="danger--ghost" size="sm" hasIconOnly renderIcon={TrashCan} iconDescription="Excluir" onClick={() => void deleteStation(item)} />
                     </td>
                   </tr>
                 ))}
@@ -336,6 +371,52 @@ export function StationsPage() {
             </table>
           </div>
         </div>
+      ) : (
+        <div className="user-cards">
+          {items.map((item) => (
+            <article key={item.id} className="user-card">
+              <div className="user-card__main">
+                <div className="user-card__text">
+                  <button type="button" className="link-button" onClick={() => navigate(`/stations/${item.id}`)}>{item.site_id}</button>
+                  <span>{item.station_id ? `Estação ${item.station_id}` : 'Sem ID detentora'}</span>
+                  <div className="tag-row">
+                    {item.status && <Tag type={statusTagType(item.status)} size="sm">{item.status}</Tag>}
+                    {item.tecnologia && <Tag type="blue" size="sm">{item.tecnologia}</Tag>}
+                    {item.classificacao && <Tag type="gray" size="sm">{item.classificacao}</Tag>}
+                  </div>
+                </div>
+              </div>
+              <p className="user-card__meta">{[item.logradouro, item.numero, item.bairro, item.municipio].filter(Boolean).join(', ') || 'Endereço não informado'}</p>
+              <div className="user-card__actions">
+                <Button kind="ghost" size="sm" renderIcon={Edit} onClick={() => openEdit(item)}>Editar</Button>
+                <Button kind="danger--ghost" size="sm" renderIcon={TrashCan} onClick={() => void deleteStation(item)}>Excluir</Button>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+
+      {data && data.meta.total > 0 && (
+        <Pagination
+          page={page}
+          pageSize={perPage}
+          pageSizes={[10, 15, 25, 50]}
+          totalItems={data.meta.total}
+          onChange={({ page: nextPage, pageSize: nextPerPage }) => {
+            setPage(nextPage);
+            if (nextPerPage !== perPage) {
+              setPerPage(nextPerPage);
+              setPage(1);
+            }
+          }}
+          itemRangeText={(min, max, total) => `${min}–${max} de ${total} estações`}
+          itemsPerPageText="Itens por página"
+          pageRangeText={(_current, total) => `de ${total} página(s)`}
+          pageSelectLabelText={(total) => `Página de ${total}`}
+          pageText={(current) => `Página ${current}`}
+          backwardText="Página anterior"
+          forwardText="Próxima página"
+        />
       )}
 
       <Modal

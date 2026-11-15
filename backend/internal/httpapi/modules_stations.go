@@ -77,17 +77,30 @@ func (p *stationPayload) fromInput(input modules.StationInput) {
 func (s *Server) stationsIndex(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	page := parsePositiveInt(query.Get("page"), 1)
+	perPage := parsePositiveInt(query.Get("per_page"), 15)
+	if perPage < 5 {
+		perPage = 5
+	}
+	if perPage > 100 {
+		perPage = 100
+	}
 	items, total, stats, statuses, tecnologias, err := s.Modules.ListStations(modules.StationFilter{
 		Search: query.Get("search"), Status: query.Get("status"), Tecnologia: query.Get("tecnologia"),
-		Page: page, PerPage: 15,
+		Classificacao: query.Get("classificacao"), Page: page, PerPage: perPage,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "NÃƒÂ£o foi possÃƒÂ­vel carregar as estaÃƒÂ§ÃƒÂµes.", nil)
 		return
 	}
+	classificacoes, err := s.Modules.StationClassifications()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "NÃƒÂ£o foi possÃƒÂ­vel carregar as classificaÃƒÂ§ÃƒÂµes.", nil)
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"data": items, "stats": stats, "statuses": statuses, "tecnologias": tecnologias,
-		"meta": paginationMeta(page, 15, total),
+		"classificacoes": classificacoes,
+		"meta":           paginationMeta(page, perPage, total),
 	})
 }
 
