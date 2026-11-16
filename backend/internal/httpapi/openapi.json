@@ -423,6 +423,9 @@
       "put": { "tags": ["iEPMS"], "summary": "Atualiza um usuário do iEPMS", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Usuário atualizado" }, "422": { "description": "Validação" } } },
       "delete": { "tags": ["iEPMS"], "summary": "Exclui um usuário do iEPMS", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Usuário excluído" } } }
     },
+    "/iepms-users/{id}/password": {
+      "post": { "tags": ["iEPMS"], "summary": "Descriptografa a senha do usuário após confirmar a senha do usuário autenticado", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Senha em texto puro" }, "422": { "description": "Senha incorreta ou não cadastrada" } } }
+    },
     "/projects": {
       "get": { "tags": ["Projetos"], "summary": "Lista o portfólio de projetos", "parameters": [{ "name": "archived", "in": "query", "schema": { "type": "string", "enum": ["0", "1"] } }], "responses": { "200": { "description": "Projetos" } } },
       "post": { "tags": ["Projetos"], "summary": "Cria um projeto", "responses": { "201": { "description": "Projeto criado" }, "422": { "description": "Validação" } } }

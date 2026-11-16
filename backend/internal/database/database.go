@@ -1140,6 +1140,9 @@ var migrations = [][]string{
 			KEY idx_iepms_users_subcontractor (subcontractor)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 	},
+	{
+		`ALTER TABLE iepms_users ADD COLUMN password_encrypted TEXT NULL AFTER last_updated_by`,
+	},
 }
 
 // CleanupSessions removes expired sessions and tokens. It is safe to call at

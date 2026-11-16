@@ -170,6 +170,7 @@ export interface IepmsUser {
   major: string | null;
   created_by: string | null;
   last_updated_by: string | null;
+  has_password: boolean;
   created_at: string;
   updated_at: string;
 }

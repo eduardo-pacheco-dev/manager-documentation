@@ -253,6 +253,7 @@ func (s *Server) Router() http.Handler {
 				iepms.Get("/template", s.iepmsUsersTemplate)
 				iepms.Post("/import", s.iepmsUsersImport)
 				iepms.Get("/{id}", s.iepmsUsersShow)
+				iepms.Post("/{id}/password", s.iepmsUsersRevealPassword)
 				iepms.Put("/{id}", s.iepmsUsersUpdate)
 				iepms.Delete("/{id}", s.iepmsUsersDelete)
 			})

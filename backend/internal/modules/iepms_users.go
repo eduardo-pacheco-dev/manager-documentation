@@ -45,6 +45,8 @@ type IepmsUser struct {
 	Major                           *string   `db:"major" json:"major"`
 	CreatedBy                       *string   `db:"created_by" json:"created_by"`
 	LastUpdatedBy                   *string   `db:"last_updated_by" json:"last_updated_by"`
+	PasswordEncrypted               *string   `db:"password_encrypted" json:"-"`
+	HasPassword                     bool      `db:"-" json:"has_password"`
 	CreatedAt                       time.Time `db:"created_at" json:"created_at"`
 	UpdatedAt                       time.Time `db:"updated_at" json:"updated_at"`
 }
@@ -99,6 +101,9 @@ func (s *Store) ListIepmsUsers(filter IepmsUserFilter) ([]IepmsUser, int, IepmsU
 	if err := s.DB.Select(&users, query, queryArgs...); err != nil {
 		return nil, 0, IepmsUserStats{}, nil, nil, err
 	}
+	for index := range users {
+		users[index].HasPassword = hasPassword(users[index].PasswordEncrypted)
+	}
 	var stats IepmsUserStats
 	if err := s.DB.Get(&stats, `SELECT COUNT(*) AS total,
 		COALESCE(SUM(personnel_status = 'Normal'), 0) AS normal,
@@ -120,7 +125,12 @@ func (s *Store) FindIepmsUser(id int64) (IepmsUser, error) {
 	if errors.Is(err, sql.ErrNoRows) {
 		return user, ErrNotFound
 	}
+	user.HasPassword = hasPassword(user.PasswordEncrypted)
 	return user, err
+}
+
+func hasPassword(value *string) bool {
+	return value != nil && strings.TrimSpace(*value) != ""
 }
 
 type IepmsUserInput struct {
@@ -154,6 +164,8 @@ type IepmsUserInput struct {
 	Major                           string
 	CreatedBy                       string
 	LastUpdatedBy                   string
+	PasswordEncrypted               string
+	PasswordChanged                 bool
 }
 
 const iepmsUserInsert = `INSERT INTO iepms_users (
@@ -162,8 +174,9 @@ const iepmsUserInsert = `INSERT INTO iepms_users (
 	service_field, outsourcing_type, personnel_type, service_department_two_level,
 	service_department_three_level, service_department_four_level, personnel_status,
 	outsourcing_account, account_status, zte_mail, academic_qualifications, learning_mode,
-	graduation_time, graduation_school, major, created_by, last_updated_by, created_at, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	graduation_time, graduation_school, major, created_by, last_updated_by, password_encrypted,
+	created_at, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 func (s *Store) CreateIepmsUser(input IepmsUserInput) (IepmsUser, error) {
 	timestamp := now()
@@ -179,7 +192,7 @@ func (s *Store) CreateIepmsUser(input IepmsUserInput) (IepmsUser, error) {
 		nullString(input.OutsourcingAccount), nullString(input.AccountStatus), nullString(input.ZTEMail),
 		nullString(input.AcademicQualifications), nullString(input.LearningMode), nullString(input.GraduationTime),
 		nullString(input.GraduationSchool), nullString(input.Major), nullString(input.CreatedBy),
-		nullString(input.LastUpdatedBy), timestamp, timestamp)
+		nullString(input.LastUpdatedBy), nullString(input.PasswordEncrypted), timestamp, timestamp)
 	if err != nil {
 		return IepmsUser{}, err
 	}
@@ -211,6 +224,12 @@ func (s *Store) UpdateIepmsUser(id int64, input IepmsUserInput) (IepmsUser, erro
 	if err != nil {
 		return IepmsUser{}, err
 	}
+	if input.PasswordChanged {
+		if _, err := s.DB.Exec(`UPDATE iepms_users SET password_encrypted = ? WHERE id = ?`,
+			nullString(input.PasswordEncrypted), id); err != nil {
+			return IepmsUser{}, err
+		}
+	}
 	return s.FindIepmsUser(id)
 }
 
@@ -235,11 +254,28 @@ func (s *Store) DeleteIepmsUser(id int64) error {
 	return err
 }
 
+// FindIepmsUserPassword returns the encrypted password for the given user.
+func (s *Store) FindIepmsUserPassword(id int64) (string, error) {
+	var encrypted *string
+	err := s.DB.Get(&encrypted, `SELECT password_encrypted FROM iepms_users WHERE id = ?`, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	if err != nil {
+		return "", err
+	}
+	if encrypted == nil {
+		return "", nil
+	}
+	return *encrypted, nil
+}
+
 func (s *Store) IepmsUserByResourceID(resourceID string) (IepmsUser, error) {
 	var user IepmsUser
 	err := s.DB.Get(&user, `SELECT * FROM iepms_users WHERE resource_id = ?`, strings.TrimSpace(resourceID))
 	if errors.Is(err, sql.ErrNoRows) {
 		return user, ErrNotFound
 	}
+	user.HasPassword = hasPassword(user.PasswordEncrypted)
 	return user, err
 }

@@ -36,6 +36,7 @@ const EMPTY = {
   major: '',
   created_by: '',
   last_updated_by: '',
+  password: '',
 };
 
 export type IepmsUserFormValues = typeof EMPTY;
@@ -155,6 +156,15 @@ export function IepmsUserFormModal({ open, user, onClose, onSaved }: Props) {
         {field('created_by', 'Created by')}
         {field('last_updated_by', 'Last updated by')}
       </div>
+
+      <h4>Segurança</h4>
+      <div className="form-grid">
+        {field('password', user ? 'Senha (em branco mantém a atual)' : 'Senha', { type: 'password' })}
+      </div>
+      <p className="field-help">
+        A senha é armazenada criptografada (AES-256-GCM) e nunca é devolvida nas listagens ou exportações.
+        {user && (user.has_password ? ' Este usuário já possui senha cadastrada.' : ' Este usuário ainda não possui senha.')}
+      </p>
 
       <h4>Formação</h4>
       <div className="form-grid">

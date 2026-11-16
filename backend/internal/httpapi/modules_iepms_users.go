@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/xuri/excelize/v2"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/eduardo-pacheco-dev/manager-documentation/backend/internal/modules"
 )
@@ -42,6 +43,7 @@ type iepmsUserPayload struct {
 	Major                           string `json:"major"`
 	CreatedBy                       string `json:"created_by"`
 	LastUpdatedBy                   string `json:"last_updated_by"`
+	Password                        string `json:"password"`
 }
 
 func (p iepmsUserPayload) input() modules.IepmsUserInput {
@@ -60,39 +62,6 @@ func (p iepmsUserPayload) input() modules.IepmsUserInput {
 	}
 }
 
-func (p *iepmsUserPayload) fromUser(user modules.IepmsUser) {
-	p.ResourceID = user.ResourceID
-	p.Name = user.Name
-	p.Gender = derefString(user.Gender)
-	p.Nationality = derefString(user.Nationality)
-	p.UsGreenCard = derefString(user.UsGreenCard)
-	p.Subcontractor = derefString(user.Subcontractor)
-	p.CertificateType = derefString(user.CertificateType)
-	p.IDNumber = derefString(user.IDNumber)
-	p.BirthYear = derefString(user.BirthYear)
-	p.Tel = derefString(user.Tel)
-	p.PersonalMailbox = derefString(user.PersonalMailbox)
-	p.Remarks = derefString(user.Remarks)
-	p.RestrictedPartyScreeningResults = derefString(user.RestrictedPartyScreeningResults)
-	p.ServiceField = derefString(user.ServiceField)
-	p.OutsourcingType = derefString(user.OutsourcingType)
-	p.PersonnelType = derefString(user.PersonnelType)
-	p.ServiceDepartmentTwoLevel = derefString(user.ServiceDepartmentTwoLevel)
-	p.ServiceDepartmentThreeLevel = derefString(user.ServiceDepartmentThreeLevel)
-	p.ServiceDepartmentFourLevel = derefString(user.ServiceDepartmentFourLevel)
-	p.PersonnelStatus = derefString(user.PersonnelStatus)
-	p.OutsourcingAccount = derefString(user.OutsourcingAccount)
-	p.AccountStatus = derefString(user.AccountStatus)
-	p.ZTEMail = derefString(user.ZTEMail)
-	p.AcademicQualifications = derefString(user.AcademicQualifications)
-	p.LearningMode = derefString(user.LearningMode)
-	p.GraduationTime = derefString(user.GraduationTime)
-	p.GraduationSchool = derefString(user.GraduationSchool)
-	p.Major = derefString(user.Major)
-	p.CreatedBy = derefString(user.CreatedBy)
-	p.LastUpdatedBy = derefString(user.LastUpdatedBy)
-}
-
 func validateIepmsUser(payload iepmsUserPayload) validationErrors {
 	fields := validationErrors{}
 	if strings.TrimSpace(payload.ResourceID) == "" {
@@ -105,6 +74,23 @@ func validateIepmsUser(payload iepmsUserPayload) validationErrors {
 		fields.add("resource_id", "O Resource ID deve ter no máximo 64 caracteres.")
 	}
 	return fields
+}
+
+// iepmsUserInput converts the payload into the store input, encrypting the
+// password with AES-GCM when a new password was provided. A blank password
+// keeps the existing secret on updates.
+func (s *Server) iepmsUserInput(payload iepmsUserPayload) (modules.IepmsUserInput, error) {
+	input := payload.input()
+	if payload.Password == "" {
+		return input, nil
+	}
+	encrypted, err := s.Cipher.Encrypt(payload.Password)
+	if err != nil {
+		return input, err
+	}
+	input.PasswordEncrypted = encrypted
+	input.PasswordChanged = true
+	return input, nil
 }
 
 func (s *Server) iepmsUsersIndex(w http.ResponseWriter, r *http.Request) {
@@ -148,9 +134,7 @@ func (s *Server) iepmsUsersShow(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "Usuário do iEPMS não encontrado.", nil)
 		return
 	}
-	var payload iepmsUserPayload
-	payload.fromUser(user)
-	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{"user": payload}})
+	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{"user": user}})
 }
 
 func (s *Server) iepmsUsersCreate(w http.ResponseWriter, r *http.Request) {
@@ -166,7 +150,12 @@ func (s *Server) iepmsUsersCreate(w http.ResponseWriter, r *http.Request) {
 		writeValidation(w, validationErrors{"resource_id": "Já existe um usuário com este Resource ID."})
 		return
 	}
-	user, err := s.Modules.CreateIepmsUser(payload.input())
+	input, err := s.iepmsUserInput(payload)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Não foi possível proteger a senha do usuário.", nil)
+		return
+	}
+	user, err := s.Modules.CreateIepmsUser(input)
 	if err != nil {
 		if isDuplicateKey(err) {
 			writeValidation(w, validationErrors{"resource_id": "Já existe um usuário com este Resource ID."})
@@ -199,7 +188,12 @@ func (s *Server) iepmsUsersUpdate(w http.ResponseWriter, r *http.Request) {
 		writeValidation(w, validationErrors{"resource_id": "Já existe outro usuário com este Resource ID."})
 		return
 	}
-	user, err := s.Modules.UpdateIepmsUser(id, payload.input())
+	input, err := s.iepmsUserInput(payload)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Não foi possível proteger a senha do usuário.", nil)
+		return
+	}
+	user, err := s.Modules.UpdateIepmsUser(id, input)
 	if err != nil {
 		if isDuplicateKey(err) {
 			writeValidation(w, validationErrors{"resource_id": "Já existe outro usuário com este Resource ID."})
@@ -225,6 +219,45 @@ func (s *Server) iepmsUsersDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"message": "Usuário do iEPMS excluído com sucesso."})
+}
+
+// iepmsUsersRevealPassword decrypts and returns the stored password only after
+// the signed-in user confirms their own account password.
+func (s *Server) iepmsUsersRevealPassword(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseID(r, "id")
+	if !ok {
+		writeError(w, http.StatusNotFound, "Usuário do iEPMS não encontrado.", nil)
+		return
+	}
+	var payload struct {
+		Password string `json:"password"`
+	}
+	if !decodeJSON(w, r, &payload) {
+		return
+	}
+	if strings.TrimSpace(payload.Password) == "" {
+		writeValidation(w, validationErrors{"password": "Informe a sua senha para visualizar."})
+		return
+	}
+	if bcrypt.CompareHashAndPassword([]byte(currentUser(r).PasswordHash), []byte(payload.Password)) != nil {
+		writeValidation(w, validationErrors{"password": "A senha informada não confere."})
+		return
+	}
+	encrypted, err := s.Modules.FindIepmsUserPassword(id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "Usuário do iEPMS não encontrado.", nil)
+		return
+	}
+	if strings.TrimSpace(encrypted) == "" {
+		writeValidation(w, validationErrors{"password": "Este usuário ainda não possui senha cadastrada."})
+		return
+	}
+	plain, err := s.Cipher.Decrypt(encrypted)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Não foi possível descriptografar a senha.", nil)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{"password": plain}})
 }
 
 func isDuplicateKey(err error) bool {
@@ -346,23 +379,25 @@ func (s *Server) iepmsUsersTemplate(w http.ResponseWriter, r *http.Request) {
 	defer func() { _ = f.Close() }()
 	sheet := "iEPMS"
 	f.SetSheetName("Sheet1", sheet)
-	headers := make([]string, 0, len(iepmsUserColumns))
+	headers := make([]string, 0, len(iepmsUserColumns)+1)
 	for _, column := range iepmsUserColumns {
 		headers = append(headers, column.Label)
 	}
+	headers = append(headers, "Password (opcional)")
 	writeXLSXRow(f, sheet, 1, headers)
 	writeXLSXRow(f, sheet, 2, []string{
 		"W0000000000", "NOME DO COLABORADOR", "MALE", "Brazil", "", "EMPRESA LTDA", "ID Card",
 		"00000000000", "1990", "0055|11999999999", "email@empresa.com", "", "No",
 		"Engineering Service", "Project Outsourcing", "Project subcontractor", "", "", "",
 		"Normal", "6000000000", "Normal", "", "Others", "", "", "", "",
-		"system", "system",
+		"system", "system", "",
 	})
 	styleNokiaSheet(f, sheet, len(headers), 2)
 	for index, column := range iepmsUserColumns {
 		col, _ := excelize.ColumnNumberToName(index + 1)
 		f.SetColWidth(sheet, col, col, column.Width)
 	}
+	f.SetColWidth(sheet, "AE", "AE", 24)
 	infoSheet := "Instruções"
 	_, _ = f.NewSheet(infoSheet)
 	instructions := [][]string{
@@ -370,6 +405,8 @@ func (s *Server) iepmsUsersTemplate(w http.ResponseWriter, r *http.Request) {
 		{"Preencha a aba iEPMS a partir da linha 2. A linha de exemplo pode ser removida."},
 		{"Resource ID e Name são obrigatórios."},
 		{"A importação cria novos registros e atualiza os existentes com o mesmo Resource ID."},
+		{"A coluna Password (opcional) define a senha do usuário. Ela é armazenada criptografada e nunca é exportada."},
+		{"Ao atualizar um registro, deixe a coluna Password em branco para manter a senha atual."},
 		{"Mantenha as colunas ID Number, Birth year, Tel e Outsourcing account formatadas como texto para preservar zeros à esquerda."},
 		{"A importação aceita arquivos XLSX ou CSV e até 2.000 linhas por arquivo."},
 	}
@@ -450,6 +487,7 @@ func (s *Server) iepmsUsersImport(w http.ResponseWriter, r *http.Request) {
 			Major:                           get(row, "major"),
 			CreatedBy:                       get(row, "created_by"),
 			LastUpdatedBy:                   get(row, "last_updated_by"),
+			Password:                        get(row, "password", "password_opcional"),
 		}
 		if fields := validateIepmsUser(payload); !fields.empty() {
 			for _, message := range fields {
@@ -483,7 +521,12 @@ func (s *Server) iepmsUsersImport(w http.ResponseWriter, r *http.Request) {
 	}
 	created, updated := 0, 0
 	for _, payload := range payloads {
-		isNew, err := s.Modules.UpsertIepmsUser(payload.input())
+		input, err := s.iepmsUserInput(payload)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "Não foi possível proteger a senha durante a importação.", nil)
+			return
+		}
+		isNew, err := s.Modules.UpsertIepmsUser(input)
 		if err != nil {
 			writeError(w, http.StatusUnprocessableEntity, "Não foi possível importar os usuários do iEPMS.", nil)
 			return

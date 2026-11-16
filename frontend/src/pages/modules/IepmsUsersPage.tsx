@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Add, Download, OverflowMenuVertical, Upload } from '@carbon/icons-react';
+import { Add, Download, OverflowMenuVertical, Upload, View } from '@carbon/icons-react';
 import {
   Button,
   InlineLoading,
@@ -16,6 +16,7 @@ import { PageHeader } from '../../components/PageHeader';
 import { EmptyState } from '../../components/Feedback';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { IepmsUserFormModal } from '../../components/IepmsUserFormModal';
+import { IepmsPasswordModal } from '../../components/IepmsPasswordModal';
 import { useToast } from '../../contexts/ToastContext';
 import { api } from '../../lib/api';
 import { errorDetails, errorMessage, relativeTime } from '../../lib/format';
@@ -48,6 +49,7 @@ export function IepmsUsersPage() {
   const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<IepmsUser | null>(null);
+  const [revealing, setRevealing] = useState<IepmsUser | null>(null);
   const [deleting, setDeleting] = useState<IepmsUser | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -284,6 +286,16 @@ export function IepmsUsersPage() {
                     </td>
                     <td className="hide-sm">{relativeTime(user.updated_at)}</td>
                     <td className="cell-actions">
+                      {user.has_password && (
+                        <Button
+                          kind="ghost"
+                          size="sm"
+                          renderIcon={View}
+                          onClick={() => setRevealing(user)}
+                        >
+                          Ver senha
+                        </Button>
+                      )}
                       <Button kind="ghost" size="sm" onClick={() => openEdit(user)}>Editar</Button>
                       <Button kind="danger--ghost" size="sm" onClick={() => setDeleting(user)}>Excluir</Button>
                     </td>
@@ -318,6 +330,12 @@ export function IepmsUsersPage() {
           setFormOpen(false);
           void load();
         }}
+      />
+
+      <IepmsPasswordModal
+        open={revealing !== null}
+        user={revealing}
+        onClose={() => setRevealing(null)}
       />
 
       <ConfirmModal
