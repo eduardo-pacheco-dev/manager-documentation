@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Modal, ProgressIndicator, ProgressStep, Select, SelectItem, TextInput } from '@carbon/react';
+import { ComboBox, Modal, ProgressIndicator, ProgressStep, Select, SelectItem, TextInput } from '@carbon/react';
 import { useToast } from '../contexts/ToastContext';
 import { ApiError, api } from '../lib/api';
 import { errorMessage } from '../lib/format';
@@ -40,6 +40,49 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const RESOURCE_ID_PATTERN = /^W\d{6,10}$/;
 const DOCUMENT_PATTERN = /^[A-Z0-9./-]{3,30}$/;
 const ACCOUNT_PATTERN = /^[A-Za-z0-9._-]{1,30}$/;
+
+const GENDER_OPTIONS = ['MALE', 'FEMALE', 'OTHER'];
+
+const CERTIFICATE_TYPE_OPTIONS = [
+  'ID Card',
+  'Passport',
+  'Work Permit',
+  'Driver License',
+  'Residence Permit',
+  'Other',
+];
+
+const NATIONALITY_OPTIONS = [
+  'Brazil',
+  'Argentina',
+  'Bolivia',
+  'Chile',
+  'Colombia',
+  'Ecuador',
+  'Mexico',
+  'Paraguay',
+  'Peru',
+  'Uruguay',
+  'Venezuela',
+  'Angola',
+  'China',
+  'South Korea',
+  'Spain',
+  'United States',
+  'France',
+  'India',
+  'Italy',
+  'Japan',
+  'Mozambique',
+  'Portugal',
+  'United Kingdom',
+  'Germany',
+  'Canada',
+  'Australia',
+  'South Africa',
+  'Philippines',
+  'Other',
+];
 
 function digitsOnly(value: string, max: number): string {
   return value.replace(/\D/g, '').slice(0, max);
@@ -268,6 +311,38 @@ export function IepmsUserFormModal({ open, user, onClose, onSaved }: Props) {
     />
   );
 
+  const combo = (
+    key: keyof IepmsUserFormValues,
+    label: string,
+    items: string[],
+    helperText?: string,
+  ) => {
+    const value = form[key];
+    const options = value && !items.includes(value) ? [value, ...items] : items;
+    return (
+      <ComboBox
+        id={`iepms-${key}`}
+        titleText={label}
+        placeholder="Selecione ou digite"
+        items={options}
+        itemToString={(item) => item ?? ''}
+        selectedItem={value || null}
+        allowCustomValue
+        helperText={helperText}
+        onInputChange={(inputValue) => {
+          updateForm({ [key]: inputValue ?? '' });
+          clearFieldError(key);
+        }}
+        onChange={({ selectedItem, inputValue }) => {
+          updateForm({ [key]: selectedItem ?? inputValue ?? '' });
+          clearFieldError(key);
+        }}
+        invalid={Boolean(fieldErrors[key])}
+        invalidText={fieldErrors[key]}
+      />
+    );
+  };
+
   return (
     <Modal
       open={open}
@@ -296,10 +371,10 @@ export function IepmsUserFormModal({ open, user, onClose, onSaved }: Props) {
           <div className="form-grid">
             {field('resource_id', 'ID do recurso *', { placeholder: 'W0000000000', helperText: 'Formato: W + 6 a 10 números.' })}
             {field('name', 'Nome *')}
-            {field('gender', 'Gênero', { placeholder: 'MASCULINO / FEMININO' })}
-            {field('nationality', 'Nacionalidade')}
+            {combo('gender', 'Gênero', GENDER_OPTIONS, 'Selecione ou digite outro valor.')}
+            {combo('nationality', 'Nacionalidade', NATIONALITY_OPTIONS, 'Selecione ou digite o país.')}
             {field('birth_year', 'Ano de nascimento', { placeholder: '1990', helperText: 'Informe 4 dígitos.' })}
-            {field('certificate_type', 'Tipo de certificado')}
+            {combo('certificate_type', 'Tipo de certificado', CERTIFICATE_TYPE_OPTIONS, 'Selecione ou digite o tipo do documento.')}
             {field('id_number', 'Número do documento')}
             {field('tel', 'Telefone', { placeholder: '0055|11999999999', helperText: 'Use país|DDD+número. Ex.: 0055|(91) 98163-1459.' })}
             {field('personal_mailbox', 'E-mail pessoal', { type: 'email' })}
