@@ -14,29 +14,23 @@ import (
 // IepmsUser is a person registered in the iEPMS application. The fields mirror
 // the Excel export/import layout used by the iEPMS back office.
 type IepmsUser struct {
-	ID                              int64     `db:"id" json:"id"`
-	ResourceID                      string    `db:"resource_id" json:"resource_id"`
-	Name                            string    `db:"name" json:"name"`
-	Gender                          *string   `db:"gender" json:"gender"`
-	Nationality                     *string   `db:"nationality" json:"nationality"`
-	UsGreenCard                     *string   `db:"us_green_card" json:"us_green_card"`
-	CertificateType                 *string   `db:"certificate_type" json:"certificate_type"`
-	IDNumber                        *string   `db:"id_number" json:"id_number"`
-	BirthYear                       *string   `db:"birth_year" json:"birth_year"`
-	Tel                             *string   `db:"tel" json:"tel"`
-	PersonalMailbox                 *string   `db:"personal_mailbox" json:"personal_mailbox"`
-	Remarks                         *string   `db:"remarks" json:"remarks"`
-	RestrictedPartyScreeningResults *string   `db:"restricted_party_screening_results" json:"restricted_party_screening_results"`
-	OutsourcingAccount              *string   `db:"outsourcing_account" json:"outsourcing_account"`
-	AccountStatus                   *string   `db:"account_status" json:"account_status"`
-	ZTEMail                         *string   `db:"zte_mail" json:"zte_mail"`
-	CreatedBy                       *string   `db:"created_by" json:"created_by"`
-	LastUpdatedBy                   *string   `db:"last_updated_by" json:"last_updated_by"`
-	Status                          string    `db:"status" json:"status"`
-	PasswordEncrypted               *string   `db:"password_encrypted" json:"-"`
-	HasPassword                     bool      `db:"-" json:"has_password"`
-	CreatedAt                       time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt                       time.Time `db:"updated_at" json:"updated_at"`
+	ID                 int64     `db:"id" json:"id"`
+	ResourceID         string    `db:"resource_id" json:"resource_id"`
+	Name               string    `db:"name" json:"name"`
+	Gender             *string   `db:"gender" json:"gender"`
+	Nationality        *string   `db:"nationality" json:"nationality"`
+	CertificateType    *string   `db:"certificate_type" json:"certificate_type"`
+	IDNumber           *string   `db:"id_number" json:"id_number"`
+	BirthYear          *string   `db:"birth_year" json:"birth_year"`
+	Tel                *string   `db:"tel" json:"tel"`
+	PersonalMailbox    *string   `db:"personal_mailbox" json:"personal_mailbox"`
+	OutsourcingAccount *string   `db:"outsourcing_account" json:"outsourcing_account"`
+	LastUpdatedBy      *string   `db:"last_updated_by" json:"last_updated_by"`
+	Status             string    `db:"status" json:"status"`
+	PasswordEncrypted  *string   `db:"password_encrypted" json:"-"`
+	HasPassword        bool      `db:"-" json:"has_password"`
+	CreatedAt          time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt          time.Time `db:"updated_at" json:"updated_at"`
 }
 
 type IepmsUserFilter struct {
@@ -57,8 +51,8 @@ func (s *Store) ListIepmsUsers(filter IepmsUserFilter) ([]IepmsUser, int, IepmsU
 	args := []any{}
 	if search := strings.TrimSpace(filter.Search); search != "" {
 		like := "%" + search + "%"
-		conditions = append(conditions, `(resource_id LIKE ? OR name LIKE ? OR COALESCE(id_number, '') LIKE ? OR COALESCE(tel, '') LIKE ? OR COALESCE(personal_mailbox, '') LIKE ? OR COALESCE(zte_mail, '') LIKE ? OR COALESCE(outsourcing_account, '') LIKE ?)`)
-		for i := 0; i < 7; i++ {
+		conditions = append(conditions, `(resource_id LIKE ? OR name LIKE ? OR COALESCE(id_number, '') LIKE ? OR COALESCE(tel, '') LIKE ? OR COALESCE(personal_mailbox, '') LIKE ? OR COALESCE(outsourcing_account, '') LIKE ?)`)
+		for i := 0; i < 6; i++ {
 			args = append(args, like)
 		}
 	}
@@ -113,34 +107,28 @@ func hasPassword(value *string) bool {
 }
 
 type IepmsUserInput struct {
-	ResourceID                      string
-	Name                            string
-	Gender                          string
-	Nationality                     string
-	UsGreenCard                     string
-	CertificateType                 string
-	IDNumber                        string
-	BirthYear                       string
-	Tel                             string
-	PersonalMailbox                 string
-	Remarks                         string
-	RestrictedPartyScreeningResults string
-	OutsourcingAccount              string
-	AccountStatus                   string
-	ZTEMail                         string
-	CreatedBy                       string
-	LastUpdatedBy                   string
-	Status                          string
-	PasswordEncrypted               string
-	PasswordChanged                 bool
+	ResourceID         string
+	Name               string
+	Gender             string
+	Nationality        string
+	CertificateType    string
+	IDNumber           string
+	BirthYear          string
+	Tel                string
+	PersonalMailbox    string
+	OutsourcingAccount string
+	LastUpdatedBy      string
+	Status             string
+	PasswordEncrypted  string
+	PasswordChanged    bool
 }
 
 const iepmsUserInsert = `INSERT INTO iepms_users (
-	resource_id, name, gender, nationality, us_green_card, certificate_type,
-	id_number, birth_year, tel, personal_mailbox, remarks, restricted_party_screening_results,
-	outsourcing_account, account_status, zte_mail, created_by, last_updated_by, status,
+	resource_id, name, gender, nationality, certificate_type,
+	id_number, birth_year, tel, personal_mailbox,
+	outsourcing_account, last_updated_by, status,
 	password_encrypted, created_at, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 func (s *Store) CreateIepmsUser(input IepmsUserInput) (IepmsUser, error) {
 	timestamp := now()
@@ -150,12 +138,9 @@ func (s *Store) CreateIepmsUser(input IepmsUserInput) (IepmsUser, error) {
 	}
 	result, err := s.DB.Exec(iepmsUserInsert,
 		strings.TrimSpace(input.ResourceID), strings.TrimSpace(input.Name), nullString(input.Gender),
-		nullString(input.Nationality), nullString(input.UsGreenCard),
-		nullString(input.CertificateType), nullString(input.IDNumber), nullString(input.BirthYear),
-		nullString(input.Tel), nullString(input.PersonalMailbox), nullString(input.Remarks),
-		nullString(input.RestrictedPartyScreeningResults),
-		nullString(input.OutsourcingAccount), nullString(input.AccountStatus), nullString(input.ZTEMail),
-		nullString(input.CreatedBy), nullString(input.LastUpdatedBy), status,
+		nullString(input.Nationality), nullString(input.CertificateType), nullString(input.IDNumber),
+		nullString(input.BirthYear), nullString(input.Tel), nullString(input.PersonalMailbox),
+		nullString(input.OutsourcingAccount), nullString(input.LastUpdatedBy), status,
 		nullString(input.PasswordEncrypted), timestamp, timestamp)
 	if err != nil {
 		return IepmsUser{}, err
@@ -166,18 +151,15 @@ func (s *Store) CreateIepmsUser(input IepmsUserInput) (IepmsUser, error) {
 
 func (s *Store) UpdateIepmsUser(id int64, input IepmsUserInput) (IepmsUser, error) {
 	_, err := s.DB.Exec(`UPDATE iepms_users SET
-		resource_id = ?, name = ?, gender = ?, nationality = ?, us_green_card = ?,
-		certificate_type = ?, id_number = ?, birth_year = ?, tel = ?, personal_mailbox = ?, remarks = ?,
-		restricted_party_screening_results = ?,
-		outsourcing_account = ?, account_status = ?, zte_mail = ?,
-		created_by = ?, last_updated_by = ?, status = COALESCE(NULLIF(?, ''), status), updated_at = ? WHERE id = ?`,
+		resource_id = ?, name = ?, gender = ?, nationality = ?,
+		certificate_type = ?, id_number = ?, birth_year = ?, tel = ?, personal_mailbox = ?,
+		outsourcing_account = ?, last_updated_by = ?,
+		status = COALESCE(NULLIF(?, ''), status), updated_at = ? WHERE id = ?`,
 		strings.TrimSpace(input.ResourceID), strings.TrimSpace(input.Name), nullString(input.Gender),
-		nullString(input.Nationality), nullString(input.UsGreenCard),
-		nullString(input.CertificateType), nullString(input.IDNumber), nullString(input.BirthYear),
-		nullString(input.Tel), nullString(input.PersonalMailbox), nullString(input.Remarks),
-		nullString(input.RestrictedPartyScreeningResults),
-		nullString(input.OutsourcingAccount), nullString(input.AccountStatus), nullString(input.ZTEMail),
-		nullString(input.CreatedBy), nullString(input.LastUpdatedBy), strings.TrimSpace(input.Status), now(), id)
+		nullString(input.Nationality), nullString(input.CertificateType), nullString(input.IDNumber),
+		nullString(input.BirthYear), nullString(input.Tel), nullString(input.PersonalMailbox),
+		nullString(input.OutsourcingAccount), nullString(input.LastUpdatedBy),
+		strings.TrimSpace(input.Status), now(), id)
 	if err != nil {
 		return IepmsUser{}, err
 	}

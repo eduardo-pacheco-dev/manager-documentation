@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Modal, ProgressIndicator, ProgressStep, Select, SelectItem, TextArea, TextInput } from '@carbon/react';
+import { Modal, ProgressIndicator, ProgressStep, Select, SelectItem, TextInput } from '@carbon/react';
 import { useToast } from '../contexts/ToastContext';
 import { ApiError, api } from '../lib/api';
 import { errorMessage } from '../lib/format';
@@ -10,18 +10,12 @@ const EMPTY = {
   name: '',
   gender: '',
   nationality: '',
-  us_green_card: '',
   certificate_type: '',
   id_number: '',
   birth_year: '',
   tel: '',
   personal_mailbox: '',
-  remarks: '',
-  restricted_party_screening_results: '',
   outsourcing_account: '',
-  account_status: '',
-  zte_mail: '',
-  created_by: '',
   last_updated_by: '',
   status: 'ativo',
   password: '',
@@ -174,9 +168,6 @@ export function IepmsUserFormModal({ open, user, onClose, onSaved }: Props) {
             {field('id_number', 'ID Number')}
             {field('tel', 'Tel', { placeholder: '0055|11999999999' })}
             {field('personal_mailbox', 'Personal mailbox', { type: 'email' })}
-            {field('zte_mail', 'ZTE mail', { type: 'email' })}
-            {field('us_green_card', 'Having US green cards or not')}
-            {field('restricted_party_screening_results', 'Restricted party screening results')}
           </div>
         )}
 
@@ -195,8 +186,6 @@ export function IepmsUserFormModal({ open, user, onClose, onSaved }: Props) {
                 <SelectItem value="inativado" text="Inativado" />
               </Select>
               {field('outsourcing_account', 'Outsourcing account')}
-              {field('account_status', 'Account Status', { placeholder: 'Normal' })}
-              {field('created_by', 'Created by')}
               {field('last_updated_by', 'Last updated by')}
               {field('password', user ? 'Senha (em branco mantém a atual)' : 'Senha', { type: 'password' })}
             </div>
@@ -204,15 +193,6 @@ export function IepmsUserFormModal({ open, user, onClose, onSaved }: Props) {
               A senha é armazenada criptografada (AES-256-GCM) e nunca é devolvida nas listagens ou exportações.
               {user && (user.has_password ? ' Este usuário já possui senha cadastrada.' : ' Este usuário ainda não possui senha.')}
             </p>
-            <div className="form-grid">
-              <TextArea
-                id="iepms-remarks"
-                labelText="Remarks"
-                value={form.remarks}
-                rows={4}
-                onChange={(event) => updateForm({ remarks: event.target.value })}
-              />
-            </div>
           </>
         )}
       </div>

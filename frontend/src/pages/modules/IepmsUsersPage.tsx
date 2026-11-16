@@ -244,12 +244,7 @@ export function IepmsUsersPage() {
                       </button>
                       <span className="cell-secondary">{user.resource_id}</span>
                     </td>
-                    <td className="hide-sm">
-                      {user.personal_mailbox || user.zte_mail || '—'}
-                      {user.personal_mailbox && user.zte_mail && (
-                        <span className="cell-secondary">{user.zte_mail}</span>
-                      )}
-                    </td>
+                    <td className="hide-sm">{user.personal_mailbox || '—'}</td>
                     <td>
                       {user.status ? (
                         <Tag type={user.status === 'ativo' ? 'green' : 'red'} size="sm">

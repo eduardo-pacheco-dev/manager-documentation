@@ -144,18 +144,12 @@ export interface IepmsUser {
   name: string;
   gender: string | null;
   nationality: string | null;
-  us_green_card: string | null;
   certificate_type: string | null;
   id_number: string | null;
   birth_year: string | null;
   tel: string | null;
   personal_mailbox: string | null;
-  remarks: string | null;
-  restricted_party_screening_results: string | null;
   outsourcing_account: string | null;
-  account_status: string | null;
-  zte_mail: string | null;
-  created_by: string | null;
   last_updated_by: string | null;
   status: 'ativo' | 'inativado';
   has_password: boolean;

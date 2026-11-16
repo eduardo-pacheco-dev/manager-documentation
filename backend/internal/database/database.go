@@ -1165,6 +1165,15 @@ var migrations = [][]string{
 			DROP COLUMN service_department_four_level,
 			DROP COLUMN personnel_status`,
 	},
+	{
+		`ALTER TABLE iepms_users
+			DROP COLUMN restricted_party_screening_results,
+			DROP COLUMN us_green_card,
+			DROP COLUMN zte_mail,
+			DROP COLUMN account_status,
+			DROP COLUMN remarks,
+			DROP COLUMN created_by`,
+	},
 }
 
 // CleanupSessions removes expired sessions and tokens. It is safe to call at

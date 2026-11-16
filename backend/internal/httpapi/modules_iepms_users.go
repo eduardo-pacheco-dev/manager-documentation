@@ -13,35 +13,28 @@ import (
 )
 
 type iepmsUserPayload struct {
-	ResourceID                      string `json:"resource_id"`
-	Name                            string `json:"name"`
-	Gender                          string `json:"gender"`
-	Nationality                     string `json:"nationality"`
-	UsGreenCard                     string `json:"us_green_card"`
-	CertificateType                 string `json:"certificate_type"`
-	IDNumber                        string `json:"id_number"`
-	BirthYear                       string `json:"birth_year"`
-	Tel                             string `json:"tel"`
-	PersonalMailbox                 string `json:"personal_mailbox"`
-	Remarks                         string `json:"remarks"`
-	RestrictedPartyScreeningResults string `json:"restricted_party_screening_results"`
-	OutsourcingAccount              string `json:"outsourcing_account"`
-	AccountStatus                   string `json:"account_status"`
-	ZTEMail                         string `json:"zte_mail"`
-	CreatedBy                       string `json:"created_by"`
-	LastUpdatedBy                   string `json:"last_updated_by"`
-	Status                          string `json:"status"`
-	Password                        string `json:"password"`
+	ResourceID         string `json:"resource_id"`
+	Name               string `json:"name"`
+	Gender             string `json:"gender"`
+	Nationality        string `json:"nationality"`
+	CertificateType    string `json:"certificate_type"`
+	IDNumber           string `json:"id_number"`
+	BirthYear          string `json:"birth_year"`
+	Tel                string `json:"tel"`
+	PersonalMailbox    string `json:"personal_mailbox"`
+	OutsourcingAccount string `json:"outsourcing_account"`
+	LastUpdatedBy      string `json:"last_updated_by"`
+	Status             string `json:"status"`
+	Password           string `json:"password"`
 }
 
 func (p iepmsUserPayload) input() modules.IepmsUserInput {
 	return modules.IepmsUserInput{
 		ResourceID: p.ResourceID, Name: p.Name, Gender: p.Gender, Nationality: p.Nationality,
-		UsGreenCard: p.UsGreenCard, CertificateType: p.CertificateType,
-		IDNumber: p.IDNumber, BirthYear: p.BirthYear, Tel: p.Tel, PersonalMailbox: p.PersonalMailbox,
-		Remarks: p.Remarks, RestrictedPartyScreeningResults: p.RestrictedPartyScreeningResults,
-		OutsourcingAccount: p.OutsourcingAccount, AccountStatus: p.AccountStatus, ZTEMail: p.ZTEMail,
-		CreatedBy: p.CreatedBy, LastUpdatedBy: p.LastUpdatedBy, Status: p.Status,
+		CertificateType: p.CertificateType,
+		IDNumber:        p.IDNumber, BirthYear: p.BirthYear, Tel: p.Tel, PersonalMailbox: p.PersonalMailbox,
+		OutsourcingAccount: p.OutsourcingAccount,
+		LastUpdatedBy:      p.LastUpdatedBy, Status: p.Status,
 	}
 }
 
@@ -277,40 +270,28 @@ var iepmsUserColumns = []iepmsUserColumn{
 	{"name", "Name", 32},
 	{"gender", "Gender", 12},
 	{"nationality", "Nationality", 16},
-	{"us_green_card", "Having US green cards or not", 26},
 	{"certificate_type", "Certificate Type", 18},
 	{"id_number", "ID Number", 20},
 	{"birth_year", "Birth year", 12},
 	{"tel", "Tel", 24},
 	{"personal_mailbox", "Personal mailbox", 30},
-	{"remarks", "Remarks", 24},
-	{"restricted_party_screening_results", "Restricted party screening results", 30},
 	{"outsourcing_account", "Outsourcing account", 22},
-	{"account_status", "Account Status", 16},
-	{"zte_mail", "ZTE mail", 28},
-	{"created_by", "Created by", 30},
 	{"last_updated_by", "Last updated by", 30},
 }
 
 func iepmsUserFieldValue(user modules.IepmsUser, key string) string {
 	values := map[string]string{
-		"resource_id":                        user.ResourceID,
-		"name":                               user.Name,
-		"gender":                             derefString(user.Gender),
-		"nationality":                        derefString(user.Nationality),
-		"us_green_card":                      derefString(user.UsGreenCard),
-		"certificate_type":                   derefString(user.CertificateType),
-		"id_number":                          derefString(user.IDNumber),
-		"birth_year":                         derefString(user.BirthYear),
-		"tel":                                derefString(user.Tel),
-		"personal_mailbox":                   derefString(user.PersonalMailbox),
-		"remarks":                            derefString(user.Remarks),
-		"restricted_party_screening_results": derefString(user.RestrictedPartyScreeningResults),
-		"outsourcing_account":                derefString(user.OutsourcingAccount),
-		"account_status":                     derefString(user.AccountStatus),
-		"zte_mail":                           derefString(user.ZTEMail),
-		"created_by":                         derefString(user.CreatedBy),
-		"last_updated_by":                    derefString(user.LastUpdatedBy),
+		"resource_id":         user.ResourceID,
+		"name":                user.Name,
+		"gender":              derefString(user.Gender),
+		"nationality":         derefString(user.Nationality),
+		"certificate_type":    derefString(user.CertificateType),
+		"id_number":           derefString(user.IDNumber),
+		"birth_year":          derefString(user.BirthYear),
+		"tel":                 derefString(user.Tel),
+		"personal_mailbox":    derefString(user.PersonalMailbox),
+		"outsourcing_account": derefString(user.OutsourcingAccount),
+		"last_updated_by":     derefString(user.LastUpdatedBy),
 	}
 	return values[key]
 }
@@ -357,17 +338,16 @@ func (s *Server) iepmsUsersTemplate(w http.ResponseWriter, r *http.Request) {
 	headers = append(headers, "Password (opcional)", "Status")
 	writeXLSXRow(f, sheet, 1, headers)
 	writeXLSXRow(f, sheet, 2, []string{
-		"W0000000000", "NOME DO COLABORADOR", "MALE", "Brazil", "", "ID Card",
-		"00000000000", "1990", "0055|11999999999", "email@empresa.com", "", "No",
-		"6000000000", "Normal", "",
-		"system", "system", "", "Ativo",
+		"W0000000000", "NOME DO COLABORADOR", "MALE", "Brazil", "ID Card",
+		"00000000000", "1990", "0055|11999999999", "email@empresa.com",
+		"system", "", "Ativo",
 	})
 	styleNokiaSheet(f, sheet, len(headers), 2)
 	for index, column := range iepmsUserColumns {
 		col, _ := excelize.ColumnNumberToName(index + 1)
 		f.SetColWidth(sheet, col, col, column.Width)
 	}
-	f.SetColWidth(sheet, "R", "S", 24)
+	f.SetColWidth(sheet, "K", "L", 24)
 	infoSheet := "Instruções"
 	_, _ = f.NewSheet(infoSheet)
 	instructions := [][]string{
@@ -428,25 +408,19 @@ func (s *Server) iepmsUsersImport(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		payload := iepmsUserPayload{
-			ResourceID:                      get(row, "resource_id", "resource id"),
-			Name:                            get(row, "name"),
-			Gender:                          get(row, "gender"),
-			Nationality:                     get(row, "nationality"),
-			UsGreenCard:                     get(row, "having_us_green_cards_or_not", "us_green_card"),
-			CertificateType:                 get(row, "certificate_type"),
-			IDNumber:                        get(row, "id_number"),
-			BirthYear:                       get(row, "birth_year"),
-			Tel:                             get(row, "tel"),
-			PersonalMailbox:                 get(row, "personal_mailbox"),
-			Remarks:                         get(row, "remarks"),
-			RestrictedPartyScreeningResults: get(row, "restricted_party_screening_results"),
-			OutsourcingAccount:              get(row, "outsourcing_account"),
-			AccountStatus:                   get(row, "account_status"),
-			ZTEMail:                         get(row, "zte_mail"),
-			CreatedBy:                       get(row, "created_by"),
-			LastUpdatedBy:                   get(row, "last_updated_by"),
-			Status:                          get(row, "status", "situacao", "situação"),
-			Password:                        get(row, "password", "password_opcional"),
+			ResourceID:         get(row, "resource_id", "resource id"),
+			Name:               get(row, "name"),
+			Gender:             get(row, "gender"),
+			Nationality:        get(row, "nationality"),
+			CertificateType:    get(row, "certificate_type"),
+			IDNumber:           get(row, "id_number"),
+			BirthYear:          get(row, "birth_year"),
+			Tel:                get(row, "tel"),
+			PersonalMailbox:    get(row, "personal_mailbox"),
+			OutsourcingAccount: get(row, "outsourcing_account"),
+			LastUpdatedBy:      get(row, "last_updated_by"),
+			Status:             get(row, "status", "situacao", "situação"),
+			Password:           get(row, "password", "password_opcional"),
 		}
 		if fields := validateIepmsUser(payload); !fields.empty() {
 			for _, message := range fields {
