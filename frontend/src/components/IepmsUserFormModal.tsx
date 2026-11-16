@@ -29,11 +29,6 @@ const EMPTY = {
   outsourcing_account: '',
   account_status: '',
   zte_mail: '',
-  academic_qualifications: '',
-  learning_mode: '',
-  graduation_time: '',
-  graduation_school: '',
-  major: '',
   created_by: '',
   last_updated_by: '',
   status: 'ativo',
@@ -56,12 +51,7 @@ const STEPS = [
   {
     key: 'conta',
     label: 'Conta e segurança',
-    description: 'Conta de outsourcing, status e senha de acesso ao iEPMS.',
-  },
-  {
-    key: 'formacao',
-    label: 'Formação',
-    description: 'Escolaridade, curso e observações adicionais.',
+    description: 'Conta de outsourcing, status, senha de acesso e observações.',
   },
 ];
 
@@ -240,18 +230,6 @@ export function IepmsUserFormModal({ open, user, onClose, onSaved }: Props) {
               A senha é armazenada criptografada (AES-256-GCM) e nunca é devolvida nas listagens ou exportações.
               {user && (user.has_password ? ' Este usuário já possui senha cadastrada.' : ' Este usuário ainda não possui senha.')}
             </p>
-          </>
-        )}
-
-        {step === 3 && (
-          <>
-            <div className="form-grid">
-              {field('academic_qualifications', 'Academic qualifications')}
-              {field('learning_mode', 'Learning Mode')}
-              {field('graduation_time', 'Graduation time')}
-              {field('graduation_school', 'Graduation school')}
-              {field('major', 'Major')}
-            </div>
             <div className="form-grid">
               <TextArea
                 id="iepms-remarks"

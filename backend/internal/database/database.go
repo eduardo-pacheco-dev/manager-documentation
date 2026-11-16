@@ -1146,6 +1146,14 @@ var migrations = [][]string{
 	{
 		`ALTER TABLE iepms_users ADD COLUMN status VARCHAR(32) NOT NULL DEFAULT 'ativo' AFTER last_updated_by`,
 	},
+	{
+		`ALTER TABLE iepms_users
+			DROP COLUMN academic_qualifications,
+			DROP COLUMN learning_mode,
+			DROP COLUMN graduation_time,
+			DROP COLUMN graduation_school,
+			DROP COLUMN major`,
+	},
 }
 
 // CleanupSessions removes expired sessions and tokens. It is safe to call at

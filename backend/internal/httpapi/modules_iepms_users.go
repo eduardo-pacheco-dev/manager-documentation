@@ -36,11 +36,6 @@ type iepmsUserPayload struct {
 	OutsourcingAccount              string `json:"outsourcing_account"`
 	AccountStatus                   string `json:"account_status"`
 	ZTEMail                         string `json:"zte_mail"`
-	AcademicQualifications          string `json:"academic_qualifications"`
-	LearningMode                    string `json:"learning_mode"`
-	GraduationTime                  string `json:"graduation_time"`
-	GraduationSchool                string `json:"graduation_school"`
-	Major                           string `json:"major"`
 	CreatedBy                       string `json:"created_by"`
 	LastUpdatedBy                   string `json:"last_updated_by"`
 	Status                          string `json:"status"`
@@ -57,8 +52,6 @@ func (p iepmsUserPayload) input() modules.IepmsUserInput {
 		ServiceDepartmentTwoLevel: p.ServiceDepartmentTwoLevel, ServiceDepartmentThreeLevel: p.ServiceDepartmentThreeLevel,
 		ServiceDepartmentFourLevel: p.ServiceDepartmentFourLevel, PersonnelStatus: p.PersonnelStatus,
 		OutsourcingAccount: p.OutsourcingAccount, AccountStatus: p.AccountStatus, ZTEMail: p.ZTEMail,
-		AcademicQualifications: p.AcademicQualifications, LearningMode: p.LearningMode,
-		GraduationTime: p.GraduationTime, GraduationSchool: p.GraduationSchool, Major: p.Major,
 		CreatedBy: p.CreatedBy, LastUpdatedBy: p.LastUpdatedBy, Status: p.Status,
 	}
 }
@@ -316,11 +309,6 @@ var iepmsUserColumns = []iepmsUserColumn{
 	{"outsourcing_account", "Outsourcing account", 22},
 	{"account_status", "Account Status", 16},
 	{"zte_mail", "ZTE mail", 28},
-	{"academic_qualifications", "Academic qualifications", 24},
-	{"learning_mode", "Learning Mode", 16},
-	{"graduation_time", "Graduation time", 18},
-	{"graduation_school", "Graduation school", 30},
-	{"major", "Major", 24},
 	{"created_by", "Created by", 30},
 	{"last_updated_by", "Last updated by", 30},
 }
@@ -350,11 +338,6 @@ func iepmsUserFieldValue(user modules.IepmsUser, key string) string {
 		"outsourcing_account":                derefString(user.OutsourcingAccount),
 		"account_status":                     derefString(user.AccountStatus),
 		"zte_mail":                           derefString(user.ZTEMail),
-		"academic_qualifications":            derefString(user.AcademicQualifications),
-		"learning_mode":                      derefString(user.LearningMode),
-		"graduation_time":                    derefString(user.GraduationTime),
-		"graduation_school":                  derefString(user.GraduationSchool),
-		"major":                              derefString(user.Major),
 		"created_by":                         derefString(user.CreatedBy),
 		"last_updated_by":                    derefString(user.LastUpdatedBy),
 	}
@@ -406,7 +389,7 @@ func (s *Server) iepmsUsersTemplate(w http.ResponseWriter, r *http.Request) {
 		"W0000000000", "NOME DO COLABORADOR", "MALE", "Brazil", "", "EMPRESA LTDA", "ID Card",
 		"00000000000", "1990", "0055|11999999999", "email@empresa.com", "", "No",
 		"Engineering Service", "Project Outsourcing", "Project subcontractor", "", "", "",
-		"Normal", "6000000000", "Normal", "", "Others", "", "", "", "",
+		"Normal", "6000000000", "Normal", "",
 		"system", "system", "", "Ativo",
 	})
 	styleNokiaSheet(f, sheet, len(headers), 2)
@@ -414,7 +397,7 @@ func (s *Server) iepmsUsersTemplate(w http.ResponseWriter, r *http.Request) {
 		col, _ := excelize.ColumnNumberToName(index + 1)
 		f.SetColWidth(sheet, col, col, column.Width)
 	}
-	f.SetColWidth(sheet, "AE", "AF", 24)
+	f.SetColWidth(sheet, "Z", "AA", 24)
 	infoSheet := "Instruções"
 	_, _ = f.NewSheet(infoSheet)
 	instructions := [][]string{
@@ -498,11 +481,6 @@ func (s *Server) iepmsUsersImport(w http.ResponseWriter, r *http.Request) {
 			OutsourcingAccount:              get(row, "outsourcing_account"),
 			AccountStatus:                   get(row, "account_status"),
 			ZTEMail:                         get(row, "zte_mail"),
-			AcademicQualifications:          get(row, "academic_qualifications"),
-			LearningMode:                    get(row, "learning_mode"),
-			GraduationTime:                  get(row, "graduation_time"),
-			GraduationSchool:                get(row, "graduation_school"),
-			Major:                           get(row, "major"),
 			CreatedBy:                       get(row, "created_by"),
 			LastUpdatedBy:                   get(row, "last_updated_by"),
 			Status:                          get(row, "status", "situacao", "situação"),

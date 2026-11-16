@@ -38,11 +38,6 @@ type IepmsUser struct {
 	OutsourcingAccount              *string   `db:"outsourcing_account" json:"outsourcing_account"`
 	AccountStatus                   *string   `db:"account_status" json:"account_status"`
 	ZTEMail                         *string   `db:"zte_mail" json:"zte_mail"`
-	AcademicQualifications          *string   `db:"academic_qualifications" json:"academic_qualifications"`
-	LearningMode                    *string   `db:"learning_mode" json:"learning_mode"`
-	GraduationTime                  *string   `db:"graduation_time" json:"graduation_time"`
-	GraduationSchool                *string   `db:"graduation_school" json:"graduation_school"`
-	Major                           *string   `db:"major" json:"major"`
 	CreatedBy                       *string   `db:"created_by" json:"created_by"`
 	LastUpdatedBy                   *string   `db:"last_updated_by" json:"last_updated_by"`
 	Status                          string    `db:"status" json:"status"`
@@ -158,11 +153,6 @@ type IepmsUserInput struct {
 	OutsourcingAccount              string
 	AccountStatus                   string
 	ZTEMail                         string
-	AcademicQualifications          string
-	LearningMode                    string
-	GraduationTime                  string
-	GraduationSchool                string
-	Major                           string
 	CreatedBy                       string
 	LastUpdatedBy                   string
 	Status                          string
@@ -175,10 +165,9 @@ const iepmsUserInsert = `INSERT INTO iepms_users (
 	id_number, birth_year, tel, personal_mailbox, remarks, restricted_party_screening_results,
 	service_field, outsourcing_type, personnel_type, service_department_two_level,
 	service_department_three_level, service_department_four_level, personnel_status,
-	outsourcing_account, account_status, zte_mail, academic_qualifications, learning_mode,
-	graduation_time, graduation_school, major, created_by, last_updated_by, status,
+	outsourcing_account, account_status, zte_mail, created_by, last_updated_by, status,
 	password_encrypted, created_at, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 func (s *Store) CreateIepmsUser(input IepmsUserInput) (IepmsUser, error) {
 	timestamp := now()
@@ -196,9 +185,8 @@ func (s *Store) CreateIepmsUser(input IepmsUserInput) (IepmsUser, error) {
 		nullString(input.ServiceDepartmentTwoLevel), nullString(input.ServiceDepartmentThreeLevel),
 		nullString(input.ServiceDepartmentFourLevel), nullString(input.PersonnelStatus),
 		nullString(input.OutsourcingAccount), nullString(input.AccountStatus), nullString(input.ZTEMail),
-		nullString(input.AcademicQualifications), nullString(input.LearningMode), nullString(input.GraduationTime),
-		nullString(input.GraduationSchool), nullString(input.Major), nullString(input.CreatedBy),
-		nullString(input.LastUpdatedBy), status, nullString(input.PasswordEncrypted), timestamp, timestamp)
+		nullString(input.CreatedBy), nullString(input.LastUpdatedBy), status,
+		nullString(input.PasswordEncrypted), timestamp, timestamp)
 	if err != nil {
 		return IepmsUser{}, err
 	}
@@ -213,7 +201,6 @@ func (s *Store) UpdateIepmsUser(id int64, input IepmsUserInput) (IepmsUser, erro
 		restricted_party_screening_results = ?, service_field = ?, outsourcing_type = ?, personnel_type = ?,
 		service_department_two_level = ?, service_department_three_level = ?, service_department_four_level = ?,
 		personnel_status = ?, outsourcing_account = ?, account_status = ?, zte_mail = ?,
-		academic_qualifications = ?, learning_mode = ?, graduation_time = ?, graduation_school = ?, major = ?,
 		created_by = ?, last_updated_by = ?, status = COALESCE(NULLIF(?, ''), status), updated_at = ? WHERE id = ?`,
 		strings.TrimSpace(input.ResourceID), strings.TrimSpace(input.Name), nullString(input.Gender),
 		nullString(input.Nationality), nullString(input.UsGreenCard), nullString(input.Subcontractor),
@@ -224,9 +211,7 @@ func (s *Store) UpdateIepmsUser(id int64, input IepmsUserInput) (IepmsUser, erro
 		nullString(input.ServiceDepartmentTwoLevel), nullString(input.ServiceDepartmentThreeLevel),
 		nullString(input.ServiceDepartmentFourLevel), nullString(input.PersonnelStatus),
 		nullString(input.OutsourcingAccount), nullString(input.AccountStatus), nullString(input.ZTEMail),
-		nullString(input.AcademicQualifications), nullString(input.LearningMode), nullString(input.GraduationTime),
-		nullString(input.GraduationSchool), nullString(input.Major), nullString(input.CreatedBy),
-		nullString(input.LastUpdatedBy), strings.TrimSpace(input.Status), now(), id)
+		nullString(input.CreatedBy), nullString(input.LastUpdatedBy), strings.TrimSpace(input.Status), now(), id)
 	if err != nil {
 		return IepmsUser{}, err
 	}

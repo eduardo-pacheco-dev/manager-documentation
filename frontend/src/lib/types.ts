@@ -163,11 +163,6 @@ export interface IepmsUser {
   outsourcing_account: string | null;
   account_status: string | null;
   zte_mail: string | null;
-  academic_qualifications: string | null;
-  learning_mode: string | null;
-  graduation_time: string | null;
-  graduation_school: string | null;
-  major: string | null;
   created_by: string | null;
   last_updated_by: string | null;
   status: 'ativo' | 'inativado';
