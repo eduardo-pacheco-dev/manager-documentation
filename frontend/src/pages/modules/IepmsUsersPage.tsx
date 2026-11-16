@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Add, Download, OverflowMenuVertical, Upload, View } from '@carbon/icons-react';
+import { Add, Download, OverflowMenuVertical, Upload } from '@carbon/icons-react';
 import {
   Button,
   InlineLoading,
@@ -127,6 +127,24 @@ export function IepmsUsersPage() {
       }
     };
     input.click();
+  }
+
+  function rowActions(user: IepmsUser) {
+    return (
+      <OverflowMenu
+        aria-label={`Ações de ${user.name}`}
+        iconDescription={`Ações de ${user.name}`}
+        renderIcon={OverflowMenuVertical}
+        size="sm"
+        flipped
+      >
+        {user.has_password && (
+          <OverflowMenuItem itemText="Ver senha" onClick={() => setRevealing(user)} />
+        )}
+        <OverflowMenuItem itemText="Editar" onClick={() => openEdit(user)} />
+        <OverflowMenuItem itemText="Excluir" isDelete hasDivider onClick={() => setDeleting(user)} />
+      </OverflowMenu>
+    );
   }
 
   return (
@@ -280,20 +298,7 @@ export function IepmsUsersPage() {
                       </span>
                     </td>
                     <td className="hide-sm">{relativeTime(user.updated_at)}</td>
-                    <td className="cell-actions">
-                      {user.has_password && (
-                        <Button
-                          kind="ghost"
-                          size="sm"
-                          renderIcon={View}
-                          onClick={() => setRevealing(user)}
-                        >
-                          Ver senha
-                        </Button>
-                      )}
-                      <Button kind="ghost" size="sm" onClick={() => openEdit(user)}>Editar</Button>
-                      <Button kind="danger--ghost" size="sm" onClick={() => setDeleting(user)}>Excluir</Button>
-                    </td>
+                    <td className="cell-actions">{rowActions(user)}</td>
                   </tr>
                 ))}
               </tbody>
