@@ -238,9 +238,7 @@ export function IepmsUsersPage() {
               <thead>
                 <tr>
                   <th>Usuário</th>
-                  <th className="hide-sm">Gênero / Nacionalidade</th>
-                  <th className="hide-md">Subcontratado</th>
-                  <th className="hide-sm">Service Field</th>
+                  <th className="hide-sm">E-mail</th>
                   <th>Status</th>
                   <th className="hide-md">Conta</th>
                   <th className="hide-sm">Atualizado</th>
@@ -257,13 +255,10 @@ export function IepmsUsersPage() {
                       <span className="cell-secondary">{user.resource_id}</span>
                     </td>
                     <td className="hide-sm">
-                      {[user.gender, user.nationality].filter(Boolean).join(' · ') || '—'}
-                      <span className="cell-secondary">{user.personal_mailbox || user.zte_mail || 'Sem e-mail'}</span>
-                    </td>
-                    <td className="hide-md">{user.subcontractor || '—'}</td>
-                    <td className="hide-sm">
-                      {user.service_field || '—'}
-                      <span className="cell-secondary">{user.personnel_type || user.outsourcing_type || '—'}</span>
+                      {user.personal_mailbox || user.zte_mail || '—'}
+                      {user.personal_mailbox && user.zte_mail && (
+                        <span className="cell-secondary">{user.zte_mail}</span>
+                      )}
                     </td>
                     <td>
                       {user.personnel_status ? (
