@@ -1,3 +1,5 @@
+import { ApiError } from './api';
+
 export function parseDate(value: string | null | undefined): Date | null {
   if (!value) return null;
   const date = new Date(value);
@@ -87,4 +89,14 @@ export function truncate(value: string, length: number): string {
 export function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   return 'Ocorreu um erro inesperado.';
+}
+
+// Detalha erros de validação da API (campo a campo), usada em importações e
+// formulários que não exibem erros por campo.
+export function errorDetails(error: unknown): string {
+  if (error instanceof ApiError) {
+    const fields = Object.values(error.fields ?? {}).filter(Boolean);
+    if (fields.length > 0) return fields.join(' ');
+  }
+  return errorMessage(error);
 }

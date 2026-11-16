@@ -21,7 +21,7 @@ import { EmptyState } from '../../components/Feedback';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { api } from '../../lib/api';
-import { errorMessage, relativeTime } from '../../lib/format';
+import { errorDetails, errorMessage, relativeTime } from '../../lib/format';
 
 interface Client { id: number; name: string; projects: { id: number; name: string; client_id: number }[]; project_count: number; follow_up_count: number }
 interface Assignee { id: number; name: string; email: string | null; follow_up_count: number }
@@ -197,7 +197,7 @@ export function FollowUpsPage() {
         toast.success(response.message);
         await load();
       } catch (error) {
-        toast.error('Falha na importação', errorMessage(error));
+        toast.error('Falha na importação', errorDetails(error));
       }
     };
     input.click();

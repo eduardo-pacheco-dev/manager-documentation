@@ -23,7 +23,7 @@ import { EmptyState } from '../../components/Feedback';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { api } from '../../lib/api';
-import { errorMessage, relativeTime } from '../../lib/format';
+import { errorDetails, errorMessage, relativeTime } from '../../lib/format';
 
 interface ROM { id: number; first_name: string; last_name: string; email: string; phone: string }
 interface StationSiteOption {
@@ -286,7 +286,7 @@ export function NokiaPage() {
         toast.success(response.message);
         await load();
       } catch (error) {
-        toast.error('Falha na importação', errorMessage(error));
+        toast.error('Falha na importação', errorDetails(error));
       }
     };
     input.click();

@@ -709,6 +709,19 @@ func (s *Server) nokiaImport(w http.ResponseWriter, r *http.Request) {
 		taskByHeader[normalizeNokiaHeader("Tarefa - "+task.Name)] = task
 		taskByHeader[normalizeNokiaHeader("Atividade - "+task.Name)] = task
 	}
+	dateColumns := []struct {
+		header string
+		field  string
+	}{
+		{"mos_plan", "mos_plan_at"}, {"mos_real", "mos_real_at"},
+		{"instalacao_plan", "instalacao_plan_at"}, {"instalacao_real", "instalacao_real_at"},
+		{"integracao_plan", "integracao_plan_at"}, {"integracao_real", "integracao_real_at"},
+		{"rfa_plan", "rfa_plan_at"}, {"rfa_real", "rfa_real_at"},
+		{"fam_entrega_aprovado", "fam_entrega_approved_at"}, {"fam_instalacao_aprovado", "fam_instalacao_approved_at"},
+		{"fam_panoramica_aprovado", "fam_panoramica_approved_at"}, {"fam_entrega_aprovada", "fam_entrega_approved_at"},
+		{"fam_instalacao_aprovada", "fam_instalacao_approved_at"}, {"fam_panoramica_aprovada", "fam_panoramica_approved_at"},
+	}
+	monthFirst := nokiaDatesUseMonthFirst(matrix[1:], index, dateColumns)
 	type importRow struct {
 		input      modules.NokiaSiteInput
 		dates      map[string]string
@@ -758,44 +771,45 @@ func (s *Server) nokiaImport(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		checklists := map[string]string{}
-		for headerKey, field := range map[string]string{
-			"fam_entrega": "checklist_fam_entrega", "fam_instalacao": "checklist_fam_instalacao", "fam_panoramica": "checklist_fam_panoramica",
+		for _, item := range []struct {
+			field string
+			names []string
+		}{
+			{"checklist_fam_entrega", []string{"fam_entrega", "checklist_fam_entrega"}},
+			{"checklist_fam_instalacao", []string{"fam_instalacao", "checklist_fam_instalacao"}},
+			{"checklist_fam_panoramica", []string{"fam_panoramica", "checklist_fam_panoramica"}},
 		} {
-			if _, present := index[headerKey]; !present {
+			present := false
+			for _, name := range item.names {
+				if _, ok := index[normalizeNokiaHeader(name)]; ok {
+					present = true
+					break
+				}
+			}
+			if !present {
 				continue
 			}
-			value := get(headerKey)
+			value := get(item.names...)
 			if value == "" {
 				continue
 			}
-			if parseNokiaBool(value) {
-				checklists[field] = "sent"
-			} else {
-				checklists[field] = "pending"
-			}
+			checklists[item.field] = parseNokiaChecklistStatus(value)
 		}
 		dates := map[string]string{}
-		for headerKey, field := range map[string]string{
-			"mos_plan": "mos_plan_at", "mos_real": "mos_real_at", "instalacao_plan": "instalacao_plan_at",
-			"instalacao_real": "instalacao_real_at", "integracao_plan": "integracao_plan_at",
-			"integracao_real": "integracao_real_at", "rfa_plan": "rfa_plan_at", "rfa_real": "rfa_real_at",
-			"fam_entrega_aprovado": "fam_entrega_approved_at", "fam_instalacao_aprovado": "fam_instalacao_approved_at",
-			"fam_panoramica_aprovado": "fam_panoramica_approved_at", "fam_entrega_aprovada": "fam_entrega_approved_at",
-			"fam_instalacao_aprovada": "fam_instalacao_approved_at", "fam_panoramica_aprovada": "fam_panoramica_approved_at",
-		} {
-			if _, present := index[headerKey]; !present {
+		for _, column := range dateColumns {
+			if _, present := index[column.header]; !present {
 				continue
 			}
-			raw := get(headerKey)
+			raw := get(column.header)
 			if raw == "" {
 				continue
 			}
-			parsed, ok := normalizeNokiaImportDate(raw)
+			parsed, ok := normalizeNokiaImportDate(raw, monthFirst)
 			if !ok {
 				errorsList = append(errorsList, fmt.Sprintf("Linha %d: %q não é uma data válida.", lineNumber, raw))
 				continue
 			}
-			dates[field] = parsed
+			dates[column.field] = parsed
 		}
 		taskValues := map[int64]bool{}
 		for headerKey, task := range taskByHeader {
@@ -812,9 +826,9 @@ func (s *Server) nokiaImport(w http.ResponseWriter, r *http.Request) {
 			input: modules.NokiaSiteInput{
 				SiteID: siteID, EndID: get("end_id"), OC: oc, OSFamEntrega: get("os_fam_entrega"),
 				OSFamInstalacao: get("os_fam_instalacao"), Regional: get("regional"), Subcon: get("subcon"),
-				ChecklistFamEntrega:    parseNokiaBool(get("fam_entrega")),
-				ChecklistFamInstalacao: parseNokiaBool(get("fam_instalacao")),
-				ChecklistFamPanoramica: parseNokiaBool(get("fam_panoramica")),
+				ChecklistFamEntrega:    parseNokiaChecklistStatus(get("fam_entrega", "checklist_fam_entrega")) == "sent",
+				ChecklistFamInstalacao: parseNokiaChecklistStatus(get("fam_instalacao", "checklist_fam_instalacao")) == "sent",
+				ChecklistFamPanoramica: parseNokiaChecklistStatus(get("fam_panoramica", "checklist_fam_panoramica")) == "sent",
 				NokiaROMID:             romID,
 			},
 			dates: dates, checklists: checklists, tasks: taskValues, line: lineNumber,
@@ -873,7 +887,8 @@ func (s *Server) nokiaImport(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if saveErr != nil {
-			writeError(w, http.StatusUnprocessableEntity, "Não foi possível importar os sites.", nil)
+			log.Printf("nokia import line %d (site %s): %v", row.line, row.input.SiteID, saveErr)
+			writeValidation(w, validationErrors{"file": fmt.Sprintf("Linha %d: não foi possível salvar o site %s.", row.line, row.input.SiteID)})
 			return
 		}
 		for field, status := range row.checklists {
@@ -1073,12 +1088,38 @@ func parseNokiaBool(value string) bool {
 	}
 }
 
-func normalizeNokiaImportDate(value string) (string, bool) {
+func parseNokiaChecklistStatus(value string) string {
+	switch normalizeNokiaHeader(value) {
+	case "aprovado", "aprovada", "concluido", "concluida", "sim", "s", "1", "x", "yes", "y", "true", "on", "ok", "sent":
+		return "sent"
+	case "cancelado", "cancelada", "cancelled", "canceled":
+		return "cancelled"
+	case "rejeitado", "rejeitada", "rejected":
+		return "rejected"
+	case "analise", "analise_tim", "analysis":
+		return "analysis"
+	default:
+		if parseNokiaBool(value) {
+			return "sent"
+		}
+		return "pending"
+	}
+}
+
+func normalizeNokiaImportDate(value string, monthFirst bool) (string, bool) {
 	value = strings.TrimSpace(value)
 	if value == "" {
 		return "", true
 	}
-	for _, layout := range []string{"02/01/2006", "02-01-2006", "2006-01-02", "02/01/06", "2006/01/02"} {
+	dayFirst := []string{"02/01/2006", "02-01-2006", "2006-01-02", "02/01/06", "02-01-06", "2006/01/02"}
+	monthFirstLayouts := []string{"01/02/2006", "01-02-2006", "01/02/06", "01-02-06"}
+	layouts := dayFirst
+	if monthFirst {
+		layouts = append(append([]string{}, monthFirstLayouts...), dayFirst...)
+	} else {
+		layouts = append(append([]string{}, dayFirst...), monthFirstLayouts...)
+	}
+	for _, layout := range layouts {
 		if parsed, err := time.ParseInLocation(layout, value, time.Local); err == nil {
 			return parsed.Format("2006-01-02"), true
 		}
@@ -1091,6 +1132,38 @@ func normalizeNokiaImportDate(value string) (string, bool) {
 	return "", false
 }
 
+// nokiaDatesUseMonthFirst detecta se as datas da planilha usam mês antes do dia
+// (ex.: 09-26-26), olhando valores em que um dos componentes passa de 12.
+func nokiaDatesUseMonthFirst(rows [][]string, index map[string]int, columns []struct{ header, field string }) bool {
+	dayEvidence, monthEvidence := 0, 0
+	for _, row := range rows {
+		for _, column := range columns {
+			col, ok := index[column.header]
+			if !ok || col >= len(row) {
+				continue
+			}
+			parts := strings.FieldsFunc(strings.TrimSpace(row[col]), func(r rune) bool {
+				return r == '-' || r == '/' || r == '.'
+			})
+			if len(parts) < 2 {
+				continue
+			}
+			first, err1 := strconv.Atoi(parts[0])
+			second, err2 := strconv.Atoi(parts[1])
+			if err1 != nil || err2 != nil {
+				continue
+			}
+			if first > 12 && second <= 12 {
+				dayEvidence++
+			}
+			if second > 12 && first <= 12 {
+				monthEvidence++
+			}
+		}
+	}
+	return monthEvidence > dayEvidence
+}
+
 func nokiaChecklistStatus(value string) string {
 	switch value {
 	case "sent":
@@ -1099,6 +1172,8 @@ func nokiaChecklistStatus(value string) string {
 		return "Análise TIM"
 	case "rejected":
 		return "Rejeitado"
+	case "cancelled":
+		return "Cancelado"
 	default:
 		return "Pendente"
 	}

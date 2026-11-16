@@ -22,7 +22,7 @@ import { StationFormModal } from '../../components/StationFormModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { api } from '../../lib/api';
-import { errorMessage, relativeTime } from '../../lib/format';
+import { errorDetails, errorMessage, relativeTime } from '../../lib/format';
 
 interface Attachment { id: number; category: string; original_name: string; url: string; size: number; created_at: string; uploader_name: string | null }
 interface Comment { id: number; body: string; user_id: number | null; author_name: string | null; created_at: string }
@@ -157,7 +157,7 @@ export function StationsPage() {
         toast.success(response.message);
         await load();
       } catch (error) {
-        toast.error('Falha na importação', errorMessage(error));
+        toast.error('Falha na importação', errorDetails(error));
       }
     };
     input.click();
