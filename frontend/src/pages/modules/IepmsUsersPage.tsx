@@ -38,7 +38,6 @@ export function IepmsUsersPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [serviceFieldFilter, setServiceFieldFilter] = useState('');
   const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<IepmsUser | null>(null);
@@ -53,7 +52,6 @@ export function IepmsUsersPage() {
       const params = new URLSearchParams({ page: String(page), per_page: '20' });
       if (search.trim()) params.set('search', search.trim());
       if (statusFilter) params.set('status', statusFilter);
-      if (serviceFieldFilter) params.set('service_field', serviceFieldFilter);
       const response = await api.get<IepmsUsersResponse>(`/iepms-users?${params.toString()}`);
       if (response.meta && page > response.meta.last_page) {
         setPage(response.meta.last_page);
@@ -66,7 +64,7 @@ export function IepmsUsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, statusFilter, serviceFieldFilter, toast]);
+  }, [page, search, statusFilter, toast]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -165,7 +163,7 @@ export function IepmsUsersPage() {
       />
 
       {data && (
-        <div className="stats-grid">
+        <div className="stats-grid stats-grid--3">
           <Tile className="stat-card stat-card--blue">
             <span className="stat-card__label">Usuários</span>
             <strong className="stat-card__value">{data.stats.total}</strong>
@@ -177,10 +175,6 @@ export function IepmsUsersPage() {
           <Tile className="stat-card stat-card--red">
             <span className="stat-card__label">Inativados</span>
             <strong className="stat-card__value">{data.stats.inactive}</strong>
-          </Tile>
-          <Tile className="stat-card stat-card--purple">
-            <span className="stat-card__label">Subcontratados</span>
-            <strong className="stat-card__value">{data.stats.subcontractor}</strong>
           </Tile>
         </div>
       )}
@@ -214,21 +208,6 @@ export function IepmsUsersPage() {
             <SelectItem value="" text="Todos" />
             {IEPMS_STATUS_OPTIONS.map((status) => (
               <SelectItem key={status.value} value={status.value} text={status.label} />
-            ))}
-          </Select>
-          <Select
-            id="iepms-service-field"
-            labelText="Service Field"
-            size="sm"
-            value={serviceFieldFilter}
-            onChange={(event) => {
-              setServiceFieldFilter(event.target.value);
-              setPage(1);
-            }}
-          >
-            <SelectItem value="" text="Todos" />
-            {(data?.service_fields ?? []).map((field) => (
-              <SelectItem key={field} value={field} text={field} />
             ))}
           </Select>
         </div>

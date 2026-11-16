@@ -11,7 +11,6 @@ const EMPTY = {
   gender: '',
   nationality: '',
   us_green_card: '',
-  subcontractor: '',
   certificate_type: '',
   id_number: '',
   birth_year: '',
@@ -19,13 +18,6 @@ const EMPTY = {
   personal_mailbox: '',
   remarks: '',
   restricted_party_screening_results: '',
-  service_field: '',
-  outsourcing_type: '',
-  personnel_type: '',
-  service_department_two_level: '',
-  service_department_three_level: '',
-  service_department_four_level: '',
-  personnel_status: '',
   outsourcing_account: '',
   account_status: '',
   zte_mail: '',
@@ -42,11 +34,6 @@ const STEPS = [
     key: 'identificacao',
     label: 'Identificação',
     description: 'Dados pessoais, documento, contato e triagem.',
-  },
-  {
-    key: 'vinculo',
-    label: 'Vínculo',
-    description: 'Subcontratado, tipo de alocação e departamento de serviço.',
   },
   {
     key: 'conta',
@@ -194,19 +181,6 @@ export function IepmsUserFormModal({ open, user, onClose, onSaved }: Props) {
         )}
 
         {step === 1 && (
-          <div className="form-grid">
-            {field('subcontractor', 'Subcontractor')}
-            {field('service_field', 'Service Field')}
-            {field('outsourcing_type', 'Outsourcing Type')}
-            {field('personnel_type', 'Personnel Type')}
-            {field('service_department_two_level', 'Service Department - two level')}
-            {field('service_department_three_level', 'Service Department - three level')}
-            {field('service_department_four_level', 'Service Department - four level')}
-            {field('personnel_status', 'Personnel Status', { placeholder: 'Normal / NA' })}
-          </div>
-        )}
-
-        {step === 2 && (
           <>
             <div className="form-grid">
               <Select

@@ -18,7 +18,6 @@ type iepmsUserPayload struct {
 	Gender                          string `json:"gender"`
 	Nationality                     string `json:"nationality"`
 	UsGreenCard                     string `json:"us_green_card"`
-	Subcontractor                   string `json:"subcontractor"`
 	CertificateType                 string `json:"certificate_type"`
 	IDNumber                        string `json:"id_number"`
 	BirthYear                       string `json:"birth_year"`
@@ -26,13 +25,6 @@ type iepmsUserPayload struct {
 	PersonalMailbox                 string `json:"personal_mailbox"`
 	Remarks                         string `json:"remarks"`
 	RestrictedPartyScreeningResults string `json:"restricted_party_screening_results"`
-	ServiceField                    string `json:"service_field"`
-	OutsourcingType                 string `json:"outsourcing_type"`
-	PersonnelType                   string `json:"personnel_type"`
-	ServiceDepartmentTwoLevel       string `json:"service_department_two_level"`
-	ServiceDepartmentThreeLevel     string `json:"service_department_three_level"`
-	ServiceDepartmentFourLevel      string `json:"service_department_four_level"`
-	PersonnelStatus                 string `json:"personnel_status"`
 	OutsourcingAccount              string `json:"outsourcing_account"`
 	AccountStatus                   string `json:"account_status"`
 	ZTEMail                         string `json:"zte_mail"`
@@ -45,12 +37,9 @@ type iepmsUserPayload struct {
 func (p iepmsUserPayload) input() modules.IepmsUserInput {
 	return modules.IepmsUserInput{
 		ResourceID: p.ResourceID, Name: p.Name, Gender: p.Gender, Nationality: p.Nationality,
-		UsGreenCard: p.UsGreenCard, Subcontractor: p.Subcontractor, CertificateType: p.CertificateType,
+		UsGreenCard: p.UsGreenCard, CertificateType: p.CertificateType,
 		IDNumber: p.IDNumber, BirthYear: p.BirthYear, Tel: p.Tel, PersonalMailbox: p.PersonalMailbox,
 		Remarks: p.Remarks, RestrictedPartyScreeningResults: p.RestrictedPartyScreeningResults,
-		ServiceField: p.ServiceField, OutsourcingType: p.OutsourcingType, PersonnelType: p.PersonnelType,
-		ServiceDepartmentTwoLevel: p.ServiceDepartmentTwoLevel, ServiceDepartmentThreeLevel: p.ServiceDepartmentThreeLevel,
-		ServiceDepartmentFourLevel: p.ServiceDepartmentFourLevel, PersonnelStatus: p.PersonnelStatus,
 		OutsourcingAccount: p.OutsourcingAccount, AccountStatus: p.AccountStatus, ZTEMail: p.ZTEMail,
 		CreatedBy: p.CreatedBy, LastUpdatedBy: p.LastUpdatedBy, Status: p.Status,
 	}
@@ -113,23 +102,21 @@ func (s *Server) iepmsUsersIndex(w http.ResponseWriter, r *http.Request) {
 	if perPage > 100 {
 		perPage = 100
 	}
-	items, total, stats, statuses, serviceFields, err := s.Modules.ListIepmsUsers(modules.IepmsUserFilter{
-		Search:       query.Get("search"),
-		Status:       query.Get("status"),
-		ServiceField: query.Get("service_field"),
-		Page:         page,
-		PerPage:      perPage,
+	items, total, stats, statuses, err := s.Modules.ListIepmsUsers(modules.IepmsUserFilter{
+		Search:  query.Get("search"),
+		Status:  query.Get("status"),
+		Page:    page,
+		PerPage: perPage,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Não foi possível carregar os usuários do iEPMS.", nil)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"data":           items,
-		"stats":          stats,
-		"statuses":       statuses,
-		"service_fields": serviceFields,
-		"meta":           paginationMeta(page, perPage, total),
+		"data":     items,
+		"stats":    stats,
+		"statuses": statuses,
+		"meta":     paginationMeta(page, perPage, total),
 	})
 }
 
@@ -291,7 +278,6 @@ var iepmsUserColumns = []iepmsUserColumn{
 	{"gender", "Gender", 12},
 	{"nationality", "Nationality", 16},
 	{"us_green_card", "Having US green cards or not", 26},
-	{"subcontractor", "Subcontractor", 28},
 	{"certificate_type", "Certificate Type", 18},
 	{"id_number", "ID Number", 20},
 	{"birth_year", "Birth year", 12},
@@ -299,13 +285,6 @@ var iepmsUserColumns = []iepmsUserColumn{
 	{"personal_mailbox", "Personal mailbox", 30},
 	{"remarks", "Remarks", 24},
 	{"restricted_party_screening_results", "Restricted party screening results", 30},
-	{"service_field", "Service Field", 20},
-	{"outsourcing_type", "Outsourcing Type", 22},
-	{"personnel_type", "Personnel Type", 22},
-	{"service_department_two_level", "Service Department - two level", 28},
-	{"service_department_three_level", "Service Department - three level", 30},
-	{"service_department_four_level", "Service Department - four level", 30},
-	{"personnel_status", "Personnel Status", 18},
 	{"outsourcing_account", "Outsourcing account", 22},
 	{"account_status", "Account Status", 16},
 	{"zte_mail", "ZTE mail", 28},
@@ -320,7 +299,6 @@ func iepmsUserFieldValue(user modules.IepmsUser, key string) string {
 		"gender":                             derefString(user.Gender),
 		"nationality":                        derefString(user.Nationality),
 		"us_green_card":                      derefString(user.UsGreenCard),
-		"subcontractor":                      derefString(user.Subcontractor),
 		"certificate_type":                   derefString(user.CertificateType),
 		"id_number":                          derefString(user.IDNumber),
 		"birth_year":                         derefString(user.BirthYear),
@@ -328,13 +306,6 @@ func iepmsUserFieldValue(user modules.IepmsUser, key string) string {
 		"personal_mailbox":                   derefString(user.PersonalMailbox),
 		"remarks":                            derefString(user.Remarks),
 		"restricted_party_screening_results": derefString(user.RestrictedPartyScreeningResults),
-		"service_field":                      derefString(user.ServiceField),
-		"outsourcing_type":                   derefString(user.OutsourcingType),
-		"personnel_type":                     derefString(user.PersonnelType),
-		"service_department_two_level":       derefString(user.ServiceDepartmentTwoLevel),
-		"service_department_three_level":     derefString(user.ServiceDepartmentThreeLevel),
-		"service_department_four_level":      derefString(user.ServiceDepartmentFourLevel),
-		"personnel_status":                   derefString(user.PersonnelStatus),
 		"outsourcing_account":                derefString(user.OutsourcingAccount),
 		"account_status":                     derefString(user.AccountStatus),
 		"zte_mail":                           derefString(user.ZTEMail),
@@ -345,7 +316,7 @@ func iepmsUserFieldValue(user modules.IepmsUser, key string) string {
 }
 
 func (s *Server) iepmsUsersExport(w http.ResponseWriter, r *http.Request) {
-	items, _, _, _, _, err := s.Modules.ListIepmsUsers(modules.IepmsUserFilter{Page: 1, PerPage: 100000})
+	items, _, _, _, err := s.Modules.ListIepmsUsers(modules.IepmsUserFilter{Page: 1, PerPage: 100000})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Não foi possível exportar os usuários do iEPMS.", nil)
 		return
@@ -386,10 +357,9 @@ func (s *Server) iepmsUsersTemplate(w http.ResponseWriter, r *http.Request) {
 	headers = append(headers, "Password (opcional)", "Status")
 	writeXLSXRow(f, sheet, 1, headers)
 	writeXLSXRow(f, sheet, 2, []string{
-		"W0000000000", "NOME DO COLABORADOR", "MALE", "Brazil", "", "EMPRESA LTDA", "ID Card",
+		"W0000000000", "NOME DO COLABORADOR", "MALE", "Brazil", "", "ID Card",
 		"00000000000", "1990", "0055|11999999999", "email@empresa.com", "", "No",
-		"Engineering Service", "Project Outsourcing", "Project subcontractor", "", "", "",
-		"Normal", "6000000000", "Normal", "",
+		"6000000000", "Normal", "",
 		"system", "system", "", "Ativo",
 	})
 	styleNokiaSheet(f, sheet, len(headers), 2)
@@ -397,7 +367,7 @@ func (s *Server) iepmsUsersTemplate(w http.ResponseWriter, r *http.Request) {
 		col, _ := excelize.ColumnNumberToName(index + 1)
 		f.SetColWidth(sheet, col, col, column.Width)
 	}
-	f.SetColWidth(sheet, "Z", "AA", 24)
+	f.SetColWidth(sheet, "R", "S", 24)
 	infoSheet := "Instruções"
 	_, _ = f.NewSheet(infoSheet)
 	instructions := [][]string{
@@ -463,7 +433,6 @@ func (s *Server) iepmsUsersImport(w http.ResponseWriter, r *http.Request) {
 			Gender:                          get(row, "gender"),
 			Nationality:                     get(row, "nationality"),
 			UsGreenCard:                     get(row, "having_us_green_cards_or_not", "us_green_card"),
-			Subcontractor:                   get(row, "subcontractor"),
 			CertificateType:                 get(row, "certificate_type"),
 			IDNumber:                        get(row, "id_number"),
 			BirthYear:                       get(row, "birth_year"),
@@ -471,13 +440,6 @@ func (s *Server) iepmsUsersImport(w http.ResponseWriter, r *http.Request) {
 			PersonalMailbox:                 get(row, "personal_mailbox"),
 			Remarks:                         get(row, "remarks"),
 			RestrictedPartyScreeningResults: get(row, "restricted_party_screening_results"),
-			ServiceField:                    get(row, "service_field"),
-			OutsourcingType:                 get(row, "outsourcing_type"),
-			PersonnelType:                   get(row, "personnel_type"),
-			ServiceDepartmentTwoLevel:       get(row, "service_department_two_level", "service_department_-_two_level"),
-			ServiceDepartmentThreeLevel:     get(row, "service_department_three_level", "service_department_-_three_level"),
-			ServiceDepartmentFourLevel:      get(row, "service_department_four_level", "service_department_-_four_level"),
-			PersonnelStatus:                 get(row, "personnel_status"),
 			OutsourcingAccount:              get(row, "outsourcing_account"),
 			AccountStatus:                   get(row, "account_status"),
 			ZTEMail:                         get(row, "zte_mail"),

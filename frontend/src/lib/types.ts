@@ -145,7 +145,6 @@ export interface IepmsUser {
   gender: string | null;
   nationality: string | null;
   us_green_card: string | null;
-  subcontractor: string | null;
   certificate_type: string | null;
   id_number: string | null;
   birth_year: string | null;
@@ -153,13 +152,6 @@ export interface IepmsUser {
   personal_mailbox: string | null;
   remarks: string | null;
   restricted_party_screening_results: string | null;
-  service_field: string | null;
-  outsourcing_type: string | null;
-  personnel_type: string | null;
-  service_department_two_level: string | null;
-  service_department_three_level: string | null;
-  service_department_four_level: string | null;
-  personnel_status: string | null;
   outsourcing_account: string | null;
   account_status: string | null;
   zte_mail: string | null;
@@ -173,9 +165,8 @@ export interface IepmsUser {
 
 export interface IepmsUsersResponse {
   data: IepmsUser[];
-  stats: { total: number; active: number; inactive: number; subcontractor: number };
+  stats: { total: number; active: number; inactive: number };
   statuses: string[];
-  service_fields: string[];
   meta: PageMeta;
 }
 

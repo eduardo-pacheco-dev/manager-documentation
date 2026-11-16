@@ -20,7 +20,6 @@ type IepmsUser struct {
 	Gender                          *string   `db:"gender" json:"gender"`
 	Nationality                     *string   `db:"nationality" json:"nationality"`
 	UsGreenCard                     *string   `db:"us_green_card" json:"us_green_card"`
-	Subcontractor                   *string   `db:"subcontractor" json:"subcontractor"`
 	CertificateType                 *string   `db:"certificate_type" json:"certificate_type"`
 	IDNumber                        *string   `db:"id_number" json:"id_number"`
 	BirthYear                       *string   `db:"birth_year" json:"birth_year"`
@@ -28,13 +27,6 @@ type IepmsUser struct {
 	PersonalMailbox                 *string   `db:"personal_mailbox" json:"personal_mailbox"`
 	Remarks                         *string   `db:"remarks" json:"remarks"`
 	RestrictedPartyScreeningResults *string   `db:"restricted_party_screening_results" json:"restricted_party_screening_results"`
-	ServiceField                    *string   `db:"service_field" json:"service_field"`
-	OutsourcingType                 *string   `db:"outsourcing_type" json:"outsourcing_type"`
-	PersonnelType                   *string   `db:"personnel_type" json:"personnel_type"`
-	ServiceDepartmentTwoLevel       *string   `db:"service_department_two_level" json:"service_department_two_level"`
-	ServiceDepartmentThreeLevel     *string   `db:"service_department_three_level" json:"service_department_three_level"`
-	ServiceDepartmentFourLevel      *string   `db:"service_department_four_level" json:"service_department_four_level"`
-	PersonnelStatus                 *string   `db:"personnel_status" json:"personnel_status"`
 	OutsourcingAccount              *string   `db:"outsourcing_account" json:"outsourcing_account"`
 	AccountStatus                   *string   `db:"account_status" json:"account_status"`
 	ZTEMail                         *string   `db:"zte_mail" json:"zte_mail"`
@@ -48,37 +40,31 @@ type IepmsUser struct {
 }
 
 type IepmsUserFilter struct {
-	Search       string
-	Status       string
-	ServiceField string
-	Page         int
-	PerPage      int
+	Search  string
+	Status  string
+	Page    int
+	PerPage int
 }
 
 type IepmsUserStats struct {
-	Total         int `json:"total"`
-	Active        int `json:"active"`
-	Inactive      int `json:"inactive"`
-	Subcontractor int `json:"subcontractor"`
+	Total    int `json:"total"`
+	Active   int `json:"active"`
+	Inactive int `json:"inactive"`
 }
 
-func (s *Store) ListIepmsUsers(filter IepmsUserFilter) ([]IepmsUser, int, IepmsUserStats, []string, []string, error) {
+func (s *Store) ListIepmsUsers(filter IepmsUserFilter) ([]IepmsUser, int, IepmsUserStats, []string, error) {
 	conditions := []string{"1 = 1"}
 	args := []any{}
 	if search := strings.TrimSpace(filter.Search); search != "" {
 		like := "%" + search + "%"
-		conditions = append(conditions, `(resource_id LIKE ? OR name LIKE ? OR COALESCE(subcontractor, '') LIKE ? OR COALESCE(id_number, '') LIKE ? OR COALESCE(tel, '') LIKE ? OR COALESCE(personal_mailbox, '') LIKE ? OR COALESCE(zte_mail, '') LIKE ? OR COALESCE(outsourcing_account, '') LIKE ? OR COALESCE(service_department_two_level, '') LIKE ? OR COALESCE(service_department_three_level, '') LIKE ? OR COALESCE(service_department_four_level, '') LIKE ? OR COALESCE(major, '') LIKE ?)`)
-		for i := 0; i < 12; i++ {
+		conditions = append(conditions, `(resource_id LIKE ? OR name LIKE ? OR COALESCE(id_number, '') LIKE ? OR COALESCE(tel, '') LIKE ? OR COALESCE(personal_mailbox, '') LIKE ? OR COALESCE(zte_mail, '') LIKE ? OR COALESCE(outsourcing_account, '') LIKE ?)`)
+		for i := 0; i < 7; i++ {
 			args = append(args, like)
 		}
 	}
 	if filter.Status != "" {
 		conditions = append(conditions, "status = ?")
 		args = append(args, filter.Status)
-	}
-	if filter.ServiceField != "" {
-		conditions = append(conditions, "service_field = ?")
-		args = append(args, filter.ServiceField)
 	}
 	if filter.Page < 1 {
 		filter.Page = 1
@@ -89,13 +75,13 @@ func (s *Store) ListIepmsUsers(filter IepmsUserFilter) ([]IepmsUser, int, IepmsU
 	where := strings.Join(conditions, " AND ")
 	var total int
 	if err := s.DB.Get(&total, `SELECT COUNT(*) FROM iepms_users WHERE `+where, args...); err != nil {
-		return nil, 0, IepmsUserStats{}, nil, nil, err
+		return nil, 0, IepmsUserStats{}, nil, err
 	}
 	query := `SELECT * FROM iepms_users WHERE ` + where + ` ORDER BY updated_at DESC, id DESC LIMIT ? OFFSET ?`
 	queryArgs := append(append([]any{}, args...), filter.PerPage, (filter.Page-1)*filter.PerPage)
 	users := []IepmsUser{}
 	if err := s.DB.Select(&users, query, queryArgs...); err != nil {
-		return nil, 0, IepmsUserStats{}, nil, nil, err
+		return nil, 0, IepmsUserStats{}, nil, err
 	}
 	for index := range users {
 		users[index].HasPassword = hasPassword(users[index].PasswordEncrypted)
@@ -103,16 +89,13 @@ func (s *Store) ListIepmsUsers(filter IepmsUserFilter) ([]IepmsUser, int, IepmsU
 	var stats IepmsUserStats
 	if err := s.DB.Get(&stats, `SELECT COUNT(*) AS total,
 		COALESCE(SUM(status = 'ativo'), 0) AS active,
-		COALESCE(SUM(status = 'inativado'), 0) AS inactive,
-		COALESCE(SUM(COALESCE(subcontractor, '') <> ''), 0) AS subcontractor
+		COALESCE(SUM(status = 'inativado'), 0) AS inactive
 		FROM iepms_users`); err != nil {
-		return nil, 0, stats, nil, nil, err
+		return nil, 0, stats, nil, err
 	}
 	statuses := []string{}
-	serviceFields := []string{}
 	_ = s.DB.Select(&statuses, `SELECT DISTINCT status FROM iepms_users WHERE status <> '' ORDER BY status`)
-	_ = s.DB.Select(&serviceFields, `SELECT DISTINCT service_field FROM iepms_users WHERE service_field IS NOT NULL AND service_field <> '' ORDER BY service_field`)
-	return users, total, stats, statuses, serviceFields, nil
+	return users, total, stats, statuses, nil
 }
 
 func (s *Store) FindIepmsUser(id int64) (IepmsUser, error) {
@@ -135,7 +118,6 @@ type IepmsUserInput struct {
 	Gender                          string
 	Nationality                     string
 	UsGreenCard                     string
-	Subcontractor                   string
 	CertificateType                 string
 	IDNumber                        string
 	BirthYear                       string
@@ -143,13 +125,6 @@ type IepmsUserInput struct {
 	PersonalMailbox                 string
 	Remarks                         string
 	RestrictedPartyScreeningResults string
-	ServiceField                    string
-	OutsourcingType                 string
-	PersonnelType                   string
-	ServiceDepartmentTwoLevel       string
-	ServiceDepartmentThreeLevel     string
-	ServiceDepartmentFourLevel      string
-	PersonnelStatus                 string
 	OutsourcingAccount              string
 	AccountStatus                   string
 	ZTEMail                         string
@@ -161,13 +136,11 @@ type IepmsUserInput struct {
 }
 
 const iepmsUserInsert = `INSERT INTO iepms_users (
-	resource_id, name, gender, nationality, us_green_card, subcontractor, certificate_type,
+	resource_id, name, gender, nationality, us_green_card, certificate_type,
 	id_number, birth_year, tel, personal_mailbox, remarks, restricted_party_screening_results,
-	service_field, outsourcing_type, personnel_type, service_department_two_level,
-	service_department_three_level, service_department_four_level, personnel_status,
 	outsourcing_account, account_status, zte_mail, created_by, last_updated_by, status,
 	password_encrypted, created_at, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 func (s *Store) CreateIepmsUser(input IepmsUserInput) (IepmsUser, error) {
 	timestamp := now()
@@ -177,13 +150,10 @@ func (s *Store) CreateIepmsUser(input IepmsUserInput) (IepmsUser, error) {
 	}
 	result, err := s.DB.Exec(iepmsUserInsert,
 		strings.TrimSpace(input.ResourceID), strings.TrimSpace(input.Name), nullString(input.Gender),
-		nullString(input.Nationality), nullString(input.UsGreenCard), nullString(input.Subcontractor),
+		nullString(input.Nationality), nullString(input.UsGreenCard),
 		nullString(input.CertificateType), nullString(input.IDNumber), nullString(input.BirthYear),
 		nullString(input.Tel), nullString(input.PersonalMailbox), nullString(input.Remarks),
-		nullString(input.RestrictedPartyScreeningResults), nullString(input.ServiceField),
-		nullString(input.OutsourcingType), nullString(input.PersonnelType),
-		nullString(input.ServiceDepartmentTwoLevel), nullString(input.ServiceDepartmentThreeLevel),
-		nullString(input.ServiceDepartmentFourLevel), nullString(input.PersonnelStatus),
+		nullString(input.RestrictedPartyScreeningResults),
 		nullString(input.OutsourcingAccount), nullString(input.AccountStatus), nullString(input.ZTEMail),
 		nullString(input.CreatedBy), nullString(input.LastUpdatedBy), status,
 		nullString(input.PasswordEncrypted), timestamp, timestamp)
@@ -196,20 +166,16 @@ func (s *Store) CreateIepmsUser(input IepmsUserInput) (IepmsUser, error) {
 
 func (s *Store) UpdateIepmsUser(id int64, input IepmsUserInput) (IepmsUser, error) {
 	_, err := s.DB.Exec(`UPDATE iepms_users SET
-		resource_id = ?, name = ?, gender = ?, nationality = ?, us_green_card = ?, subcontractor = ?,
+		resource_id = ?, name = ?, gender = ?, nationality = ?, us_green_card = ?,
 		certificate_type = ?, id_number = ?, birth_year = ?, tel = ?, personal_mailbox = ?, remarks = ?,
-		restricted_party_screening_results = ?, service_field = ?, outsourcing_type = ?, personnel_type = ?,
-		service_department_two_level = ?, service_department_three_level = ?, service_department_four_level = ?,
-		personnel_status = ?, outsourcing_account = ?, account_status = ?, zte_mail = ?,
+		restricted_party_screening_results = ?,
+		outsourcing_account = ?, account_status = ?, zte_mail = ?,
 		created_by = ?, last_updated_by = ?, status = COALESCE(NULLIF(?, ''), status), updated_at = ? WHERE id = ?`,
 		strings.TrimSpace(input.ResourceID), strings.TrimSpace(input.Name), nullString(input.Gender),
-		nullString(input.Nationality), nullString(input.UsGreenCard), nullString(input.Subcontractor),
+		nullString(input.Nationality), nullString(input.UsGreenCard),
 		nullString(input.CertificateType), nullString(input.IDNumber), nullString(input.BirthYear),
 		nullString(input.Tel), nullString(input.PersonalMailbox), nullString(input.Remarks),
-		nullString(input.RestrictedPartyScreeningResults), nullString(input.ServiceField),
-		nullString(input.OutsourcingType), nullString(input.PersonnelType),
-		nullString(input.ServiceDepartmentTwoLevel), nullString(input.ServiceDepartmentThreeLevel),
-		nullString(input.ServiceDepartmentFourLevel), nullString(input.PersonnelStatus),
+		nullString(input.RestrictedPartyScreeningResults),
 		nullString(input.OutsourcingAccount), nullString(input.AccountStatus), nullString(input.ZTEMail),
 		nullString(input.CreatedBy), nullString(input.LastUpdatedBy), strings.TrimSpace(input.Status), now(), id)
 	if err != nil {
