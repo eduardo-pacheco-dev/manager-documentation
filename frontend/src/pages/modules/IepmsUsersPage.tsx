@@ -38,6 +38,15 @@ function accountTagType(status: string | null): 'green' | 'red' | 'gray' {
   }
 }
 
+export const IEPMS_STATUS_OPTIONS = [
+  { value: 'ativo', label: 'Ativo' },
+  { value: 'inativado', label: 'Inativado' },
+];
+
+function statusLabel(status: string): string {
+  return IEPMS_STATUS_OPTIONS.find((item) => item.value === status)?.label ?? status;
+}
+
 export function IepmsUsersPage() {
   const toast = useToast();
   const [users, setUsers] = useState<IepmsUser[]>([]);
@@ -178,16 +187,16 @@ export function IepmsUsersPage() {
             <strong className="stat-card__value">{data.stats.total}</strong>
           </Tile>
           <Tile className="stat-card stat-card--green">
-            <span className="stat-card__label">Status normal</span>
-            <strong className="stat-card__value">{data.stats.normal}</strong>
+            <span className="stat-card__label">Ativos</span>
+            <strong className="stat-card__value">{data.stats.active}</strong>
+          </Tile>
+          <Tile className="stat-card stat-card--red">
+            <span className="stat-card__label">Inativados</span>
+            <strong className="stat-card__value">{data.stats.inactive}</strong>
           </Tile>
           <Tile className="stat-card stat-card--purple">
             <span className="stat-card__label">Subcontratados</span>
             <strong className="stat-card__value">{data.stats.subcontractor}</strong>
-          </Tile>
-          <Tile className="stat-card stat-card--red">
-            <span className="stat-card__label">Contas de outsourcing</span>
-            <strong className="stat-card__value">{data.stats.accounts}</strong>
           </Tile>
         </div>
       )}
@@ -209,8 +218,8 @@ export function IepmsUsersPage() {
             }}
           />
           <Select
-            id="iepms-status"
-            labelText="Personnel Status"
+            id="iepms-filter-status"
+            labelText="Status"
             size="sm"
             value={statusFilter}
             onChange={(event) => {
@@ -219,8 +228,8 @@ export function IepmsUsersPage() {
             }}
           >
             <SelectItem value="" text="Todos" />
-            {(data?.statuses ?? []).map((status) => (
-              <SelectItem key={status} value={status} text={status} />
+            {IEPMS_STATUS_OPTIONS.map((status) => (
+              <SelectItem key={status.value} value={status.value} text={status.label} />
             ))}
           </Select>
           <Select
@@ -279,9 +288,9 @@ export function IepmsUsersPage() {
                       )}
                     </td>
                     <td>
-                      {user.personnel_status ? (
-                        <Tag type={user.personnel_status === 'Normal' ? 'green' : 'gray'} size="sm">
-                          {user.personnel_status}
+                      {user.status ? (
+                        <Tag type={user.status === 'ativo' ? 'green' : 'red'} size="sm">
+                          {statusLabel(user.status)}
                         </Tag>
                       ) : (
                         '—'

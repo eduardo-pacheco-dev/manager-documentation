@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Modal, ProgressIndicator, ProgressStep, TextArea, TextInput } from '@carbon/react';
+import { Modal, ProgressIndicator, ProgressStep, Select, SelectItem, TextArea, TextInput } from '@carbon/react';
 import { useToast } from '../contexts/ToastContext';
 import { ApiError, api } from '../lib/api';
 import { errorMessage } from '../lib/format';
@@ -36,6 +36,7 @@ const EMPTY = {
   major: '',
   created_by: '',
   last_updated_by: '',
+  status: 'ativo',
   password: '',
 };
 
@@ -218,6 +219,17 @@ export function IepmsUserFormModal({ open, user, onClose, onSaved }: Props) {
         {step === 2 && (
           <>
             <div className="form-grid">
+              <Select
+                id="iepms-user-status"
+                labelText="Status"
+                value={form.status}
+                onChange={(event) => updateForm({ status: event.target.value })}
+                invalid={Boolean(fieldErrors.status)}
+                invalidText={fieldErrors.status}
+              >
+                <SelectItem value="ativo" text="Ativo" />
+                <SelectItem value="inativado" text="Inativado" />
+              </Select>
               {field('outsourcing_account', 'Outsourcing account')}
               {field('account_status', 'Account Status', { placeholder: 'Normal' })}
               {field('created_by', 'Created by')}

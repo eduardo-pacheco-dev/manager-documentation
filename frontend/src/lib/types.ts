@@ -170,6 +170,7 @@ export interface IepmsUser {
   major: string | null;
   created_by: string | null;
   last_updated_by: string | null;
+  status: 'ativo' | 'inativado';
   has_password: boolean;
   created_at: string;
   updated_at: string;
@@ -177,7 +178,7 @@ export interface IepmsUser {
 
 export interface IepmsUsersResponse {
   data: IepmsUser[];
-  stats: { total: number; normal: number; subcontractor: number; accounts: number };
+  stats: { total: number; active: number; inactive: number; subcontractor: number };
   statuses: string[];
   service_fields: string[];
   meta: PageMeta;

@@ -43,6 +43,7 @@ type iepmsUserPayload struct {
 	Major                           string `json:"major"`
 	CreatedBy                       string `json:"created_by"`
 	LastUpdatedBy                   string `json:"last_updated_by"`
+	Status                          string `json:"status"`
 	Password                        string `json:"password"`
 }
 
@@ -58,7 +59,7 @@ func (p iepmsUserPayload) input() modules.IepmsUserInput {
 		OutsourcingAccount: p.OutsourcingAccount, AccountStatus: p.AccountStatus, ZTEMail: p.ZTEMail,
 		AcademicQualifications: p.AcademicQualifications, LearningMode: p.LearningMode,
 		GraduationTime: p.GraduationTime, GraduationSchool: p.GraduationSchool, Major: p.Major,
-		CreatedBy: p.CreatedBy, LastUpdatedBy: p.LastUpdatedBy,
+		CreatedBy: p.CreatedBy, LastUpdatedBy: p.LastUpdatedBy, Status: p.Status,
 	}
 }
 
@@ -73,7 +74,22 @@ func validateIepmsUser(payload iepmsUserPayload) validationErrors {
 	if len([]rune(payload.ResourceID)) > 64 {
 		fields.add("resource_id", "O Resource ID deve ter no máximo 64 caracteres.")
 	}
+	status := normalizeIepmsStatus(payload.Status)
+	if status != "" && status != "ativo" && status != "inativado" {
+		fields.add("status", "Selecione Ativo ou Inativado.")
+	}
 	return fields
+}
+
+func normalizeIepmsStatus(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "ativo", "active", "1", "sim", "yes":
+		return "ativo"
+	case "inativado", "inativo", "inactive", "0", "nao", "não":
+		return "inativado"
+	default:
+		return strings.TrimSpace(value)
+	}
 }
 
 // iepmsUserInput converts the payload into the store input, encrypting the
@@ -81,6 +97,7 @@ func validateIepmsUser(payload iepmsUserPayload) validationErrors {
 // keeps the existing secret on updates.
 func (s *Server) iepmsUserInput(payload iepmsUserPayload) (modules.IepmsUserInput, error) {
 	input := payload.input()
+	input.Status = normalizeIepmsStatus(payload.Status)
 	if payload.Password == "" {
 		return input, nil
 	}
@@ -383,21 +400,21 @@ func (s *Server) iepmsUsersTemplate(w http.ResponseWriter, r *http.Request) {
 	for _, column := range iepmsUserColumns {
 		headers = append(headers, column.Label)
 	}
-	headers = append(headers, "Password (opcional)")
+	headers = append(headers, "Password (opcional)", "Status")
 	writeXLSXRow(f, sheet, 1, headers)
 	writeXLSXRow(f, sheet, 2, []string{
 		"W0000000000", "NOME DO COLABORADOR", "MALE", "Brazil", "", "EMPRESA LTDA", "ID Card",
 		"00000000000", "1990", "0055|11999999999", "email@empresa.com", "", "No",
 		"Engineering Service", "Project Outsourcing", "Project subcontractor", "", "", "",
 		"Normal", "6000000000", "Normal", "", "Others", "", "", "", "",
-		"system", "system", "",
+		"system", "system", "", "Ativo",
 	})
 	styleNokiaSheet(f, sheet, len(headers), 2)
 	for index, column := range iepmsUserColumns {
 		col, _ := excelize.ColumnNumberToName(index + 1)
 		f.SetColWidth(sheet, col, col, column.Width)
 	}
-	f.SetColWidth(sheet, "AE", "AE", 24)
+	f.SetColWidth(sheet, "AE", "AF", 24)
 	infoSheet := "Instruções"
 	_, _ = f.NewSheet(infoSheet)
 	instructions := [][]string{
@@ -407,6 +424,7 @@ func (s *Server) iepmsUsersTemplate(w http.ResponseWriter, r *http.Request) {
 		{"A importação cria novos registros e atualiza os existentes com o mesmo Resource ID."},
 		{"A coluna Password (opcional) define a senha do usuário. Ela é armazenada criptografada e nunca é exportada."},
 		{"Ao atualizar um registro, deixe a coluna Password em branco para manter a senha atual."},
+		{"A coluna Status (opcional) aceita Ativo ou Inativado. Em branco mantém o status atual ou cria como Ativo."},
 		{"Mantenha as colunas ID Number, Birth year, Tel e Outsourcing account formatadas como texto para preservar zeros à esquerda."},
 		{"A importação aceita arquivos XLSX ou CSV e até 2.000 linhas por arquivo."},
 	}
@@ -487,6 +505,7 @@ func (s *Server) iepmsUsersImport(w http.ResponseWriter, r *http.Request) {
 			Major:                           get(row, "major"),
 			CreatedBy:                       get(row, "created_by"),
 			LastUpdatedBy:                   get(row, "last_updated_by"),
+			Status:                          get(row, "status", "situacao", "situação"),
 			Password:                        get(row, "password", "password_opcional"),
 		}
 		if fields := validateIepmsUser(payload); !fields.empty() {

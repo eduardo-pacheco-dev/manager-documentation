@@ -1143,6 +1143,9 @@ var migrations = [][]string{
 	{
 		`ALTER TABLE iepms_users ADD COLUMN password_encrypted TEXT NULL AFTER last_updated_by`,
 	},
+	{
+		`ALTER TABLE iepms_users ADD COLUMN status VARCHAR(32) NOT NULL DEFAULT 'ativo' AFTER last_updated_by`,
+	},
 }
 
 // CleanupSessions removes expired sessions and tokens. It is safe to call at

@@ -45,6 +45,7 @@ type IepmsUser struct {
 	Major                           *string   `db:"major" json:"major"`
 	CreatedBy                       *string   `db:"created_by" json:"created_by"`
 	LastUpdatedBy                   *string   `db:"last_updated_by" json:"last_updated_by"`
+	Status                          string    `db:"status" json:"status"`
 	PasswordEncrypted               *string   `db:"password_encrypted" json:"-"`
 	HasPassword                     bool      `db:"-" json:"has_password"`
 	CreatedAt                       time.Time `db:"created_at" json:"created_at"`
@@ -61,9 +62,9 @@ type IepmsUserFilter struct {
 
 type IepmsUserStats struct {
 	Total         int `json:"total"`
-	Normal        int `json:"normal"`
+	Active        int `json:"active"`
+	Inactive      int `json:"inactive"`
 	Subcontractor int `json:"subcontractor"`
-	Accounts      int `json:"accounts"`
 }
 
 func (s *Store) ListIepmsUsers(filter IepmsUserFilter) ([]IepmsUser, int, IepmsUserStats, []string, []string, error) {
@@ -77,7 +78,7 @@ func (s *Store) ListIepmsUsers(filter IepmsUserFilter) ([]IepmsUser, int, IepmsU
 		}
 	}
 	if filter.Status != "" {
-		conditions = append(conditions, "personnel_status = ?")
+		conditions = append(conditions, "status = ?")
 		args = append(args, filter.Status)
 	}
 	if filter.ServiceField != "" {
@@ -106,15 +107,15 @@ func (s *Store) ListIepmsUsers(filter IepmsUserFilter) ([]IepmsUser, int, IepmsU
 	}
 	var stats IepmsUserStats
 	if err := s.DB.Get(&stats, `SELECT COUNT(*) AS total,
-		COALESCE(SUM(personnel_status = 'Normal'), 0) AS normal,
-		COALESCE(SUM(COALESCE(subcontractor, '') <> ''), 0) AS subcontractor,
-		COALESCE(SUM(COALESCE(outsourcing_account, '') <> ''), 0) AS accounts
+		COALESCE(SUM(status = 'ativo'), 0) AS active,
+		COALESCE(SUM(status = 'inativado'), 0) AS inactive,
+		COALESCE(SUM(COALESCE(subcontractor, '') <> ''), 0) AS subcontractor
 		FROM iepms_users`); err != nil {
 		return nil, 0, stats, nil, nil, err
 	}
 	statuses := []string{}
 	serviceFields := []string{}
-	_ = s.DB.Select(&statuses, `SELECT DISTINCT personnel_status FROM iepms_users WHERE personnel_status IS NOT NULL AND personnel_status <> '' ORDER BY personnel_status`)
+	_ = s.DB.Select(&statuses, `SELECT DISTINCT status FROM iepms_users WHERE status <> '' ORDER BY status`)
 	_ = s.DB.Select(&serviceFields, `SELECT DISTINCT service_field FROM iepms_users WHERE service_field IS NOT NULL AND service_field <> '' ORDER BY service_field`)
 	return users, total, stats, statuses, serviceFields, nil
 }
@@ -164,6 +165,7 @@ type IepmsUserInput struct {
 	Major                           string
 	CreatedBy                       string
 	LastUpdatedBy                   string
+	Status                          string
 	PasswordEncrypted               string
 	PasswordChanged                 bool
 }
@@ -174,12 +176,16 @@ const iepmsUserInsert = `INSERT INTO iepms_users (
 	service_field, outsourcing_type, personnel_type, service_department_two_level,
 	service_department_three_level, service_department_four_level, personnel_status,
 	outsourcing_account, account_status, zte_mail, academic_qualifications, learning_mode,
-	graduation_time, graduation_school, major, created_by, last_updated_by, password_encrypted,
-	created_at, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	graduation_time, graduation_school, major, created_by, last_updated_by, status,
+	password_encrypted, created_at, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 func (s *Store) CreateIepmsUser(input IepmsUserInput) (IepmsUser, error) {
 	timestamp := now()
+	status := strings.TrimSpace(input.Status)
+	if status == "" {
+		status = "ativo"
+	}
 	result, err := s.DB.Exec(iepmsUserInsert,
 		strings.TrimSpace(input.ResourceID), strings.TrimSpace(input.Name), nullString(input.Gender),
 		nullString(input.Nationality), nullString(input.UsGreenCard), nullString(input.Subcontractor),
@@ -192,7 +198,7 @@ func (s *Store) CreateIepmsUser(input IepmsUserInput) (IepmsUser, error) {
 		nullString(input.OutsourcingAccount), nullString(input.AccountStatus), nullString(input.ZTEMail),
 		nullString(input.AcademicQualifications), nullString(input.LearningMode), nullString(input.GraduationTime),
 		nullString(input.GraduationSchool), nullString(input.Major), nullString(input.CreatedBy),
-		nullString(input.LastUpdatedBy), nullString(input.PasswordEncrypted), timestamp, timestamp)
+		nullString(input.LastUpdatedBy), status, nullString(input.PasswordEncrypted), timestamp, timestamp)
 	if err != nil {
 		return IepmsUser{}, err
 	}
@@ -208,7 +214,7 @@ func (s *Store) UpdateIepmsUser(id int64, input IepmsUserInput) (IepmsUser, erro
 		service_department_two_level = ?, service_department_three_level = ?, service_department_four_level = ?,
 		personnel_status = ?, outsourcing_account = ?, account_status = ?, zte_mail = ?,
 		academic_qualifications = ?, learning_mode = ?, graduation_time = ?, graduation_school = ?, major = ?,
-		created_by = ?, last_updated_by = ?, updated_at = ? WHERE id = ?`,
+		created_by = ?, last_updated_by = ?, status = COALESCE(NULLIF(?, ''), status), updated_at = ? WHERE id = ?`,
 		strings.TrimSpace(input.ResourceID), strings.TrimSpace(input.Name), nullString(input.Gender),
 		nullString(input.Nationality), nullString(input.UsGreenCard), nullString(input.Subcontractor),
 		nullString(input.CertificateType), nullString(input.IDNumber), nullString(input.BirthYear),
@@ -220,7 +226,7 @@ func (s *Store) UpdateIepmsUser(id int64, input IepmsUserInput) (IepmsUser, erro
 		nullString(input.OutsourcingAccount), nullString(input.AccountStatus), nullString(input.ZTEMail),
 		nullString(input.AcademicQualifications), nullString(input.LearningMode), nullString(input.GraduationTime),
 		nullString(input.GraduationSchool), nullString(input.Major), nullString(input.CreatedBy),
-		nullString(input.LastUpdatedBy), now(), id)
+		nullString(input.LastUpdatedBy), strings.TrimSpace(input.Status), now(), id)
 	if err != nil {
 		return IepmsUser{}, err
 	}
