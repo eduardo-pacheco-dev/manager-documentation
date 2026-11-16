@@ -246,6 +246,18 @@ func (s *Server) Router() http.Handler {
 				collaborators.Delete("/{id}", s.collaboratorsDelete)
 			})
 
+			auth.Route("/iepms-users", func(iepms chi.Router) {
+				iepms.Get("/", s.iepmsUsersIndex)
+				iepms.Post("/", s.iepmsUsersCreate)
+				iepms.Get("/export", s.iepmsUsersExport)
+				iepms.Get("/template", s.iepmsUsersTemplate)
+				iepms.Post("/import", s.iepmsUsersImport)
+				iepms.Get("/{id}", s.iepmsUsersShow)
+				iepms.Post("/{id}/password", s.iepmsUsersRevealPassword)
+				iepms.Put("/{id}", s.iepmsUsersUpdate)
+				iepms.Delete("/{id}", s.iepmsUsersDelete)
+			})
+
 			auth.Route("/projects", func(projects chi.Router) {
 				projects.Get("/", s.projectsIndex)
 				projects.Post("/", s.projectsCreate)

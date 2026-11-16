@@ -1097,6 +1097,83 @@ var migrations = [][]string{
 			CONSTRAINT fk_radio_link_comments_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 	},
+	{
+		`CREATE TABLE iepms_users (
+			id BIGINT NOT NULL AUTO_INCREMENT,
+			resource_id VARCHAR(64) NOT NULL,
+			name VARCHAR(255) NOT NULL,
+			gender VARCHAR(32) NULL,
+			nationality VARCHAR(128) NULL,
+			us_green_card VARCHAR(64) NULL,
+			subcontractor VARCHAR(255) NULL,
+			certificate_type VARCHAR(128) NULL,
+			id_number VARCHAR(128) NULL,
+			birth_year VARCHAR(16) NULL,
+			tel VARCHAR(255) NULL,
+			personal_mailbox VARCHAR(255) NULL,
+			remarks TEXT NULL,
+			restricted_party_screening_results VARCHAR(255) NULL,
+			service_field VARCHAR(255) NULL,
+			outsourcing_type VARCHAR(255) NULL,
+			personnel_type VARCHAR(255) NULL,
+			service_department_two_level VARCHAR(255) NULL,
+			service_department_three_level VARCHAR(255) NULL,
+			service_department_four_level VARCHAR(255) NULL,
+			personnel_status VARCHAR(64) NULL,
+			outsourcing_account VARCHAR(128) NULL,
+			account_status VARCHAR(64) NULL,
+			zte_mail VARCHAR(255) NULL,
+			academic_qualifications VARCHAR(128) NULL,
+			learning_mode VARCHAR(128) NULL,
+			graduation_time VARCHAR(64) NULL,
+			graduation_school VARCHAR(255) NULL,
+			major VARCHAR(255) NULL,
+			created_by VARCHAR(255) NULL,
+			last_updated_by VARCHAR(255) NULL,
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL,
+			PRIMARY KEY (id),
+			UNIQUE KEY uq_iepms_users_resource (resource_id),
+			KEY idx_iepms_users_name (name),
+			KEY idx_iepms_users_status (personnel_status),
+			KEY idx_iepms_users_service_field (service_field),
+			KEY idx_iepms_users_subcontractor (subcontractor)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+	},
+	{
+		`ALTER TABLE iepms_users ADD COLUMN password_encrypted TEXT NULL AFTER last_updated_by`,
+	},
+	{
+		`ALTER TABLE iepms_users ADD COLUMN status VARCHAR(32) NOT NULL DEFAULT 'ativo' AFTER last_updated_by`,
+	},
+	{
+		`ALTER TABLE iepms_users
+			DROP COLUMN academic_qualifications,
+			DROP COLUMN learning_mode,
+			DROP COLUMN graduation_time,
+			DROP COLUMN graduation_school,
+			DROP COLUMN major`,
+	},
+	{
+		`ALTER TABLE iepms_users
+			DROP COLUMN subcontractor,
+			DROP COLUMN service_field,
+			DROP COLUMN outsourcing_type,
+			DROP COLUMN personnel_type,
+			DROP COLUMN service_department_two_level,
+			DROP COLUMN service_department_three_level,
+			DROP COLUMN service_department_four_level,
+			DROP COLUMN personnel_status`,
+	},
+	{
+		`ALTER TABLE iepms_users
+			DROP COLUMN restricted_party_screening_results,
+			DROP COLUMN us_green_card,
+			DROP COLUMN zte_mail,
+			DROP COLUMN account_status,
+			DROP COLUMN remarks,
+			DROP COLUMN created_by`,
+	},
 }
 
 // CleanupSessions removes expired sessions and tokens. It is safe to call at

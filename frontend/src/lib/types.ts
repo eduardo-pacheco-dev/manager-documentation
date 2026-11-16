@@ -138,6 +138,32 @@ export interface DocShowResponse {
   can_manage: boolean;
 }
 
+export interface IepmsUser {
+  id: number;
+  resource_id: string;
+  name: string;
+  gender: string | null;
+  nationality: string | null;
+  certificate_type: string | null;
+  id_number: string | null;
+  birth_year: string | null;
+  tel: string | null;
+  personal_mailbox: string | null;
+  outsourcing_account: string | null;
+  last_updated_by: string | null;
+  status: 'ativo' | 'inativado';
+  has_password: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface IepmsUsersResponse {
+  data: IepmsUser[];
+  stats: { total: number; active: number; inactive: number };
+  statuses: string[];
+  meta: PageMeta;
+}
+
 export type NotificationLevel = 'info' | 'success' | 'warning' | 'danger';
 
 export interface AppNotification {

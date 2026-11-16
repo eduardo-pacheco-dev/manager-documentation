@@ -124,6 +124,14 @@ var CoreModules = []Module{
 		DefaultSection: SectionModules,
 	},
 	{
+		Key:            "iepms-users",
+		Label:          "Usuários iEPMS",
+		Icon:           "user-multiple",
+		Path:           "/iepms-users",
+		Toggleable:     true,
+		DefaultSection: SectionModules,
+	},
+	{
 		Key:            "projects",
 		Label:          "Projetos",
 		Icon:           "chart",
