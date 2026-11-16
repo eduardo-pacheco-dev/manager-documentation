@@ -177,6 +177,7 @@ type NokiaStats struct {
 	Total     int `json:"total"`
 	Completed int `json:"completed"`
 	Pending   int `json:"pending"`
+	NoOS      int `json:"no_os"`
 }
 
 func (s *Store) ListNokiaSites(filter NokiaSiteFilter) ([]NokiaSite, int, NokiaStats, int, error) {
@@ -234,6 +235,7 @@ func (s *Store) ListNokiaSites(filter NokiaSiteFilter) ([]NokiaSite, int, NokiaS
 		)`, args...)
 	stats.Completed = completed
 	stats.Pending = stats.Total - stats.Completed
+	_ = s.DB.Get(&stats.NoOS, `SELECT COUNT(*) FROM nokia_sites s WHERE `+where+` AND `+nokiaStatusExpression+` = 'no_os'`, args...)
 	return sites, total, stats, tasksTotal, nil
 }
 

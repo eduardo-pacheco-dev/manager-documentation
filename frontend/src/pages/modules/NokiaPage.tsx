@@ -51,7 +51,7 @@ interface Site {
   status: string; status_label: string;
 }
 interface Data {
-  data: Site[]; stats: { total: number; completed: number; pending: number }; tasks_total: number;
+  data: Site[]; stats: { total: number; completed: number; pending: number; no_os: number }; tasks_total: number;
   classificacoes: { value: string; label: string }[];
   meta: { current_page: number; last_page: number; per_page: number; total: number };
 }
@@ -388,10 +388,11 @@ export function NokiaPage() {
       />
 
       {data && (
-        <div className="stats-grid stats-grid--3">
+        <div className="stats-grid">
           <Tile className="stat-card stat-card--blue"><span className="stat-card__label">Sites</span><strong className="stat-card__value">{data.stats.total}</strong></Tile>
           <Tile className="stat-card stat-card--green"><span className="stat-card__label">Concluídos</span><strong className="stat-card__value">{data.stats.completed}</strong></Tile>
           <Tile className="stat-card stat-card--red"><span className="stat-card__label">Pendentes</span><strong className="stat-card__value">{data.stats.pending}</strong></Tile>
+          <Tile className="stat-card stat-card--purple"><span className="stat-card__label">Sem OS MOS</span><strong className="stat-card__value">{data.stats.no_os}</strong></Tile>
         </div>
       )}
 
