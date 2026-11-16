@@ -159,15 +159,15 @@ export function IepmsUserFormModal({ open, user, onClose, onSaved }: Props) {
 
         {step === 0 && (
           <div className="form-grid">
-            {field('resource_id', 'Resource ID *', { placeholder: 'W0000000000' })}
-            {field('name', 'Name *')}
-            {field('gender', 'Gender', { placeholder: 'MALE / FEMALE' })}
-            {field('nationality', 'Nationality')}
-            {field('birth_year', 'Birth year', { placeholder: '1990' })}
-            {field('certificate_type', 'Certificate Type')}
-            {field('id_number', 'ID Number')}
-            {field('tel', 'Tel', { placeholder: '0055|11999999999' })}
-            {field('personal_mailbox', 'Personal mailbox', { type: 'email' })}
+            {field('resource_id', 'ID do recurso *', { placeholder: 'W0000000000' })}
+            {field('name', 'Nome *')}
+            {field('gender', 'Gênero', { placeholder: 'MASCULINO / FEMININO' })}
+            {field('nationality', 'Nacionalidade')}
+            {field('birth_year', 'Ano de nascimento', { placeholder: '1990' })}
+            {field('certificate_type', 'Tipo de certificado')}
+            {field('id_number', 'Número do documento')}
+            {field('tel', 'Telefone', { placeholder: '0055|11999999999' })}
+            {field('personal_mailbox', 'E-mail pessoal', { type: 'email' })}
           </div>
         )}
 
@@ -185,8 +185,8 @@ export function IepmsUserFormModal({ open, user, onClose, onSaved }: Props) {
                 <SelectItem value="ativo" text="Ativo" />
                 <SelectItem value="inativado" text="Inativado" />
               </Select>
-              {field('outsourcing_account', 'Outsourcing account')}
-              {field('last_updated_by', 'Last updated by')}
+              {field('outsourcing_account', 'Conta de terceirização')}
+              {field('last_updated_by', 'Última atualização por')}
               {field('password', user ? 'Senha (em branco mantém a atual)' : 'Senha', { type: 'password' })}
             </div>
             <p className="field-help">
