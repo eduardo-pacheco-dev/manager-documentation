@@ -92,6 +92,7 @@ const ATTACHMENT_CATEGORIES = [
   { value: 'other', label: 'Outros' },
 ];
 const statusTag = (value: string) => value === 'sent' ? 'green' : value === 'rejected' ? 'red' : value === 'analysis' ? 'magenta' : 'gray';
+const checklistDone = (value: string) => value === 'sent' || value === 'cancelled';
 
 const EMPTY_FORM = {
   site_id: '', end_id: '', oc: '', os_fam_entrega: '', os_fam_instalacao: '',
@@ -332,10 +333,10 @@ export function NokiaDetailPage() {
     );
   }
 
-  const checklistDone = CHECKLISTS.filter((item) => (site as unknown as Record<string, string>)[item.status] === 'sent').length;
+  const checklistDoneCount = CHECKLISTS.filter((item) => checklistDone((site as unknown as Record<string, string>)[item.status])).length;
   const taskDone = site.tasks.filter((task) => task.completed_at).length;
   const totalProgress = 3 + site.tasks.length;
-  const doneProgress = checklistDone + taskDone;
+  const doneProgress = checklistDoneCount + taskDone;
   const progressPercent = totalProgress > 0 ? (doneProgress / totalProgress) * 100 : 0;
 
   return (

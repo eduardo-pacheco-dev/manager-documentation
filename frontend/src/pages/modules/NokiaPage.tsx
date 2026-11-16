@@ -63,6 +63,7 @@ const CHECKLISTS = [
   { field: 'checklist_fam_panoramica', label: 'FAM Panorâmica', status: 'checklist_fam_panoramica_status' },
 ];
 const STATUS_LABEL: Record<string, string> = { pending: 'Pendente', analysis: 'Análise TIM', rejected: 'Rejeitado', sent: 'Aprovado', cancelled: 'Cancelado' };
+const checklistDone = (value: string) => value === 'sent' || value === 'cancelled';
 const statusTag = (value: string) => value === 'sent' ? 'green' : value === 'rejected' ? 'red' : value === 'analysis' ? 'magenta' : 'gray';
 const siteStatusTag = (value: string): 'green' | 'red' | 'magenta' | 'blue' | 'gray' => {
   switch (value) {
@@ -419,7 +420,7 @@ export function NokiaPage() {
               <thead><tr><th>Site</th><th>OC</th><th className="hide-sm">ROM</th><th className="hide-sm">Regional</th><th>Classificação</th><th>FAM Instalação</th><th>Progresso</th><th className="cell-actions">Ações</th></tr></thead>
               <tbody>
                 {items.map((site) => {
-                  const done = CHECKLISTS.filter((item) => (site as unknown as Record<string, string>)[item.status] === 'sent').length + site.tasks.filter((task) => task.completed_at).length;
+                  const done = CHECKLISTS.filter((item) => checklistDone((site as unknown as Record<string, string>)[item.status])).length + site.tasks.filter((task) => task.completed_at).length;
                   const total = 3 + site.tasks.length;
                   return (
                     <tr key={site.id}>
@@ -444,7 +445,7 @@ export function NokiaPage() {
       ) : (
         <div className="user-cards">
           {items.map((site) => {
-            const done = CHECKLISTS.filter((item) => (site as unknown as Record<string, string>)[item.status] === 'sent').length + site.tasks.filter((task) => task.completed_at).length;
+            const done = CHECKLISTS.filter((item) => checklistDone((site as unknown as Record<string, string>)[item.status])).length + site.tasks.filter((task) => task.completed_at).length;
             const total = 3 + site.tasks.length;
             return (
               <article key={site.id} className="user-card">
@@ -573,7 +574,7 @@ export function NokiaPage() {
               <div><span>Subcon</span><strong>{detail.subcon ?? '—'}</strong></div>
               <div><span>OS Entrega</span><strong>{detail.os_fam_entrega ?? '—'}</strong></div>
               <div><span>OS Instalação</span><strong>{detail.os_fam_instalacao ?? '—'}</strong></div>
-              <div><span>Progresso</span><strong>{CHECKLISTS.filter((item) => (detail as unknown as Record<string, string>)[item.status] === 'sent').length + detail.tasks.filter((task) => task.completed_at).length}/{3 + detail.tasks.length}</strong></div>
+              <div><span>Progresso</span><strong>{CHECKLISTS.filter((item) => checklistDone((detail as unknown as Record<string, string>)[item.status])).length + detail.tasks.filter((task) => task.completed_at).length}/{3 + detail.tasks.length}</strong></div>
               <div><span>Criado em</span><strong>{dateBR(detail.created_at)}</strong></div>
             </div>
 

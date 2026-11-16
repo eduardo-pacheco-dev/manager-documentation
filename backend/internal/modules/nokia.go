@@ -131,10 +131,14 @@ var nokiaDateFields = []string{
 	"fam_entrega_approved_at", "fam_instalacao_approved_at", "fam_panoramica_approved_at",
 }
 
+func nokiaChecklistDone(status string) bool {
+	return status == "sent" || status == "cancelled"
+}
+
 func (n NokiaSite) ChecklistProgress() (done int, total int) {
 	for _, field := range nokiaChecklistOrder {
 		total++
-		if n.checklistStatus(field) == "sent" {
+		if nokiaChecklistDone(n.checklistStatus(field)) {
 			done++
 		}
 	}
@@ -147,8 +151,8 @@ func (n NokiaSite) ChecklistProgress() (done int, total int) {
 	return done, total
 }
 
-// progressComplete reports whether every checklist item was sent and every
-// task was completed for the site.
+// progressComplete reports whether every checklist item was sent or cancelled
+// and every task was completed for the site.
 func (n NokiaSite) progressComplete() bool {
 	done, total := n.ChecklistProgress()
 	return total > 0 && done == total
@@ -223,9 +227,9 @@ func (s *Store) ListNokiaSites(filter NokiaSiteFilter) ([]NokiaSite, int, NokiaS
 	stats.Total = total
 	var completed int
 	_ = s.DB.Get(&completed, `SELECT COUNT(*) FROM nokia_sites s WHERE `+where+`
-		AND s.checklist_fam_entrega_status = 'sent'
-		AND s.checklist_fam_instalacao_status = 'sent'
-		AND s.checklist_fam_panoramica_status = 'sent'
+		AND s.checklist_fam_entrega_status IN ('sent', 'cancelled')
+		AND s.checklist_fam_instalacao_status IN ('sent', 'cancelled')
+		AND s.checklist_fam_panoramica_status IN ('sent', 'cancelled')
 		AND NOT EXISTS (
 			SELECT 1 FROM nokia_tasks t
 			WHERE NOT EXISTS (
@@ -683,9 +687,9 @@ var nokiaStatusDefinitions = []struct {
 }
 
 const nokiaStatusExpression = `CASE
-	WHEN s.checklist_fam_entrega_status = 'sent'
-		AND s.checklist_fam_instalacao_status = 'sent'
-		AND s.checklist_fam_panoramica_status = 'sent'
+	WHEN s.checklist_fam_entrega_status IN ('sent', 'cancelled')
+		AND s.checklist_fam_instalacao_status IN ('sent', 'cancelled')
+		AND s.checklist_fam_panoramica_status IN ('sent', 'cancelled')
 		AND NOT EXISTS (
 			SELECT 1 FROM nokia_tasks t
 			WHERE NOT EXISTS (
@@ -878,7 +882,7 @@ func (s *Store) NokiaMetrics() (NokiaMetrics, error) {
 		})
 		for _, field := range nokiaChecklistOrder {
 			status := site.checklistStatus(field)
-			if status != "sent" {
+			if !nokiaChecklistDone(status) {
 				metrics.Pending++
 				metrics.PendingItems = append(metrics.PendingItems, map[string]any{
 					"site_id": site.SiteID, "oc": deref(site.OC), "regional": deref(site.Regional),
