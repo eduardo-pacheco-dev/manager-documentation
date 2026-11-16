@@ -147,6 +147,13 @@ func (n NokiaSite) ChecklistProgress() (done int, total int) {
 	return done, total
 }
 
+// progressComplete reports whether every checklist item was sent and every
+// task was completed for the site.
+func (n NokiaSite) progressComplete() bool {
+	done, total := n.ChecklistProgress()
+	return total > 0 && done == total
+}
+
 func (n NokiaSite) checklistStatus(field string) string {
 	switch field {
 	case "checklist_fam_entrega":
@@ -202,13 +209,15 @@ func (s *Store) ListNokiaSites(filter NokiaSiteFilter) ([]NokiaSite, int, NokiaS
 	if err := s.DB.Select(&sites, query, append(args, filter.PerPage, (filter.Page-1)*filter.PerPage)...); err != nil {
 		return nil, 0, NokiaStats{}, 0, err
 	}
+	if err := s.attachNokiaTasks(sites); err != nil {
+		return nil, 0, NokiaStats{}, 0, err
+	}
 	for i := range sites {
 		sites[i].Status = nokiaSiteStatus(sites[i])
 		sites[i].StatusLabel = nokiaStatusLabel(sites[i].Status)
 	}
 	var tasksTotal int
 	_ = s.DB.Get(&tasksTotal, `SELECT COUNT(*) FROM nokia_tasks`)
-	_ = s.attachNokiaTasks(sites)
 	var stats NokiaStats
 	stats.Total = total
 	var completed int
@@ -672,7 +681,16 @@ var nokiaStatusDefinitions = []struct {
 }
 
 const nokiaStatusExpression = `CASE
-	WHEN s.fam_instalacao_approved_at IS NOT NULL THEN 'accepted'
+	WHEN s.checklist_fam_entrega_status = 'sent'
+		AND s.checklist_fam_instalacao_status = 'sent'
+		AND s.checklist_fam_panoramica_status = 'sent'
+		AND NOT EXISTS (
+			SELECT 1 FROM nokia_tasks t
+			WHERE NOT EXISTS (
+				SELECT 1 FROM nokia_site_task p
+				WHERE p.nokia_task_id = t.id AND p.nokia_site_id = s.id AND p.completed_at IS NOT NULL
+			)
+		) THEN 'accepted'
 	WHEN s.checklist_fam_instalacao_status = 'rejected' THEN 'rejected'
 	WHEN s.checklist_fam_instalacao_status = 'analysis' THEN 'analysis'
 	WHEN s.checklist_fam_instalacao_status = 'cancelled' THEN 'cancelled'
@@ -690,7 +708,7 @@ func NokiaSiteStatusOptions() []map[string]string {
 
 func nokiaSiteStatus(site NokiaSite) string {
 	switch {
-	case site.FamInstalacaoApprovedAt != nil:
+	case site.progressComplete():
 		return "accepted"
 	case site.ChecklistFamInstalacaoStatus == "rejected":
 		return "rejected"
