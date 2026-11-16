@@ -4,13 +4,15 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/eduardo-pacheco-dev/manager-documentation/backend/internal/crypto"
 	"github.com/eduardo-pacheco-dev/manager-documentation/backend/internal/models"
 	"github.com/eduardo-pacheco-dev/manager-documentation/backend/internal/modules"
 )
 
 // ModuleData seeds small, idempotent examples for the native modules so a
-// fresh installation showcases every area of the system.
-func ModuleData(m *modules.Store, admin models.User) error {
+// fresh installation showcases every area of the system. The cipher is used to
+// protect demo secrets such as the iEPMS user passwords.
+func ModuleData(m *modules.Store, admin models.User, cipher *crypto.Cipher) error {
 	if err := seedTasks(m, admin); err != nil {
 		return err
 	}
@@ -27,6 +29,9 @@ func ModuleData(m *modules.Store, admin models.User) error {
 		return err
 	}
 	if err := seedNokia(m); err != nil {
+		return err
+	}
+	if err := seedIepmsUsers(m, cipher); err != nil {
 		return err
 	}
 	collaborators, err := seedCollaborators(m)
@@ -370,6 +375,138 @@ func seedNokia(m *modules.Store) error {
 	}
 	if second.ID > 0 && len(tasks) > 1 {
 		_ = m.ToggleNokiaTask(second.ID, tasks[1].ID)
+	}
+	return nil
+}
+
+// seedIepmsUsers creates the demo base of iEPMS users. The table is only
+// populated when it is empty, so manual edits and imports are never overwritten.
+func seedIepmsUsers(m *modules.Store, cipher *crypto.Cipher) error {
+	var count int
+	if err := m.DB.Get(&count, `SELECT COUNT(*) FROM iepms_users`); err != nil || count > 0 {
+		return err
+	}
+
+	seeds := []struct {
+		user     modules.IepmsUserInput
+		password string
+	}{
+		{
+			user: modules.IepmsUserInput{
+				ResourceID: "W000100234", Name: "Rafael Almeida", Gender: "MALE", Nationality: "Brazil",
+				CertificateType: "ID Card", IDNumber: "38122456011", BirthYear: "1989",
+				Tel: "0055|11988770001", PersonalMailbox: "rafael.almeida@example.com",
+				OutsourcingAccount: "p1000001", LastUpdatedBy: "Administrador", Status: "ativo",
+			},
+			password: "Iepms@2026",
+		},
+		{
+			user: modules.IepmsUserInput{
+				ResourceID: "W000100235", Name: "Camila Ferreira", Gender: "FEMALE", Nationality: "Brazil",
+				CertificateType: "ID Card", IDNumber: "42883197040", BirthYear: "1992",
+				Tel: "0055|11988770002", PersonalMailbox: "camila.ferreira@example.com",
+				OutsourcingAccount: "p1000002", LastUpdatedBy: "Administrador", Status: "ativo",
+			},
+			password: "Iepms@2026",
+		},
+		{
+			user: modules.IepmsUserInput{
+				ResourceID: "W000100236", Name: "João Pedro Nogueira", Gender: "MALE", Nationality: "Brazil",
+				CertificateType: "ID Card", IDNumber: "51944218077", BirthYear: "1985",
+				Tel: "0055|11988770003", PersonalMailbox: "joao.nogueira@example.com",
+				OutsourcingAccount: "p1000003", LastUpdatedBy: "Administrador", Status: "ativo",
+			},
+			password: "Iepms@2026",
+		},
+		{
+			user: modules.IepmsUserInput{
+				ResourceID: "W000100237", Name: "Marina Costa", Gender: "FEMALE", Nationality: "Brazil",
+				CertificateType: "ID Card", IDNumber: "60455329088", BirthYear: "1994",
+				Tel: "0055|11988770004", PersonalMailbox: "marina.costa@example.com",
+				OutsourcingAccount: "p1000004", LastUpdatedBy: "Administrador", Status: "ativo",
+			},
+			password: "Iepms@2026",
+		},
+		{
+			user: modules.IepmsUserInput{
+				ResourceID: "W000100238", Name: "Lucas Moreira", Gender: "MALE", Nationality: "Brazil",
+				CertificateType: "Work Permit", IDNumber: "71866430099", BirthYear: "1991",
+				Tel: "0055|11988770005", PersonalMailbox: "lucas.moreira@example.com",
+				OutsourcingAccount: "p1000005", LastUpdatedBy: "Administrador", Status: "ativo",
+			},
+			password: "Iepms@2026",
+		},
+		{
+			user: modules.IepmsUserInput{
+				ResourceID: "W000100239", Name: "Beatriz Rocha", Gender: "FEMALE", Nationality: "Brazil",
+				CertificateType: "ID Card", IDNumber: "82977541010", BirthYear: "1996",
+				Tel: "0055|11988770006", PersonalMailbox: "beatriz.rocha@example.com",
+				OutsourcingAccount: "p1000006", LastUpdatedBy: "Administrador", Status: "ativo",
+			},
+			password: "Iepms@2026",
+		},
+		{
+			user: modules.IepmsUserInput{
+				ResourceID: "W000100240", Name: "Diego Martins", Gender: "MALE", Nationality: "Brazil",
+				CertificateType: "ID Card", IDNumber: "93588652021", BirthYear: "1987",
+				Tel: "0055|11988770007", PersonalMailbox: "diego.martins@example.com",
+				OutsourcingAccount: "p1000007", LastUpdatedBy: "Administrador", Status: "ativo",
+			},
+		},
+		{
+			user: modules.IepmsUserInput{
+				ResourceID: "W000100241", Name: "Fernanda Alves", Gender: "FEMALE", Nationality: "Brazil",
+				CertificateType: "ID Card", IDNumber: "14699763032", BirthYear: "1983",
+				Tel: "0055|11988770008", PersonalMailbox: "fernanda.alves@example.com",
+				OutsourcingAccount: "p1000008", LastUpdatedBy: "Administrador", Status: "ativo",
+			},
+		},
+		{
+			user: modules.IepmsUserInput{
+				ResourceID: "W000100242", Name: "Sofia Martins", Gender: "FEMALE", Nationality: "Brazil",
+				CertificateType: "ID Card", IDNumber: "25700874043", BirthYear: "1998",
+				Tel: "0055|11988770009", PersonalMailbox: "sofia.martins@example.com",
+				OutsourcingAccount: "p1000009", LastUpdatedBy: "Administrador", Status: "ativo",
+			},
+		},
+		{
+			user: modules.IepmsUserInput{
+				ResourceID: "W000100243", Name: "Paulo Reis", Gender: "MALE", Nationality: "Brazil",
+				CertificateType: "ID Card", IDNumber: "36811985054", BirthYear: "1993",
+				Tel: "0055|11988770010", PersonalMailbox: "paulo.reis@example.com",
+				OutsourcingAccount: "p1000010", LastUpdatedBy: "Administrador", Status: "inativado",
+			},
+		},
+		{
+			user: modules.IepmsUserInput{
+				ResourceID: "W000100244", Name: "Chen Wei", Gender: "MALE", Nationality: "China",
+				CertificateType: "Passport", IDNumber: "E12345678", BirthYear: "1990",
+				Tel: "0055|11988770011", PersonalMailbox: "chen.wei@example.com",
+				OutsourcingAccount: "p1000011", LastUpdatedBy: "Administrador", Status: "ativo",
+			},
+		},
+		{
+			user: modules.IepmsUserInput{
+				ResourceID: "W000100245", Name: "Ana Paula Souza", Gender: "FEMALE", Nationality: "Brazil",
+				CertificateType: "ID Card", IDNumber: "47922096065", BirthYear: "1995",
+				Tel: "0055|11988770012", PersonalMailbox: "ana.souza@example.com",
+				OutsourcingAccount: "p1000012", LastUpdatedBy: "Administrador", Status: "inativado",
+			},
+		},
+	}
+
+	for _, seed := range seeds {
+		input := seed.user
+		if seed.password != "" && cipher != nil {
+			encrypted, err := cipher.Encrypt(seed.password)
+			if err != nil {
+				return fmt.Errorf("seed iEPMS user %s: %w", input.ResourceID, err)
+			}
+			input.PasswordEncrypted = encrypted
+		}
+		if _, err := m.CreateIepmsUser(input); err != nil {
+			return fmt.Errorf("seed iEPMS user %s: %w", input.ResourceID, err)
+		}
 	}
 	return nil
 }

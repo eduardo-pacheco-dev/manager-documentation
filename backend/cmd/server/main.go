@@ -58,10 +58,15 @@ func main() {
 	if err := seed.Run(repository, cfg); err != nil {
 		log.Fatalf("seed: %v", err)
 	}
+	cipher, err := crypto.New(cfg.AppKey)
+	if err != nil {
+		log.Fatalf("crypto: %v", err)
+	}
+
 	moduleStore := modules.New(db)
 	if cfg.SeedDemoData {
 		if admin, findErr := repository.FindUserByEmail(cfg.SeedAdminEmail); findErr == nil {
-			if moduleErr := seed.ModuleData(moduleStore, admin); moduleErr != nil {
+			if moduleErr := seed.ModuleData(moduleStore, admin, cipher); moduleErr != nil {
 				log.Printf("seed modules: %v", moduleErr)
 			}
 		}
@@ -71,11 +76,6 @@ func main() {
 	}
 	if err := moduleStore.SyncDemandShortLinks(); err != nil {
 		log.Printf("demand links sync: %v", err)
-	}
-
-	cipher, err := crypto.New(cfg.AppKey)
-	if err != nil {
-		log.Fatalf("crypto: %v", err)
 	}
 
 	server := httpapi.New(cfg, repository, cipher)
