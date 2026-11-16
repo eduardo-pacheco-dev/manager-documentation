@@ -140,6 +140,12 @@ func (s *Server) iepmsUsersCreate(w http.ResponseWriter, r *http.Request) {
 		writeValidation(w, validationErrors{"resource_id": "Já existe um usuário com este Resource ID."})
 		return
 	}
+	if account := strings.TrimSpace(payload.OutsourcingAccount); account != "" {
+		if _, err := s.Modules.IepmsUserByAccount(account); err == nil {
+			writeValidation(w, validationErrors{"outsourcing_account": "Já existe um usuário com este número de conta."})
+			return
+		}
+	}
 	input, err := s.iepmsUserInput(payload)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Não foi possível proteger a senha do usuário.", nil)
@@ -177,6 +183,12 @@ func (s *Server) iepmsUsersUpdate(w http.ResponseWriter, r *http.Request) {
 	if existing, err := s.Modules.IepmsUserByResourceID(payload.ResourceID); err == nil && existing.ID != id {
 		writeValidation(w, validationErrors{"resource_id": "Já existe outro usuário com este Resource ID."})
 		return
+	}
+	if account := strings.TrimSpace(payload.OutsourcingAccount); account != "" {
+		if existing, err := s.Modules.IepmsUserByAccount(account); err == nil && existing.ID != id {
+			writeValidation(w, validationErrors{"outsourcing_account": "Já existe outro usuário com este número de conta."})
+			return
+		}
 	}
 	input, err := s.iepmsUserInput(payload)
 	if err != nil {
@@ -354,7 +366,8 @@ func (s *Server) iepmsUsersTemplate(w http.ResponseWriter, r *http.Request) {
 		{"Instruções de importação — Usuários iEPMS"},
 		{"Preencha a aba iEPMS a partir da linha 2. A linha de exemplo pode ser removida."},
 		{"Resource ID e Name são obrigatórios."},
-		{"A importação cria novos registros e atualiza os existentes com o mesmo Resource ID."},
+		{"A importação cria novos registros e atualiza os existentes pelo número da conta (Outsourcing account) ou, se não houver, pelo Resource ID."},
+		{"O número da conta é único: se já existir, o cadastro correspondente é atualizado com os dados da planilha."},
 		{"A coluna Password (opcional) define a senha do usuário. Ela é armazenada criptografada e nunca é exportada."},
 		{"Ao atualizar um registro, deixe a coluna Password em branco para manter a senha atual."},
 		{"A coluna Status (opcional) aceita Ativo ou Inativado. Em branco mantém o status atual ou cria como Ativo."},

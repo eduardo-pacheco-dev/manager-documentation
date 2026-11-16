@@ -172,10 +172,23 @@ func (s *Store) UpdateIepmsUser(id int64, input IepmsUserInput) (IepmsUser, erro
 	return s.FindIepmsUser(id)
 }
 
-// UpsertIepmsUser creates a user or updates the existing record with the same
-// Resource ID. It reports whether a new record was created.
+// UpsertIepmsUser creates a user or updates the existing record. The account
+// number is the primary import key: when an outsourcing account already exists,
+// its record is updated. Otherwise the Resource ID is used, and a new record is
+// created when neither matches.
 func (s *Store) UpsertIepmsUser(input IepmsUserInput) (bool, error) {
 	var id int64
+	account := strings.TrimSpace(input.OutsourcingAccount)
+	if account != "" {
+		err := s.DB.Get(&id, `SELECT id FROM iepms_users WHERE outsourcing_account = ?`, account)
+		if err == nil {
+			_, err = s.UpdateIepmsUser(id, input)
+			return false, err
+		}
+		if !errors.Is(err, sql.ErrNoRows) {
+			return false, err
+		}
+	}
 	err := s.DB.Get(&id, `SELECT id FROM iepms_users WHERE resource_id = ?`, strings.TrimSpace(input.ResourceID))
 	if errors.Is(err, sql.ErrNoRows) {
 		_, err = s.CreateIepmsUser(input)
@@ -212,6 +225,16 @@ func (s *Store) FindIepmsUserPassword(id int64) (string, error) {
 func (s *Store) IepmsUserByResourceID(resourceID string) (IepmsUser, error) {
 	var user IepmsUser
 	err := s.DB.Get(&user, `SELECT * FROM iepms_users WHERE resource_id = ?`, strings.TrimSpace(resourceID))
+	if errors.Is(err, sql.ErrNoRows) {
+		return user, ErrNotFound
+	}
+	user.HasPassword = hasPassword(user.PasswordEncrypted)
+	return user, err
+}
+
+func (s *Store) IepmsUserByAccount(account string) (IepmsUser, error) {
+	var user IepmsUser
+	err := s.DB.Get(&user, `SELECT * FROM iepms_users WHERE outsourcing_account = ?`, strings.TrimSpace(account))
 	if errors.Is(err, sql.ErrNoRows) {
 		return user, ErrNotFound
 	}

@@ -1174,6 +1174,9 @@ var migrations = [][]string{
 			DROP COLUMN remarks,
 			DROP COLUMN created_by`,
 	},
+	{
+		`CREATE UNIQUE INDEX uq_iepms_users_account ON iepms_users (outsourcing_account)`,
+	},
 }
 
 // CleanupSessions removes expired sessions and tokens. It is safe to call at
