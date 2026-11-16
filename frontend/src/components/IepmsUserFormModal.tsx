@@ -398,7 +398,7 @@ export function IepmsUserFormModal({ open, user, onClose, onSaved }: Props) {
                 <SelectItem value="ativo" text="Ativo" />
                 <SelectItem value="inativado" text="Inativado" />
               </Select>
-              {field('outsourcing_account', 'Conta de terceirização', { helperText: 'Somente letras, números, ponto, hífen ou sublinhado.' })}
+              {field('outsourcing_account', 'Conta de terceirização', { helperText: 'Única. Na importação, atualiza o cadastro se a conta já existir.' })}
               {field('last_updated_by', 'Última atualização por')}
               {field('password', user ? 'Senha (em branco mantém a atual)' : 'Senha', { type: 'password' })}
             </div>
