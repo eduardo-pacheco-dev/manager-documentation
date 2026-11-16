@@ -22,22 +22,6 @@ import { api } from '../../lib/api';
 import { errorDetails, errorMessage, relativeTime } from '../../lib/format';
 import type { IepmsUser, IepmsUsersResponse } from '../../lib/types';
 
-function accountTagType(status: string | null): 'green' | 'red' | 'gray' {
-  switch ((status ?? '').toLowerCase()) {
-    case 'normal':
-    case 'active':
-    case 'ativo':
-      return 'green';
-    case 'abnormal':
-    case 'blocked':
-    case 'inactive':
-    case 'inativo':
-      return 'red';
-    default:
-      return 'gray';
-  }
-}
-
 export const IEPMS_STATUS_OPTIONS = [
   { value: 'ativo', label: 'Ativo' },
   { value: 'inativado', label: 'Inativado' },
@@ -296,16 +280,7 @@ export function IepmsUsersPage() {
                         '—'
                       )}
                     </td>
-                    <td className="hide-md">
-                      {user.outsourcing_account || '—'}
-                      <span className="cell-secondary">
-                        {user.account_status ? (
-                          <Tag type={accountTagType(user.account_status)} size="sm">{user.account_status}</Tag>
-                        ) : (
-                          'Sem status'
-                        )}
-                      </span>
-                    </td>
+                    <td className="hide-md">{user.outsourcing_account || '—'}</td>
                     <td className="hide-sm">{relativeTime(user.updated_at)}</td>
                     <td className="cell-actions">{rowActions(user)}</td>
                   </tr>
