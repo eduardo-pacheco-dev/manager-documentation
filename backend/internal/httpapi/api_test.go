@@ -146,8 +146,9 @@ func TestAuthenticationAndCSRF(t *testing.T) {
 	if data["user"].(map[string]any)["email"] != "admin@test.local" {
 		t.Fatalf("unexpected user payload: %v", data["user"])
 	}
-	if len(data["modules"].([]any)) != 13 {
-		t.Fatalf("expected 13 modules, got %v", data["modules"])
+	expectedModules := len(models.CoreModules)
+	if len(data["modules"].([]any)) != expectedModules {
+		t.Fatalf("expected %d modules, got %v", expectedModules, data["modules"])
 	}
 
 	res, _ = app.request(http.MethodPost, "/api/v1/users", map[string]any{
