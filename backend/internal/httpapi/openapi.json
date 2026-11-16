@@ -16,6 +16,7 @@
     { "name": "Notifications", "description": "Central de notificações" },
     { "name": "Projetos", "description": "Portfólio, EAP, dependências, recursos, custos e linha de base" },
     { "name": "Colaboradores", "description": "Cadastro central de pessoas usadas como recursos nos projetos" },
+    { "name": "iEPMS", "description": "Usuários do aplicativo iEPMS com importação e exportação Excel" },
     { "name": "Radio links", "description": "Enlaces ponto a ponto entre estações (ponta A e ponta B)" },
     { "name": "Uploads", "description": "Envio de imagens" }
   ],
@@ -403,6 +404,24 @@
     },
     "/collaborators/{id}/toggle": {
       "patch": { "tags": ["Colaboradores"], "summary": "Ativa ou desativa o colaborador", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Status atualizado" } } }
+    },
+    "/iepms-users": {
+      "get": { "tags": ["iEPMS"], "summary": "Lista usuários do iEPMS com busca, status, service field e paginação", "parameters": [{ "name": "search", "in": "query", "schema": { "type": "string" } }, { "name": "status", "in": "query", "schema": { "type": "string" } }, { "name": "service_field", "in": "query", "schema": { "type": "string" } }, { "name": "page", "in": "query", "schema": { "type": "integer" } }, { "name": "per_page", "in": "query", "schema": { "type": "integer" } }], "responses": { "200": { "description": "Usuários, estatísticas e paginação" } } },
+      "post": { "tags": ["iEPMS"], "summary": "Cria um usuário do iEPMS", "responses": { "201": { "description": "Usuário criado" }, "422": { "description": "Validação" } } }
+    },
+    "/iepms-users/export": {
+      "get": { "tags": ["iEPMS"], "summary": "Exporta todos os usuários do iEPMS em XLSX", "responses": { "200": { "description": "Arquivo XLSX" } } }
+    },
+    "/iepms-users/template": {
+      "get": { "tags": ["iEPMS"], "summary": "Baixa o modelo XLSX de importação", "responses": { "200": { "description": "Arquivo XLSX" } } }
+    },
+    "/iepms-users/import": {
+      "post": { "tags": ["iEPMS"], "summary": "Importa usuários de XLSX ou CSV, criando e atualizando pelo Resource ID", "responses": { "200": { "description": "Resumo da importação" }, "422": { "description": "Validação" } } }
+    },
+    "/iepms-users/{id}": {
+      "get": { "tags": ["iEPMS"], "summary": "Retorna um usuário do iEPMS", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Usuário" }, "404": { "description": "Não encontrado" } } },
+      "put": { "tags": ["iEPMS"], "summary": "Atualiza um usuário do iEPMS", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Usuário atualizado" }, "422": { "description": "Validação" } } },
+      "delete": { "tags": ["iEPMS"], "summary": "Exclui um usuário do iEPMS", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Usuário excluído" } } }
     },
     "/projects": {
       "get": { "tags": ["Projetos"], "summary": "Lista o portfólio de projetos", "parameters": [{ "name": "archived", "in": "query", "schema": { "type": "string", "enum": ["0", "1"] } }], "responses": { "200": { "description": "Projetos" } } },

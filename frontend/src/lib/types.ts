@@ -138,6 +138,50 @@ export interface DocShowResponse {
   can_manage: boolean;
 }
 
+export interface IepmsUser {
+  id: number;
+  resource_id: string;
+  name: string;
+  gender: string | null;
+  nationality: string | null;
+  us_green_card: string | null;
+  subcontractor: string | null;
+  certificate_type: string | null;
+  id_number: string | null;
+  birth_year: string | null;
+  tel: string | null;
+  personal_mailbox: string | null;
+  remarks: string | null;
+  restricted_party_screening_results: string | null;
+  service_field: string | null;
+  outsourcing_type: string | null;
+  personnel_type: string | null;
+  service_department_two_level: string | null;
+  service_department_three_level: string | null;
+  service_department_four_level: string | null;
+  personnel_status: string | null;
+  outsourcing_account: string | null;
+  account_status: string | null;
+  zte_mail: string | null;
+  academic_qualifications: string | null;
+  learning_mode: string | null;
+  graduation_time: string | null;
+  graduation_school: string | null;
+  major: string | null;
+  created_by: string | null;
+  last_updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface IepmsUsersResponse {
+  data: IepmsUser[];
+  stats: { total: number; normal: number; subcontractor: number; accounts: number };
+  statuses: string[];
+  service_fields: string[];
+  meta: PageMeta;
+}
+
 export type NotificationLevel = 'info' | 'success' | 'warning' | 'danger';
 
 export interface AppNotification {

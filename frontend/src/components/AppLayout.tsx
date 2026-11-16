@@ -65,6 +65,7 @@ function iconFor(key: string) {
     case 'demands':
       return Task;
     case 'collaborators':
+    case 'iepms-users':
       return UserMultiple;
     case 'projects':
       return ChartBar;
