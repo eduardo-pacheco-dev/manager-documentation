@@ -139,15 +139,20 @@ export function FormsPage() {
         eyebrow="Documentos"
         title="Formulários"
         description="Formulários dinâmicos com seções, perguntas, respostas, avaliações e preenchimento por link público."
+        titleAccessory={
+          <Button
+            kind="ghost"
+            size="sm"
+            hasIconOnly
+            renderIcon={Settings}
+            iconDescription="Configurações do módulo de formulários"
+            onClick={() => navigate('/forms/settings')}
+          />
+        }
         actions={
-          <>
-            <Button kind="ghost" renderIcon={Settings} onClick={() => navigate('/forms/settings')}>
-              Configurações
-            </Button>
-            <Button renderIcon={Add} onClick={() => setCreateOpen(true)}>
-              Novo formulário
-            </Button>
-          </>
+          <Button renderIcon={Add} onClick={() => setCreateOpen(true)}>
+            Novo formulário
+          </Button>
         }
       />
 
@@ -252,11 +257,6 @@ export function FormsPage() {
               <thead>
                 <tr>
                   <th>
-                    <button type="button" className="sort-button" onClick={() => toggleSort('code')}>
-                      {sortLabel('code', 'Código')}
-                    </button>
-                  </th>
-                  <th>
                     <button type="button" className="sort-button" onClick={() => toggleSort('name')}>
                       {sortLabel('name', 'Formulário')}
                     </button>
@@ -285,13 +285,11 @@ export function FormsPage() {
                   <tr key={form.id}>
                     <td>
                       <button type="button" className="link-button" onClick={() => navigate(`/forms/${form.id}`)}>
-                        {form.code}
+                        {form.name}
                       </button>
-                      <span className="cell-secondary">{form.response_count} resposta(s)</span>
-                    </td>
-                    <td>
-                      <span className="cell-primary">{form.name}</span>
-                      <span className="cell-secondary">{form.evaluation_count} avaliação(ões)</span>
+                      <span className="cell-secondary">
+                        {form.response_count} resposta(s) · {form.evaluation_count} avaliação(ões)
+                      </span>
                     </td>
                     <td className="hide-md">
                       {form.project_name ? `[${form.project_code}] ${form.project_name}` : '—'}
