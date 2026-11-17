@@ -1,7 +1,9 @@
 package seed
 
 import (
+	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/eduardo-pacheco-dev/manager-documentation/backend/internal/crypto"
@@ -32,6 +34,9 @@ func ModuleData(m *modules.Store, admin models.User, cipher *crypto.Cipher) erro
 		return err
 	}
 	if err := seedIepmsUsers(m, cipher); err != nil {
+		return err
+	}
+	if err := seedForms(m, admin); err != nil {
 		return err
 	}
 	collaborators, err := seedCollaborators(m)
@@ -507,6 +512,96 @@ func seedIepmsUsers(m *modules.Store, cipher *crypto.Cipher) error {
 		if _, err := m.CreateIepmsUser(input); err != nil {
 			return fmt.Errorf("seed iEPMS user %s: %w", input.ResourceID, err)
 		}
+	}
+	return nil
+}
+
+// seedForms creates demo forms with responses and evaluations. Existing forms
+// are never touched, so imports and manual edits are preserved.
+func seedForms(m *modules.Store, admin models.User) error {
+	var count int
+	if err := m.DB.Get(&count, `SELECT COUNT(*) FROM forms WHERE user_id = ?`, admin.ID); err != nil || count > 0 {
+		return err
+	}
+	var projectID *int64
+	var firstProject int64
+	if err := m.DB.Get(&firstProject, `SELECT id FROM projects WHERE owner_id = ? ORDER BY id LIMIT 1`, admin.ID); err == nil {
+		projectID = &firstProject
+	}
+
+	steps := []modules.FormStep{
+		{
+			ID: "S1", Title: "Identificação",
+			Fields: []modules.FormField{
+				{ID: "F1-1", Type: "text", Label: "Área registrada", Required: true, Status: "pendente"},
+				{ID: "F1-2", Type: "number", Label: "Código SMP", Status: "pendente"},
+				{ID: "F1-3", Type: "date", Label: "Data da vistoria", Required: true, Status: "pendente"},
+			},
+		},
+		{
+			ID: "S2", Title: "Registro fotográfico",
+			Fields: []modules.FormField{
+				{ID: "F2-1", Type: "image", Label: "Foto do painel", Required: true, Status: "pendente"},
+				{ID: "F2-2", Type: "image", Label: "Foto do abrigo", Status: "pendente"},
+			},
+		},
+		{
+			ID: "S3", Title: "Conformidade",
+			Fields: []modules.FormField{
+				{ID: "F3-1", Type: "textarea", Label: "Observações", Status: "pendente"},
+				{ID: "F3-2", Type: "radio", Label: "Parecer", Required: true, Options: []string{"Conforme", "Não conforme"}, Status: "pendente"},
+				{ID: "F3-3", Type: "scale", Label: "Grau de conservação", ScaleMin: 1, ScaleMax: 5, ScaleMinLabel: "Ruim", ScaleMaxLabel: "Ótimo", Status: "pendente"},
+			},
+		},
+	}
+	rawSteps, _ := json.Marshal(steps)
+
+	approved, err := m.CreateForm(admin.ID, modules.FormInput{
+		ProjectID: projectID, Name: "Registro Fotográfico - Estrutura",
+		Type: "Registro Fotográfico", Status: "Pendente", Steps: rawSteps,
+	})
+	if err != nil {
+		return fmt.Errorf("seed form registro fotográfico: %w", err)
+	}
+	filled := modules.ApplyAnswers(modules.DecodeSteps(approved.Steps), map[string]string{
+		"F1-1": "Galpão A", "F1-2": "12345", "F1-3": time.Now().AddDate(0, 0, -5).Format("2006-01-02"),
+		"F3-1": "Estrutura sem avarias aparentes.", "F3-2": "Conforme", "F3-3": "4",
+	}, nil)
+	for index := range filled[1].Fields {
+		filled[1].Fields[index].Images = []string{
+			"https://picsum.photos/seed/" + strings.ToLower(approved.Code) + "-" + filled[1].Fields[index].ID + "/640/480",
+		}
+		filled[1].Fields[index].ImageThumbnails = filled[1].Fields[index].Images
+		filled[1].Fields[index].Status = "enviado"
+	}
+	submitted := time.Now().AddDate(0, 0, -5).UTC()
+	response, err := m.CreateFormResponse(approved.ID, modules.FormResponseInput{
+		UserID: &admin.ID, Status: "Preenchido", Steps: filled, SubmittedAt: &submitted,
+	})
+	if err != nil {
+		return fmt.Errorf("seed form response: %w", err)
+	}
+	_ = m.UpdateFormStatusAndSteps(approved.ID, "Preenchido", filled)
+	_, _ = m.ApplyFormEvaluation(approved.ID, &response.ID, admin.ID, "Aprovado",
+		"Registro conferido e aprovado pela equipe de qualidade.",
+		map[string]string{"F1-1": "aprovado", "F1-3": "aprovado", "F3-2": "aprovado", "F3-3": "aprovado"}, nil, true)
+
+	filledSteps, _ := json.Marshal(steps)
+	_, err = m.CreateForm(admin.ID, modules.FormInput{
+		ProjectID: projectID, Name: "Checklist de Segurança",
+		Type: "Checklist", Status: "Pendente", Steps: filledSteps,
+	})
+	if err != nil {
+		return fmt.Errorf("seed form checklist: %w", err)
+	}
+
+	_, err = m.CreateForm(admin.ID, modules.FormInput{
+		ProjectID: projectID, Name: "Vistoria Periódica - Abrigo",
+		Type: "Vistoria", Status: "Em preenchimento", Steps: filledSteps,
+		AllowsMultipleResponses: true,
+	})
+	if err != nil {
+		return fmt.Errorf("seed form vistoria: %w", err)
 	}
 	return nil
 }

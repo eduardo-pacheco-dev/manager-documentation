@@ -132,6 +132,14 @@ var CoreModules = []Module{
 		DefaultSection: SectionModules,
 	},
 	{
+		Key:            "forms",
+		Label:          "Formulários",
+		Icon:           "document-check",
+		Path:           "/forms",
+		Toggleable:     true,
+		DefaultSection: SectionModules,
+	},
+	{
 		Key:            "projects",
 		Label:          "Projetos",
 		Icon:           "chart",

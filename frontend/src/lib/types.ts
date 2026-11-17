@@ -164,6 +164,161 @@ export interface IepmsUsersResponse {
   meta: PageMeta;
 }
 
+export type FormFieldType =
+  | 'text'
+  | 'textarea'
+  | 'number'
+  | 'date'
+  | 'time'
+  | 'radio'
+  | 'checkbox'
+  | 'dropdown'
+  | 'scale'
+  | 'image'
+  | 'file';
+
+export type FormFieldStatus =
+  | 'pendente'
+  | 'enviado'
+  | 'aprovado'
+  | 'reprovado'
+  | 'nao_aplicavel';
+
+export interface FormField {
+  id: string;
+  type: FormFieldType;
+  label: string;
+  help?: string;
+  required?: boolean;
+  options?: string[];
+  scaleMin?: number;
+  scaleMax?: number;
+  scaleMinLabel?: string;
+  scaleMaxLabel?: string;
+  value?: string;
+  images?: string[];
+  imageThumbnails?: string[];
+  imageDecisions?: Record<string, string>;
+  files?: string[];
+  fileNames?: string[];
+  status?: FormFieldStatus;
+}
+
+export interface FormStep {
+  id: string;
+  title: string;
+  fields: FormField[];
+}
+
+export interface FormRecord {
+  id: number;
+  project_id: number | null;
+  project_code: string | null;
+  project_name: string | null;
+  code: string;
+  name: string;
+  type: string;
+  status: string;
+  allows_multiple_responses: boolean;
+  public_token: string;
+  steps: FormStep[];
+  fields: unknown;
+  created_at: string;
+  updated_at: string;
+  response_count: number;
+  evaluation_count: number;
+}
+
+export interface FormResponseRecord {
+  id: number;
+  form_id: number;
+  user_id: number | null;
+  user_name: string | null;
+  status: string;
+  steps: FormStep[];
+  submitted_at: string | null;
+  created_at: string;
+  updated_at: string;
+  evaluations_count: number;
+}
+
+export interface FormChange {
+  type: 'field' | 'image';
+  id: string;
+  label: string;
+  index?: number;
+  from: string | null;
+  to: string;
+}
+
+export interface FormEvaluationRecord {
+  id: number;
+  form_id: number;
+  form_response_id: number | null;
+  user_id: number;
+  user_name: string | null;
+  status: string;
+  notes: string | null;
+  changes: FormChange[] | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FormTemplateRecord {
+  id: number;
+  name: string;
+  type: string;
+  steps: FormStep[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FormSettings {
+  types: string[];
+  statuses: string[];
+  default_template_id: number | null;
+  default_view: 'table' | 'cards' | 'compact';
+  per_page: number;
+}
+
+export interface FormsStats {
+  total: number;
+  pending: number;
+  in_progress: number;
+  filled: number;
+  approved: number;
+  rejected: number;
+}
+
+export interface FormsListResponse {
+  data: FormRecord[];
+  stats: FormsStats;
+  statuses: string[];
+  types: string[];
+  templates: FormTemplateRecord[];
+  settings: FormSettings;
+  meta: PageMeta;
+}
+
+export interface FormDetailResponse {
+  data: {
+    form: FormRecord;
+    responses: FormResponseRecord[];
+    evaluations: FormEvaluationRecord[];
+    templates: FormTemplateRecord[];
+    settings: FormSettings;
+  };
+}
+
+export interface FormSettingsResponse {
+  data: {
+    settings: FormSettings;
+    templates: FormTemplateRecord[];
+    views: Record<string, string>;
+    per_page_options: number[];
+  };
+}
+
 export type NotificationLevel = 'info' | 'success' | 'warning' | 'danger';
 
 export interface AppNotification {

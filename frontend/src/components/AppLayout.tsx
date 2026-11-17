@@ -7,6 +7,7 @@ import {
   Checkmark,
   Close,
   Document,
+  DocumentTasks,
   Grid,
   Home,
   Light,
@@ -67,6 +68,8 @@ function iconFor(key: string) {
     case 'collaborators':
     case 'iepms-users':
       return UserMultiple;
+    case 'forms':
+      return DocumentTasks;
     case 'projects':
       return ChartBar;
     default:

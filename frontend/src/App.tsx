@@ -25,6 +25,11 @@ import { DemandDetailPage } from './pages/modules/DemandDetailPage';
 import { ProjectsPage } from './pages/modules/ProjectsPage';
 import { CollaboratorsPage } from './pages/modules/CollaboratorsPage';
 import { IepmsUsersPage } from './pages/modules/IepmsUsersPage';
+import { FormsPage } from './pages/modules/FormsPage';
+import { FormDetailPage } from './pages/modules/FormDetailPage';
+import { FormEditPage } from './pages/modules/FormEditPage';
+import { FormEvaluatePage } from './pages/modules/FormEvaluatePage';
+import { FormsSettingsPage } from './pages/modules/FormsSettingsPage';
 import { RadioLinksPage } from './pages/modules/RadioLinksPage';
 import { RadioLinkDetailPage } from './pages/modules/RadioLinkDetailPage';
 import { NotFoundPage, ForbiddenPage } from './pages/StatusPages';
@@ -88,6 +93,11 @@ export default function App() {
         <Route path="/projects" element={<ProjectsPage />} />
         <Route path="/collaborators" element={<CollaboratorsPage />} />
         <Route path="/iepms-users" element={<IepmsUsersPage />} />
+        <Route path="/forms" element={<FormsPage />} />
+        <Route path="/forms/settings" element={<FormsSettingsPage />} />
+        <Route path="/forms/:id" element={<FormDetailPage />} />
+        <Route path="/forms/:id/edit" element={<FormEditPage />} />
+        <Route path="/forms/:id/evaluate" element={<FormEvaluatePage />} />
         <Route path="/radio-links" element={<RadioLinksPage />} />
         <Route path="/radio-links/:id" element={<RadioLinkDetailPage />} />
         <Route element={<AdminRoute />}>

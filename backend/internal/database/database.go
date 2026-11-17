@@ -1177,6 +1177,81 @@ var migrations = [][]string{
 	{
 		`CREATE UNIQUE INDEX uq_iepms_users_account ON iepms_users (outsourcing_account)`,
 	},
+	{
+		`CREATE TABLE forms (
+			id BIGINT NOT NULL AUTO_INCREMENT,
+			user_id BIGINT NOT NULL,
+			project_id BIGINT NULL,
+			code VARCHAR(60) NOT NULL,
+			name VARCHAR(255) NOT NULL,
+			type VARCHAR(255) NOT NULL DEFAULT 'Registro Fotográfico',
+			status VARCHAR(40) NOT NULL DEFAULT 'Pendente',
+			allows_multiple_responses TINYINT(1) NOT NULL DEFAULT 0,
+			public_token VARCHAR(64) NOT NULL,
+			steps JSON NULL,
+			fields JSON NULL,
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL,
+			deleted_at DATETIME NULL,
+			PRIMARY KEY (id),
+			UNIQUE KEY uq_forms_public_token (public_token),
+			KEY idx_forms_user_status (user_id, status),
+			KEY idx_forms_project_code (project_id, code),
+			KEY idx_forms_deleted (deleted_at),
+			CONSTRAINT fk_forms_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+			CONSTRAINT fk_forms_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+		`CREATE TABLE form_templates (
+			id BIGINT NOT NULL AUTO_INCREMENT,
+			user_id BIGINT NOT NULL,
+			name VARCHAR(255) NOT NULL,
+			type VARCHAR(255) NOT NULL DEFAULT '',
+			steps JSON NULL,
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL,
+			PRIMARY KEY (id),
+			KEY idx_form_templates_name (name),
+			CONSTRAINT fk_form_templates_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+		`CREATE TABLE form_responses (
+			id BIGINT NOT NULL AUTO_INCREMENT,
+			form_id BIGINT NOT NULL,
+			user_id BIGINT NULL,
+			status VARCHAR(40) NOT NULL DEFAULT 'Preenchido',
+			steps JSON NULL,
+			submitted_at DATETIME NULL,
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL,
+			PRIMARY KEY (id),
+			KEY idx_form_responses_form (form_id, submitted_at),
+			CONSTRAINT fk_form_responses_form FOREIGN KEY (form_id) REFERENCES forms(id) ON DELETE CASCADE,
+			CONSTRAINT fk_form_responses_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+		`CREATE TABLE form_evaluations (
+			id BIGINT NOT NULL AUTO_INCREMENT,
+			form_id BIGINT NOT NULL,
+			form_response_id BIGINT NULL,
+			user_id BIGINT NOT NULL,
+			status VARCHAR(40) NOT NULL,
+			notes TEXT NULL,
+			changes JSON NULL,
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL,
+			PRIMARY KEY (id),
+			KEY idx_form_evaluations_form (form_id, created_at),
+			KEY idx_form_evaluations_response (form_response_id),
+			CONSTRAINT fk_form_evaluations_form FOREIGN KEY (form_id) REFERENCES forms(id) ON DELETE CASCADE,
+			CONSTRAINT fk_form_evaluations_response FOREIGN KEY (form_response_id) REFERENCES form_responses(id) ON DELETE CASCADE,
+			CONSTRAINT fk_form_evaluations_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+		`CREATE TABLE form_user_settings (
+			user_id BIGINT NOT NULL,
+			settings JSON NULL,
+			updated_at DATETIME NOT NULL,
+			PRIMARY KEY (user_id),
+			CONSTRAINT fk_form_user_settings_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+	},
 }
 
 // CleanupSessions removes expired sessions and tokens. It is safe to call at

@@ -361,7 +361,7 @@ func (s *Service) s3Target(ctx context.Context, settings models.StorageSettings)
 
 // applicationPrefixes lists the key prefixes used by images and module
 // attachments. Other objects in the bucket are ignored by backups.
-var applicationPrefixes = []string{"uploads/", "demands/", "links/", "nokia/", "stations/", "projects/"}
+var applicationPrefixes = []string{"uploads/", "demands/", "links/", "nokia/", "stations/", "projects/", "forms/"}
 
 func isApplicationObject(key string) bool {
 	for _, prefix := range applicationPrefixes {
