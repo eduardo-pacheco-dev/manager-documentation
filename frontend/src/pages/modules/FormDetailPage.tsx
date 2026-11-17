@@ -1,6 +1,19 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Checkmark, ChevronLeft, ChevronRight, Close, Copy, Edit, Launch, View } from '@carbon/icons-react';
+import {
+  ArrowLeft,
+  Checkmark,
+  ChevronLeft,
+  ChevronRight,
+  Close,
+  Copy,
+  Edit,
+  Launch,
+  Reset,
+  View,
+  ZoomIn,
+  ZoomOut,
+} from '@carbon/icons-react';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -40,6 +53,13 @@ const FRAME_EXTENSIONS = ['pdf'];
 
 function fileExtension(name: string): string {
   return name.split('.').pop()?.toLowerCase() ?? '';
+}
+
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 4;
+
+function clampZoom(value: number): number {
+  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value));
 }
 
 function AnswerField({ field, onPreviewImage, onPreviewFile }: { field: FormField } & PreviewHandlers) {
@@ -151,8 +171,14 @@ export function FormDetailPage() {
   const [preview, setPreview] = useState<PreviewState>(null);
   const [textPreview, setTextPreview] = useState('');
   const [textLoading, setTextLoading] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [dragging, setDragging] = useState(false);
+  const dragRef = useRef<{ x: number; y: number; originX: number; originY: number } | null>(null);
+  const lightboxRef = useRef<HTMLDivElement | null>(null);
 
   const selectedResponseId = searchParams.get('response');
+  const previewImageKey = preview?.type === 'image' ? preview.index : -1;
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -196,6 +222,31 @@ export function FormDetailPage() {
   }, [preview]);
 
   useEffect(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+    setDragging(false);
+    dragRef.current = null;
+  }, [previewImageKey]);
+
+  useEffect(() => {
+    if (zoom <= MIN_ZOOM && (pan.x !== 0 || pan.y !== 0)) {
+      setPan({ x: 0, y: 0 });
+    }
+  }, [zoom, pan.x, pan.y]);
+
+  useEffect(() => {
+    if (preview?.type !== 'image') return;
+    const element = lightboxRef.current;
+    if (!element) return;
+    function onWheel(event: WheelEvent) {
+      event.preventDefault();
+      setZoom((current) => clampZoom(current - event.deltaY * 0.002));
+    }
+    element.addEventListener('wheel', onWheel, { passive: false });
+    return () => element.removeEventListener('wheel', onWheel);
+  }, [preview?.type]);
+
+  useEffect(() => {
     if (!preview) return;
     const currentPreview = preview;
     function onKeyDown(event: KeyboardEvent) {
@@ -217,6 +268,16 @@ export function FormDetailPage() {
               ? { ...current, index: Math.max(0, current.index - 1) }
               : current,
           );
+        }
+        if (event.key === '+' || event.key === '=') {
+          setZoom((current) => clampZoom(current + 0.5));
+        }
+        if (event.key === '-') {
+          setZoom((current) => clampZoom(current - 0.5));
+        }
+        if (event.key === '0') {
+          setZoom(MIN_ZOOM);
+          setPan({ x: 0, y: 0 });
         }
       }
     }
@@ -463,6 +524,7 @@ export function FormDetailPage() {
           aria-modal="true"
           aria-label={`Pré-visualização: ${preview.title}`}
           onClick={() => setPreview(null)}
+          ref={lightboxRef}
         >
           <span className="form-lightbox__close">
             <Button
@@ -494,9 +556,47 @@ export function FormDetailPage() {
             </span>
           )}
           <img
+            className={`form-lightbox__image${zoom > MIN_ZOOM ? ' is-zoomed' : ''}${dragging ? ' is-dragging' : ''}`}
             src={preview.images[preview.index]}
             alt={preview.title}
+            style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
             onClick={(event) => event.stopPropagation()}
+            onDoubleClick={(event) => {
+              event.stopPropagation();
+              if (zoom > MIN_ZOOM) {
+                setZoom(MIN_ZOOM);
+                setPan({ x: 0, y: 0 });
+              } else {
+                setZoom(2.5);
+              }
+            }}
+            onPointerDown={(event) => {
+              if (zoom <= MIN_ZOOM) return;
+              event.currentTarget.setPointerCapture(event.pointerId);
+              dragRef.current = {
+                x: event.clientX,
+                y: event.clientY,
+                originX: pan.x,
+                originY: pan.y,
+              };
+              setDragging(true);
+            }}
+            onPointerMove={(event) => {
+              const drag = dragRef.current;
+              if (!drag) return;
+              setPan({
+                x: drag.originX + event.clientX - drag.x,
+                y: drag.originY + event.clientY - drag.y,
+              });
+            }}
+            onPointerUp={() => {
+              dragRef.current = null;
+              setDragging(false);
+            }}
+            onPointerCancel={() => {
+              dragRef.current = null;
+              setDragging(false);
+            }}
           />
           {preview.index < preview.images.length - 1 && (
             <span className="form-lightbox__nav is-right">
@@ -521,6 +621,39 @@ export function FormDetailPage() {
             <span>
               {preview.title} · {preview.index + 1} / {preview.images.length}
             </span>
+            <div className="form-zoom-controls" role="group" aria-label="Zoom da imagem">
+              <Button
+                kind="ghost"
+                size="sm"
+                hasIconOnly
+                renderIcon={ZoomOut}
+                iconDescription="Diminuir zoom"
+                disabled={zoom <= MIN_ZOOM}
+                onClick={() => setZoom((current) => clampZoom(current - 0.5))}
+              />
+              <span className="form-zoom-value">{Math.round(zoom * 100)}%</span>
+              <Button
+                kind="ghost"
+                size="sm"
+                hasIconOnly
+                renderIcon={ZoomIn}
+                iconDescription="Aumentar zoom"
+                disabled={zoom >= MAX_ZOOM}
+                onClick={() => setZoom((current) => clampZoom(current + 0.5))}
+              />
+              <Button
+                kind="ghost"
+                size="sm"
+                hasIconOnly
+                renderIcon={Reset}
+                iconDescription="Restaurar zoom"
+                disabled={zoom <= MIN_ZOOM && pan.x === 0 && pan.y === 0}
+                onClick={() => {
+                  setZoom(MIN_ZOOM);
+                  setPan({ x: 0, y: 0 });
+                }}
+              />
+            </div>
             <Button
               kind="ghost"
               size="sm"

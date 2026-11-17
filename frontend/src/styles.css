@@ -4999,6 +4999,36 @@ p {
   object-fit: contain;
 }
 
+.form-lightbox__image {
+  transition: transform 0.12s ease;
+  user-select: none;
+  touch-action: none;
+  cursor: default;
+}
+
+.form-lightbox__image.is-zoomed {
+  cursor: grab;
+}
+
+.form-lightbox__image.is-dragging {
+  cursor: grabbing;
+  transition: none;
+}
+
+.form-zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  margin: 0 0.35rem;
+}
+
+.form-zoom-value {
+  min-width: 2.6rem;
+  color: #fff;
+  font-size: 0.72rem;
+  text-align: center;
+}
+
 .form-lightbox__bar {
   position: absolute;
   bottom: 1rem;
