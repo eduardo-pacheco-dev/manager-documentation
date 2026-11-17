@@ -18,6 +18,18 @@ export default defineConfig({
         target: 'http://localhost:8080',
         changeOrigin: false,
       },
+      '^/f/': {
+        target: 'http://localhost:8080',
+        changeOrigin: false,
+      },
+      '^/u/': {
+        target: 'http://localhost:8080',
+        changeOrigin: false,
+      },
+      '^/d/': {
+        target: 'http://localhost:8080',
+        changeOrigin: false,
+      },
     },
   },
   build: {
