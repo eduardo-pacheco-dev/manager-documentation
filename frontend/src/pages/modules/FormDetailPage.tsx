@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Checkmark, Copy, Edit, Launch, View } from '@carbon/icons-react';
+import { ArrowLeft, Checkmark, ChevronLeft, ChevronRight, Close, Copy, Edit, Launch, View } from '@carbon/icons-react';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -23,7 +23,25 @@ import {
 } from '../../lib/forms';
 import type { FormDetailResponse, FormEvaluationRecord, FormField, FormResponseRecord, FormStep } from '../../lib/types';
 
-function AnswerField({ field }: { field: FormField }) {
+interface PreviewHandlers {
+  onPreviewImage: (images: string[], index: number, title: string) => void;
+  onPreviewFile: (url: string, name: string) => void;
+}
+
+type PreviewState =
+  | { type: 'image'; images: string[]; index: number; title: string }
+  | { type: 'file'; url: string; name: string }
+  | null;
+
+const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'];
+const TEXT_EXTENSIONS = ['txt', 'csv', 'json', 'xml', 'md', 'log'];
+const FRAME_EXTENSIONS = ['pdf'];
+
+function fileExtension(name: string): string {
+  return name.split('.').pop()?.toLowerCase() ?? '';
+}
+
+function AnswerField({ field, onPreviewImage, onPreviewFile }: { field: FormField } & PreviewHandlers) {
   return (
     <div className="form-answer-field">
       <div className="form-answer-field__head">
@@ -44,9 +62,14 @@ function AnswerField({ field }: { field: FormField }) {
         (field.images?.length ?? 0) > 0 ? (
           <div className="form-answer-images">
             {field.images?.map((image, index) => (
-              <a key={image} href={image} target="_blank" rel="noopener noreferrer">
+              <button
+                type="button"
+                className="form-answer-image"
+                key={image}
+                onClick={() => onPreviewImage(field.images ?? [], index, field.label)}
+              >
                 <img src={field.imageThumbnails?.[index] ?? image} alt={field.label} loading="lazy" />
-              </a>
+              </button>
             ))}
           </div>
         ) : (
@@ -55,14 +78,17 @@ function AnswerField({ field }: { field: FormField }) {
       ) : field.type === 'file' ? (
         (field.files?.length ?? 0) > 0 ? (
           <div className="demand-attachments">
-            {field.files?.map((file, index) => (
-              <div className="attachment-row" key={file}>
-                <a href={file} target="_blank" rel="noreferrer">
-                  {field.fileNames?.[index] ?? file.split('/').pop()}
-                </a>
-                <View size={16} />
-              </div>
-            ))}
+            {field.files?.map((file, index) => {
+              const name = field.fileNames?.[index] ?? file.split('/').pop() ?? 'Arquivo';
+              return (
+                <div className="attachment-row" key={file}>
+                  <button type="button" className="form-file-preview" onClick={() => onPreviewFile(file, name)}>
+                    <span>{name}</span>
+                    <View size={16} />
+                  </button>
+                </div>
+              );
+            })}
           </div>
         ) : (
           <p className="muted">Nenhum arquivo.</p>
@@ -117,6 +143,9 @@ export function FormDetailPage() {
   const [data, setData] = useState<FormDetailResponse['data'] | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [preview, setPreview] = useState<PreviewState>(null);
+  const [textPreview, setTextPreview] = useState('');
+  const [textLoading, setTextLoading] = useState(false);
 
   const selectedResponseId = searchParams.get('response');
 
@@ -138,6 +167,57 @@ export function FormDetailPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    setTextPreview('');
+    if (preview?.type !== 'file' || !TEXT_EXTENSIONS.includes(fileExtension(preview.name))) return;
+    let active = true;
+    setTextLoading(true);
+    fetch(preview.url, { credentials: 'include' })
+      .then((response) => {
+        if (!response.ok) throw new Error('preview failed');
+        return response.text();
+      })
+      .then((text) => {
+        if (active) setTextPreview(text);
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (active) setTextLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [preview]);
+
+  useEffect(() => {
+    if (!preview) return;
+    const currentPreview = preview;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setPreview(null);
+        return;
+      }
+      if (currentPreview.type === 'image') {
+        if (event.key === 'ArrowRight') {
+          setPreview((current) =>
+            current && current.type === 'image'
+              ? { ...current, index: Math.min(current.images.length - 1, current.index + 1) }
+              : current,
+          );
+        }
+        if (event.key === 'ArrowLeft') {
+          setPreview((current) =>
+            current && current.type === 'image'
+              ? { ...current, index: Math.max(0, current.index - 1) }
+              : current,
+          );
+        }
+      }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [preview]);
 
   async function copyPublicLink() {
     if (!data) return;
@@ -172,6 +252,11 @@ export function FormDetailPage() {
   const hasAnswers = answeredCount > 0;
   const publicLink = publicFormLink(form.public_token);
   const evaluateRoute = `/forms/${form.id}/evaluate${selectedResponse ? `?response=${selectedResponse.id}` : ''}`;
+  const previewFile = preview?.type === 'file' ? preview : null;
+  const previewExtension = previewFile ? fileExtension(previewFile.name) : '';
+  const previewIsImage = IMAGE_EXTENSIONS.includes(previewExtension);
+  const previewIsFrame = FRAME_EXTENSIONS.includes(previewExtension);
+  const previewIsText = TEXT_EXTENSIONS.includes(previewExtension);
 
   return (
     <div className="page">
@@ -243,7 +328,12 @@ export function FormDetailPage() {
                   <div key={step.id} className="module-subcard">
                     <h3>{step.title || 'Seção'}</h3>
                     {answered.map((field) => (
-                      <AnswerField field={field} key={field.id} />
+                      <AnswerField
+                        field={field}
+                        key={field.id}
+                        onPreviewImage={(images, index, title) => setPreview({ type: 'image', images, index, title })}
+                        onPreviewFile={(url, name) => setPreview({ type: 'file', url, name })}
+                      />
                     ))}
                   </div>
                 );
@@ -360,6 +450,140 @@ export function FormDetailPage() {
           )}
         </aside>
       </div>
+
+      {preview?.type === 'image' && (
+        <div
+          className="form-lightbox"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Pré-visualização: ${preview.title}`}
+          onClick={() => setPreview(null)}
+        >
+          <span className="form-lightbox__close">
+            <Button
+              kind="ghost"
+              size="sm"
+              hasIconOnly
+              renderIcon={Close}
+              iconDescription="Fechar"
+              onClick={() => setPreview(null)}
+            />
+          </span>
+          {preview.index > 0 && (
+            <span className="form-lightbox__nav is-left">
+              <Button
+                kind="ghost"
+                size="sm"
+                hasIconOnly
+                renderIcon={ChevronLeft}
+                iconDescription="Imagem anterior"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setPreview((current) =>
+                    current && current.type === 'image'
+                      ? { ...current, index: Math.max(0, current.index - 1) }
+                      : current,
+                  );
+                }}
+              />
+            </span>
+          )}
+          <img
+            src={preview.images[preview.index]}
+            alt={preview.title}
+            onClick={(event) => event.stopPropagation()}
+          />
+          {preview.index < preview.images.length - 1 && (
+            <span className="form-lightbox__nav is-right">
+              <Button
+                kind="ghost"
+                size="sm"
+                hasIconOnly
+                renderIcon={ChevronRight}
+                iconDescription="Próxima imagem"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setPreview((current) =>
+                    current && current.type === 'image'
+                      ? { ...current, index: Math.min(current.images.length - 1, current.index + 1) }
+                      : current,
+                  );
+                }}
+              />
+            </span>
+          )}
+          <div className="form-lightbox__bar" onClick={(event) => event.stopPropagation()}>
+            <span>
+              {preview.title} · {preview.index + 1} / {preview.images.length}
+            </span>
+            <Button
+              kind="ghost"
+              size="sm"
+              renderIcon={Launch}
+              onClick={() => window.open(preview.images[preview.index], '_blank')}
+            >
+              Abrir original
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {previewFile && (
+        <div
+          className="form-lightbox"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Pré-visualização: ${previewFile.name}`}
+          onClick={() => setPreview(null)}
+        >
+          <div className="form-preview-panel" onClick={(event) => event.stopPropagation()}>
+            <header className="form-preview-header">
+              <div>
+                <strong>{previewFile.name}</strong>
+                <span className="muted">{previewExtension ? previewExtension.toUpperCase() : 'Arquivo'}</span>
+              </div>
+              <div className="tag-row">
+                <Button
+                  kind="ghost"
+                  size="sm"
+                  renderIcon={Launch}
+                  onClick={() => window.open(previewFile.url, '_blank')}
+                >
+                  Abrir
+                </Button>
+                <Button
+                  kind="ghost"
+                  size="sm"
+                  hasIconOnly
+                  renderIcon={Close}
+                  iconDescription="Fechar"
+                  onClick={() => setPreview(null)}
+                />
+              </div>
+            </header>
+            <div className="form-preview-body">
+              {previewIsImage ? (
+                <img src={previewFile.url} alt={previewFile.name} />
+              ) : previewIsFrame ? (
+                <iframe src={previewFile.url} title={previewFile.name} />
+              ) : previewIsText ? (
+                textLoading ? (
+                  <InlineLoading description="Carregando pré-visualização…" />
+                ) : textPreview ? (
+                  <pre>{textPreview}</pre>
+                ) : (
+                  <p className="muted">Não foi possível carregar a pré-visualização. Use o botão Abrir.</p>
+                )
+              ) : (
+                <p className="muted">
+                  Pré-visualização não disponível para este formato. Use o botão Abrir para visualizar ou baixar o
+                  arquivo.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

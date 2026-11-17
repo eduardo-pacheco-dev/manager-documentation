@@ -767,7 +767,7 @@ func (s *Server) captureFormUploads(ctx context.Context, form modules.Form, step
 						errors[field.ID] = "Não foi possível ler o arquivo enviado."
 						break
 					}
-					result, err := s.Uploads.SaveDocument(ctx, file, header, "forms")
+					result, err := s.Uploads.SaveDocument(ctx, file, header, "uploads/forms")
 					_ = file.Close()
 					if err != nil {
 						errors[field.ID] = fmt.Sprintf("O campo %q deve conter um arquivo válido.", field.Label)
