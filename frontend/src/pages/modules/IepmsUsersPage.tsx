@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Add, Download, OverflowMenuVertical, Upload } from '@carbon/icons-react';
+import { useNavigate } from 'react-router-dom';
+import { Add, Download, OverflowMenuVertical, Settings, Upload } from '@carbon/icons-react';
 import {
   Button,
   InlineLoading,
@@ -33,6 +34,7 @@ function statusLabel(status: string): string {
 
 export function IepmsUsersPage() {
   const toast = useToast();
+  const navigate = useNavigate();
   const [users, setUsers] = useState<IepmsUser[]>([]);
   const [data, setData] = useState<IepmsUsersResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -144,6 +146,16 @@ export function IepmsUsersPage() {
         eyebrow="iEPMS"
         title="Usuários iEPMS"
         description="Gerencie os usuários do aplicativo iEPMS e importe a base em Excel."
+        titleAccessory={
+          <Button
+            kind="ghost"
+            size="md"
+            hasIconOnly
+            renderIcon={Settings}
+            iconDescription="Configurações do iEPMS"
+            onClick={() => navigate('/iepms-users/settings')}
+          />
+        }
         actions={
           <>
             <Button renderIcon={Add} onClick={openCreate} disabled={importing}>Novo usuário</Button>
