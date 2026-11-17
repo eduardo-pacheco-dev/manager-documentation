@@ -386,21 +386,6 @@ export function FormDetailPage() {
         }
       />
 
-      <div className="station-summary-grid">
-        <Tile>
-          <span>Respostas</span>
-          <strong>{responses.length}</strong>
-        </Tile>
-        <Tile>
-          <span>Avaliações</span>
-          <strong>{form.evaluation_count}</strong>
-        </Tile>
-        <Tile>
-          <span>Atualizado</span>
-          <strong>{relativeTime(form.updated_at)}</strong>
-        </Tile>
-      </div>
-
       <div className="nokia-detail-layout">
         <div className="nokia-detail-main">
           <Tile className="nokia-detail-section">
