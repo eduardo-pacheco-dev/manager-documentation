@@ -4845,10 +4845,45 @@ p {
 
 .form-answer-images a,
 .form-answer-image {
+  position: relative;
   padding: 0;
   border: 1px solid var(--cds-border-subtle-01);
   background: var(--cds-layer-01);
   cursor: zoom-in;
+}
+
+.form-answer-image__status {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.3rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 50%;
+  color: #fff;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.8);
+}
+
+.form-answer-image__status.is-aprovado {
+  background: var(--cds-support-success);
+}
+
+.form-answer-image__status.is-enviado {
+  background: var(--cds-button-primary);
+}
+
+.form-answer-image__status.is-reprovado {
+  background: var(--cds-support-error);
+}
+
+.form-answer-image__status.is-nao_aplicavel {
+  background: var(--cds-text-helper);
+}
+
+.form-answer-image__status.is-pendente {
+  background: var(--cds-button-secondary);
 }
 
 .form-answer-images img {

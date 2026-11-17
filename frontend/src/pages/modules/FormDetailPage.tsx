@@ -3,13 +3,17 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   ArrowLeft,
   Checkmark,
+  CheckmarkFilled,
   ChevronLeft,
   ChevronRight,
   Close,
   Copy,
   Edit,
+  ErrorFilled,
   Launch,
+  NotAvailable,
   Reset,
+  Time,
   View,
   ZoomIn,
   ZoomOut,
@@ -55,6 +59,20 @@ function fileExtension(name: string): string {
   return name.split('.').pop()?.toLowerCase() ?? '';
 }
 
+function iconForImageStatus(status: string) {
+  switch (status) {
+    case 'aprovado':
+    case 'enviado':
+      return CheckmarkFilled;
+    case 'reprovado':
+      return ErrorFilled;
+    case 'nao_aplicavel':
+      return NotAvailable;
+    default:
+      return Time;
+  }
+}
+
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 4;
 
@@ -82,20 +100,33 @@ function AnswerField({ field, onPreviewImage, onPreviewFile }: { field: FormFiel
       {field.type === 'image' ? (
         (field.images?.length ?? 0) > 0 ? (
           <div className="form-answer-images">
-            {field.images?.map((image, index) => (
-              <button
-                type="button"
-                className="form-answer-image"
-                key={image}
-                onClick={() => onPreviewImage(field.images ?? [], index, field.label)}
-              >
-                <img
-                  src={formImageThumbnail(image, field.imageThumbnails?.[index])}
-                  alt={field.label}
-                  loading="lazy"
-                />
-              </button>
-            ))}
+            {field.images?.map((image, index) => {
+              const status = field.imageDecisions?.[String(index)] || field.status || 'pendente';
+              const statusLabel = FORM_FIELD_STATUS_LABELS[status] ?? status;
+              const StatusIcon = iconForImageStatus(status);
+              return (
+                <button
+                  type="button"
+                  className="form-answer-image"
+                  key={image}
+                  onClick={() => onPreviewImage(field.images ?? [], index, field.label)}
+                >
+                  <img
+                    src={formImageThumbnail(image, field.imageThumbnails?.[index])}
+                    alt={field.label}
+                    loading="lazy"
+                  />
+                  <span
+                    className={`form-answer-image__status is-${status}`}
+                    title={`Status: ${statusLabel}`}
+                    role="img"
+                    aria-label={`Status da imagem: ${statusLabel}`}
+                  >
+                    <StatusIcon size={16} />
+                  </span>
+                </button>
+              );
+            })}
           </div>
         ) : (
           <p className="muted">{field.status === 'nao_aplicavel' ? 'Não aplicável.' : 'Nenhuma foto.'}</p>
