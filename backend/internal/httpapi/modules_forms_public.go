@@ -63,13 +63,8 @@ type formPublicData struct {
 }
 
 var formPublicTemplate = template.Must(template.New("form-public").Funcs(template.FuncMap{
-	"has": func(values []string, value string) bool {
-		for _, item := range values {
-			if item == value {
-				return true
-			}
-		}
-		return false
+	"has": func(values map[string]bool, value string) bool {
+		return values[value]
 	},
 	"base": func(value string) string {
 		parsed, err := url.Parse(value)
@@ -139,6 +134,11 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-of
 .file-row button{border:0;background:none;color:var(--danger);font-size:.72rem;cursor:pointer}
 .na{display:inline-flex;align-items:center;gap:.4rem;margin-top:.5rem;font-size:.78rem;color:var(--muted)}
 .actions{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-top:1.5rem;flex-wrap:wrap}
+.wizard-actions{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.btn--ghost{background:transparent;color:var(--blue);border-color:var(--blue)}
+.btn--ghost:hover{background:#edf5ff;color:var(--blue-hover)}
+.step-label{color:var(--helper);font-size:.75rem}
+.form-step[hidden]{display:none}
 .btn{display:inline-flex;align-items:center;justify-content:center;min-height:3rem;padding:0 1.25rem;border:1px solid transparent;background:var(--blue);color:#fff;font-family:inherit;font-size:.875rem;cursor:pointer;text-decoration:none}
 .btn:hover{background:var(--blue-hover)}
 .save-state{color:var(--helper);font-size:.75rem}
@@ -172,7 +172,7 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-of
   {{else}}
   <form method="post" enctype="multipart/form-data" action="{{.SubmitURL}}" id="public-form">
     {{range $si, $step := .Steps}}
-    <section class="panel">
+    <section class="panel form-step" data-form-section data-index="{{$si}}">
       <div class="section-head">
         <h2>{{if $step.Title}}{{$step.Title}}{{else}}Seção {{inc $si}}{{end}}</h2>
         <span class="count">{{len $step.Fields}} pergunta(s)</span>
@@ -180,7 +180,7 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-of
       {{range $step.Fields}}
       {{$field := .}}
       <div class="field">
-        <label class="label" for="field-{{$field.ID}}">{{$field.Label}}{{if $field.Required}} <span class="required">*</span>{{end}}</label>
+        <label class="label" id="field-{{$field.ID}}-label" for="field-{{$field.ID}}">{{$field.Label}}{{if $field.Required}} <span class="required">*</span>{{end}}</label>
         {{if $field.Help}}<p class="help">{{$field.Help}}</p>{{end}}
 
         {{if eq $field.Type "textarea"}}
@@ -251,7 +251,12 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-of
 
     <div class="actions">
       <span class="save-state" id="save-state"></span>
-      <button class="btn" type="submit">Enviar respostas</button>
+      <div class="wizard-actions">
+        <button class="btn btn--ghost" type="button" id="wizard-prev">Anterior</button>
+        <span class="step-label" id="wizard-label"></span>
+        <button class="btn" type="button" id="wizard-next">Próximo</button>
+        <button class="btn" type="submit" id="wizard-submit">Enviar respostas</button>
+      </div>
     </div>
   </form>
   {{end}}
@@ -265,6 +270,67 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-of
   const autosaveUrl = {{.AutosaveURL}};
   const imageDeleteUrl = {{.ImageDeleteURL}};
   const fileDeleteUrl = {{.FileDeleteURL}};
+
+  const sections = [...form.querySelectorAll('[data-form-section]')];
+  const prevButton = document.getElementById('wizard-prev');
+  const nextButton = document.getElementById('wizard-next');
+  const submitButton = document.getElementById('wizard-submit');
+  const wizardLabel = document.getElementById('wizard-label');
+  const storageKey = 'public-form-step-' + window.location.pathname;
+  let currentSection = 0;
+
+  const showSection = (index) => {
+    if (!sections.length) return;
+    currentSection = Math.max(0, Math.min(sections.length - 1, index));
+    sections.forEach((section, position) => {
+      section.hidden = position !== currentSection;
+    });
+    if (prevButton) prevButton.disabled = currentSection === 0;
+    if (nextButton) nextButton.hidden = currentSection === sections.length - 1;
+    if (submitButton) submitButton.hidden = currentSection !== sections.length - 1;
+    if (wizardLabel) wizardLabel.textContent = 'Etapa ' + (currentSection + 1) + ' de ' + sections.length;
+    try {
+      sessionStorage.setItem(storageKey, String(currentSection));
+    } catch (error) {}
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  if (sections.length > 1) {
+    let initial = 0;
+    try {
+      initial = Number(sessionStorage.getItem(storageKey) || '0') || 0;
+    } catch (error) {}
+    const errorField = form.querySelector('.field-error');
+    if (errorField) {
+      const section = errorField.closest('[data-form-section]');
+      if (section) initial = sections.indexOf(section);
+    }
+    showSection(initial);
+    prevButton.addEventListener('click', () => showSection(currentSection - 1));
+    nextButton.addEventListener('click', () => showSection(currentSection + 1));
+    submitButton.addEventListener('click', (event) => {
+      sections.forEach((section) => { section.hidden = false; });
+      if (!form.checkValidity()) {
+        event.preventDefault();
+        const invalid = form.querySelector(':invalid');
+        if (invalid) {
+          const section = invalid.closest('[data-form-section]');
+          if (section) showSection(sections.indexOf(section));
+          invalid.reportValidity();
+        }
+      }
+    });
+    form.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && event.target.tagName !== 'TEXTAREA' && currentSection < sections.length - 1) {
+        event.preventDefault();
+        showSection(currentSection + 1);
+      }
+    });
+  } else {
+    if (prevButton) prevButton.hidden = true;
+    if (nextButton) nextButton.hidden = true;
+    if (wizardLabel) wizardLabel.textContent = '';
+  }
 
   const autosave = async () => {
     if (!autosaveUrl) return;

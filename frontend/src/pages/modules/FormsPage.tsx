@@ -1,6 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Add, DocumentTasks, Settings } from '@carbon/icons-react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Add,
+  Checkmark,
+  Copy,
+  Edit,
+  Grid,
+  List,
+  OverflowMenuVertical,
+  Settings,
+  Table as TableIcon,
+  TrashCan,
+} from '@carbon/icons-react';
 import {
   Button,
   InlineLoading,
@@ -11,6 +22,7 @@ import {
   Select,
   SelectItem,
   Tag,
+  Tile,
 } from '@carbon/react';
 import { PageHeader } from '../../components/PageHeader';
 import { EmptyState } from '../../components/Feedback';
@@ -54,6 +66,10 @@ export function FormsPage() {
       if (search.trim()) params.set('search', search.trim());
       if (statusFilter) params.set('status', statusFilter);
       const data = await api.get<FormsListResponse>(`/forms?${params.toString()}`);
+      if (data.meta && page > data.meta.last_page) {
+        setPage(data.meta.last_page);
+        return;
+      }
       setForms(data.data ?? []);
       setResponse(data);
       if (!preferencesApplied.current && data.settings) {
@@ -115,30 +131,14 @@ export function FormsPage() {
   }
 
   const stats = response?.stats;
-
-  function actions(form: FormRecord) {
-    return (
-      <OverflowMenu
-        aria-label={`Ações de ${form.name}`}
-        iconDescription={`Ações de ${form.name}`}
-        size="sm"
-        flipped
-      >
-        <OverflowMenuItem itemText="Visualizar respostas" onClick={() => navigate(`/forms/${form.id}`)} />
-        <OverflowMenuItem itemText="Editar" onClick={() => navigate(`/forms/${form.id}/edit`)} />
-        <OverflowMenuItem itemText="Avaliar resposta" onClick={() => navigate(`/forms/${form.id}/evaluate`)} />
-        <OverflowMenuItem itemText="Copiar link público" onClick={() => void copyLink(form)} />
-        <OverflowMenuItem itemText="Excluir" isDelete hasDivider onClick={() => setDeleting(form)} />
-      </OverflowMenu>
-    );
-  }
+  const items = forms;
 
   return (
     <div className="page">
       <PageHeader
-        eyebrow="Formulários"
+        eyebrow="Documentos"
         title="Formulários"
-        description="Crie formulários dinâmicos com seções, perguntas, respostas, avaliações e link público."
+        description="Formulários dinâmicos com seções, perguntas, respostas, avaliações e preenchimento por link público."
         actions={
           <>
             <Button kind="ghost" renderIcon={Settings} onClick={() => navigate('/forms/settings')}>
@@ -152,76 +152,98 @@ export function FormsPage() {
       />
 
       {stats && (
-        <div className="stats-grid stats-grid--3 forms-stats">
-          <div className="stat-card stat-card--blue">
-            <span className="stat-card__label">Total</span>
+        <div className="stats-grid stats-grid--3">
+          <Tile className="stat-card stat-card--blue">
+            <span className="stat-card__label">Formulários</span>
             <strong className="stat-card__value">{stats.total}</strong>
-          </div>
-          <div className="stat-card stat-card--purple">
+          </Tile>
+          <Tile className="stat-card stat-card--purple">
             <span className="stat-card__label">Pendentes / em preenchimento</span>
             <strong className="stat-card__value">{stats.pending + stats.in_progress}</strong>
-          </div>
-          <div className="stat-card stat-card--green">
+          </Tile>
+          <Tile className="stat-card stat-card--green">
             <span className="stat-card__label">Preenchidos / aprovados</span>
             <strong className="stat-card__value">{stats.filled + stats.approved}</strong>
-          </div>
+          </Tile>
         </div>
       )}
 
-      <section className="module-toolbar forms-toolbar">
-        <Search
-          size="lg"
-          labelText="Buscar formulários"
-          placeholder="Buscar por código ou nome"
-          value={search}
-          onChange={(event) => {
-            setSearch(event.target.value);
-            setPage(1);
-          }}
-          onClear={() => {
-            setSearch('');
-            setPage(1);
-          }}
-        />
-        <Select
-          id="forms-status-filter"
-          labelText="Status"
-          size="sm"
-          value={statusFilter}
-          onChange={(event) => {
-            setStatusFilter(event.target.value);
-            setPage(1);
-          }}
-        >
-          <SelectItem value="" text="Todos os status" />
-          {(response?.statuses ?? []).map((status) => (
-            <SelectItem key={status} value={status} text={status} />
-          ))}
-        </Select>
-        <div className="form-view-toggle" role="group" aria-label="Modo de visualização">
-          <button type="button" className={view === 'table' ? 'is-active' : ''} onClick={() => setView('table')}>
-            Tabela
-          </button>
-          <button type="button" className={view === 'cards' ? 'is-active' : ''} onClick={() => setView('cards')}>
-            Cards
-          </button>
-          <button type="button" className={view === 'compact' ? 'is-active' : ''} onClick={() => setView('compact')}>
-            Lista
-          </button>
+      <Tile className="module-main__header">
+        <div className="module-toolbar">
+          <Search
+            size="lg"
+            labelText="Buscar formulários"
+            placeholder="Buscar por código ou nome"
+            value={search}
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setPage(1);
+            }}
+            onClear={() => {
+              setSearch('');
+              setPage(1);
+            }}
+          />
+          <Select
+            id="forms-status-filter"
+            labelText="Status"
+            size="sm"
+            value={statusFilter}
+            onChange={(event) => {
+              setStatusFilter(event.target.value);
+              setPage(1);
+            }}
+          >
+            <SelectItem value="" text="Todos os status" />
+            {(response?.statuses ?? []).map((status) => (
+              <SelectItem key={status} value={status} text={status} />
+            ))}
+          </Select>
+          <div className="toolbar__views" role="group" aria-label="Modo de visualização">
+            <Button
+              kind={view === 'table' ? 'primary' : 'ghost'}
+              size="sm"
+              hasIconOnly
+              renderIcon={TableIcon}
+              iconDescription="Tabela"
+              onClick={() => setView('table')}
+            />
+            <Button
+              kind={view === 'cards' ? 'primary' : 'ghost'}
+              size="sm"
+              hasIconOnly
+              renderIcon={Grid}
+              iconDescription="Cards"
+              onClick={() => setView('cards')}
+            />
+            <Button
+              kind={view === 'compact' ? 'primary' : 'ghost'}
+              size="sm"
+              hasIconOnly
+              renderIcon={List}
+              iconDescription="Lista"
+              onClick={() => setView('compact')}
+            />
+          </div>
         </div>
-      </section>
+      </Tile>
 
       {loading ? (
         <InlineLoading description="Carregando formulários…" />
-      ) : forms.length === 0 ? (
+      ) : items.length === 0 ? (
         <EmptyState
+          icon={Add}
           title={search || statusFilter ? 'Nenhum formulário encontrado' : 'Nenhum formulário cadastrado'}
           description={
             search || statusFilter
               ? 'Ajuste a busca ou os filtros para ver mais resultados.'
               : 'Crie o primeiro formulário para começar.'
           }
-          action={<Button renderIcon={Add} onClick={() => setCreateOpen(true)}>Novo formulário</Button>}
+          action={
+            <Button renderIcon={Add} onClick={() => setCreateOpen(true)}>
+              Novo formulário
+            </Button>
+          }
         />
       ) : view === 'table' ? (
         <div className="table-wrapper">
@@ -236,7 +258,7 @@ export function FormsPage() {
                   </th>
                   <th>
                     <button type="button" className="sort-button" onClick={() => toggleSort('name')}>
-                      {sortLabel('name', 'Nome')}
+                      {sortLabel('name', 'Formulário')}
                     </button>
                   </th>
                   <th className="hide-md">Projeto</th>
@@ -259,18 +281,21 @@ export function FormsPage() {
                 </tr>
               </thead>
               <tbody>
-                {forms.map((form) => (
+                {items.map((form) => (
                   <tr key={form.id}>
                     <td>
-                      <Link className="cell-primary" to={`/forms/${form.id}`}>
+                      <button type="button" className="link-button" onClick={() => navigate(`/forms/${form.id}`)}>
                         {form.code}
-                      </Link>
+                      </button>
+                      <span className="cell-secondary">{form.response_count} resposta(s)</span>
                     </td>
                     <td>
                       <span className="cell-primary">{form.name}</span>
-                      <span className="cell-secondary">{form.response_count} resposta(s) · {form.evaluation_count} avaliação(ões)</span>
+                      <span className="cell-secondary">{form.evaluation_count} avaliação(ões)</span>
                     </td>
-                    <td className="hide-md">{form.project_name ? `[${form.project_code}] ${form.project_name}` : '—'}</td>
+                    <td className="hide-md">
+                      {form.project_name ? `[${form.project_code}] ${form.project_name}` : '—'}
+                    </td>
                     <td className="hide-sm">{form.type}</td>
                     <td>
                       <Tag type={formStatusTag(form.status)} size="sm">
@@ -278,77 +303,99 @@ export function FormsPage() {
                       </Tag>
                     </td>
                     <td className="hide-sm">{relativeTime(form.updated_at)}</td>
-                    <td className="cell-actions">{actions(form)}</td>
+                    <td className="cell-actions">
+                      <OverflowMenu
+                        aria-label={`Ações de ${form.name}`}
+                        iconDescription={`Ações de ${form.name}`}
+                        renderIcon={OverflowMenuVertical}
+                        size="sm"
+                        flipped
+                      >
+                        <OverflowMenuItem itemText="Visualizar respostas" onClick={() => navigate(`/forms/${form.id}`)} />
+                        <OverflowMenuItem itemText="Editar" onClick={() => navigate(`/forms/${form.id}/edit`)} />
+                        <OverflowMenuItem itemText="Avaliar resposta" onClick={() => navigate(`/forms/${form.id}/evaluate`)} />
+                        <OverflowMenuItem itemText="Copiar link público" onClick={() => void copyLink(form)} />
+                        <OverflowMenuItem itemText="Excluir" isDelete hasDivider onClick={() => setDeleting(form)} />
+                      </OverflowMenu>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          {response && response.meta.total > 0 && (
-            <div className="table-footer">
-              <span className="table-footer__order">{response.meta.total} formulário(s)</span>
-              <Pagination
-                page={response.meta.current_page}
-                pageSize={response.meta.per_page}
-                pageSizes={[12, 24, 36]}
-                totalItems={response.meta.total}
-                onChange={({ page: nextPage, pageSize }) => {
-                  if (pageSize && pageSize !== perPage) {
-                    setPerPage(pageSize);
-                    setPage(1);
-                  } else {
-                    setPage(nextPage);
-                  }
-                }}
-                size="sm"
-              />
-            </div>
-          )}
         </div>
       ) : view === 'cards' ? (
-        <div className="forms-cards">
-          {forms.map((form) => (
-            <article className="forms-card" key={form.id}>
-              <div className="forms-card__head">
-                <span className="forms-card__icon">
-                  <DocumentTasks size={18} />
-                </span>
-                <div className="forms-card__title">
-                  <Link to={`/forms/${form.id}`}>{form.code}</Link>
-                  <p>{form.name}</p>
+        <div className="user-cards">
+          {items.map((form) => (
+            <article key={form.id} className="user-card">
+              <div className="user-card__main">
+                <div className="user-card__text">
+                  <button type="button" className="link-button" onClick={() => navigate(`/forms/${form.id}`)}>
+                    {form.name}
+                  </button>
+                  <span>{form.code} · {form.type}</span>
+                  <div className="tag-row">
+                    <Tag type={formStatusTag(form.status)} size="sm">{form.status}</Tag>
+                    {form.allows_multiple_responses && <Tag type="blue" size="sm">Múltiplas respostas</Tag>}
+                  </div>
                 </div>
-                {actions(form)}
               </div>
-              <div className="forms-card__tags">
-                <Tag type="gray" size="sm">{form.type}</Tag>
-                <Tag type={formStatusTag(form.status)} size="sm">{form.status}</Tag>
+              <p className="user-card__meta">
+                {form.project_name ? `[${form.project_code}] ${form.project_name}` : 'Sem projeto'} ·{' '}
+                {form.response_count} resposta(s) · {relativeTime(form.updated_at)}
+              </p>
+              <div className="user-card__actions">
+                <Button kind="ghost" size="sm" renderIcon={Edit} onClick={() => navigate(`/forms/${form.id}/edit`)}>Editar</Button>
+                <Button kind="ghost" size="sm" renderIcon={Checkmark} onClick={() => navigate(`/forms/${form.id}/evaluate`)}>Avaliar</Button>
+                <Button kind="ghost" size="sm" hasIconOnly renderIcon={Copy} iconDescription="Copiar link público" onClick={() => void copyLink(form)} />
+                <Button kind="danger--ghost" size="sm" hasIconOnly renderIcon={TrashCan} iconDescription="Excluir" onClick={() => setDeleting(form)} />
               </div>
-              {form.project_name && (
-                <p className="forms-card__project">[{form.project_code}] {form.project_name}</p>
-              )}
-              <footer className="forms-card__footer">
-                <span>{form.response_count} resposta(s)</span>
-                <span>{relativeTime(form.updated_at)}</span>
-              </footer>
             </article>
           ))}
         </div>
       ) : (
-        <div className="forms-compact">
-          {forms.map((form) => (
-            <div className="forms-compact__row" key={form.id}>
-              <span className="forms-card__icon">
-                <DocumentTasks size={16} />
-              </span>
-              <div className="forms-compact__main">
-                <Link to={`/forms/${form.id}`}>{form.code}</Link>
-                <p>{form.name}{form.project_name ? ` · ${form.project_name}` : ''}</p>
+        <div className="user-compact">
+          {items.map((form) => (
+            <article key={form.id} className="user-card">
+              <div className="user-card__text">
+                <button type="button" className="link-button" onClick={() => navigate(`/forms/${form.id}`)}>
+                  {form.code} · {form.name}
+                </button>
+                <span>{form.type} · {form.response_count} resposta(s)</span>
               </div>
               <Tag type={formStatusTag(form.status)} size="sm">{form.status}</Tag>
-              {actions(form)}
-            </div>
+              <p className="user-card__meta">{relativeTime(form.updated_at)}</p>
+              <div className="user-card__actions">
+                <Button kind="ghost" size="sm" hasIconOnly renderIcon={Edit} iconDescription="Editar" onClick={() => navigate(`/forms/${form.id}/edit`)} />
+                <Button kind="ghost" size="sm" hasIconOnly renderIcon={Copy} iconDescription="Copiar link público" onClick={() => void copyLink(form)} />
+              </div>
+            </article>
           ))}
         </div>
+      )}
+
+      {response && response.meta.total > 0 && (
+        <Pagination
+          page={page}
+          pageSize={perPage}
+          pageSizes={[12, 24, 36]}
+          totalItems={response.meta.total}
+          onChange={({ page: nextPage, pageSize }) => {
+            if (pageSize && pageSize !== perPage) {
+              setPerPage(pageSize);
+              setPage(1);
+            } else {
+              setPage(nextPage);
+            }
+          }}
+          itemRangeText={(min, max, total) => `${min}–${max} de ${total} formulários`}
+          itemsPerPageText="Itens por página"
+          pageRangeText={(_current, total) => `de ${total} página(s)`}
+          pageSelectLabelText={(total) => `Página de ${total}`}
+          pageText={(current) => `Página ${current}`}
+          backwardText="Página anterior"
+          forwardText="Próxima página"
+        />
       )}
 
       <FormModal

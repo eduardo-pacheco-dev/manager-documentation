@@ -83,7 +83,7 @@ export function FormModal({ open, types, statuses, templates, settings, onClose,
       onRequestClose={onClose}
       size="lg"
     >
-      <div className="form-grid">
+      <div className="modal-form">
         {templates.length > 0 && (
           <Select
             id="form-template"
@@ -115,7 +115,11 @@ export function FormModal({ open, types, statuses, templates, settings, onClose,
         >
           <SelectItem value="" text="Sem projeto" />
           {projects.map((project) => (
-            <SelectItem key={project.id} value={String(project.id)} text={`[${project.code}] ${project.name}`} />
+            <SelectItem
+              key={project.id}
+              value={String(project.id)}
+              text={`[${project.code || `PRJ-${String(project.id).padStart(4, '0')}`}] ${project.name}`}
+            />
           ))}
         </Select>
 
@@ -133,17 +137,19 @@ export function FormModal({ open, types, statuses, templates, settings, onClose,
           }}
         />
 
-        <Select id="form-type" labelText="Tipo" value={type} onChange={(event) => setType(event.target.value)}>
-          {[type, ...types.filter((item) => item !== type)].map((item) => (
-            <SelectItem key={item} value={item} text={item} />
-          ))}
-        </Select>
+        <div className="form-row">
+          <Select id="form-type" labelText="Tipo" value={type} onChange={(event) => setType(event.target.value)}>
+            {[type, ...types.filter((item) => item !== type)].map((item) => (
+              <SelectItem key={item} value={item} text={item} />
+            ))}
+          </Select>
 
-        <Select id="form-status" labelText="Status" value={status} onChange={(event) => setStatus(event.target.value)}>
-          {[status, ...statuses.filter((item) => item !== status)].map((item) => (
-            <SelectItem key={item} value={item} text={item} />
-          ))}
-        </Select>
+          <Select id="form-status" labelText="Status" value={status} onChange={(event) => setStatus(event.target.value)}>
+            {[status, ...statuses.filter((item) => item !== status)].map((item) => (
+              <SelectItem key={item} value={item} text={item} />
+            ))}
+          </Select>
+        </div>
 
         <Select
           id="form-multiple"
@@ -154,11 +160,11 @@ export function FormModal({ open, types, statuses, templates, settings, onClose,
           <SelectItem value="0" text="Resposta única" />
           <SelectItem value="1" text="Múltiplas respostas" />
         </Select>
+        <p className="field-help">
+          Com resposta única, o mesmo registro é atualizado a cada novo envio. Com múltiplas respostas, cada envio cria um
+          registro separado no histórico.
+        </p>
       </div>
-      <p className="form-hint">
-        Com resposta única, o mesmo registro é atualizado a cada novo envio. Com múltiplas respostas, cada envio cria um
-        registro separado no histórico.
-      </p>
     </Modal>
   );
 }

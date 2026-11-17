@@ -1,7 +1,27 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Checkmark, ChevronLeft, ChevronRight, Close, View } from '@carbon/icons-react';
-import { Button, InlineLoading, Tag, TextArea } from '@carbon/react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import {
+  ArrowLeft,
+  Checkmark,
+  ChevronLeft,
+  ChevronRight,
+  Close,
+  View,
+} from '@carbon/icons-react';
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  Button,
+  InlineLoading,
+  Modal,
+  ProgressBar,
+  RadioButton,
+  RadioButtonGroup,
+  Tag,
+  TextArea,
+  Tile,
+} from '@carbon/react';
+import { PageHeader } from '../../components/PageHeader';
 import { useToast } from '../../contexts/ToastContext';
 import { api } from '../../lib/api';
 import { errorMessage, relativeTime } from '../../lib/format';
@@ -21,10 +41,10 @@ import type {
 
 type Decision = '' | 'aprovado' | 'reprovado' | 'nao_aplicavel';
 
-const DECISION_OPTIONS: { value: Decision; label: string }[] = [
-  { value: 'nao_aplicavel', label: 'Não aplicável' },
-  { value: 'aprovado', label: 'Aprovar' },
-  { value: 'reprovado', label: 'Reprovar' },
+const DECISIONS: { name: Decision; text: string }[] = [
+  { name: 'nao_aplicavel', text: 'Não aplicável' },
+  { name: 'aprovado', text: 'Aprovar' },
+  { name: 'reprovado', text: 'Reprovar' },
 ];
 
 function initialDecisions(steps: FormStep[]): Record<string, Decision> {
@@ -50,6 +70,46 @@ function initialImageDecisions(steps: FormStep[]): Record<string, Record<string,
     }
   }
   return result;
+}
+
+function EvaluationHistory({ evaluations }: { evaluations: FormEvaluationRecord[] }) {
+  if (evaluations.length === 0) {
+    return <p className="muted">Nenhuma avaliação registrada até o momento.</p>;
+  }
+  return (
+    <div className="nokia-comment-list">
+      {evaluations.map((evaluation) => (
+        <div className="comment-row" key={evaluation.id}>
+          <div>
+            <strong>{evaluation.user_name ?? 'Sistema'}</strong>
+            <span>{relativeTime(evaluation.created_at)}</span>
+          </div>
+          <div>
+            <div className="tag-row">
+              <Tag type={formStatusTag(evaluation.status)} size="sm">{evaluation.status}</Tag>
+            </div>
+            {(evaluation.changes?.length ?? 0) > 0 && (
+              <ul className="form-eval-changes">
+                {evaluation.changes?.map((change, index) => (
+                  <li key={`${change.id}-${index}`}>
+                    <code>
+                      {change.id}
+                      {change.type === 'image' ? ` · foto ${(change.index ?? 0) + 1}` : ''}
+                    </code>
+                    <span>{change.label}</span>
+                    <span>{change.from ? FORM_FIELD_STATUS_LABELS[change.from] ?? change.from : '—'}</span>
+                    <span>→</span>
+                    <strong>{FORM_FIELD_STATUS_LABELS[change.to] ?? change.to}</strong>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {evaluation.notes && <p className="preserve-lines">{evaluation.notes}</p>}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export function FormEvaluatePage() {
@@ -153,6 +213,20 @@ export function FormEvaluatePage() {
     };
   }, [decisions, imageDecisions, status, notes, autosave, loading]);
 
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (rejectOpen || lightbox) return;
+      if (event.key === 'ArrowRight') {
+        setStepIndex((current) => Math.min(totalSteps - 1, current + 1));
+      }
+      if (event.key === 'ArrowLeft') {
+        setStepIndex((current) => Math.max(0, current - 1));
+      }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [rejectOpen, lightbox, totalSteps]);
+
   function decide(fieldId: string, decision: Decision) {
     setDecisions((current) => ({ ...current, [fieldId]: decision }));
   }
@@ -187,375 +261,381 @@ export function FormEvaluatePage() {
     }
   }
 
-  if (loading || !data) {
-    return <InlineLoading description="Carregando avaliação…" />;
-  }
+  if (loading || !data) return <InlineLoading description="Carregando avaliação…" />;
 
   const { form } = data;
   const isLast = stepIndex === totalSteps - 1;
-  const evaluations: FormEvaluationRecord[] = data.evaluations;
+  const progress = Math.round(((stepIndex + 1) / totalSteps) * 100);
 
   function renderField(field: FormField) {
     return (
       <div className="form-eval-field" key={field.id}>
-        <div className="form-eval-field__content">
-          <div className="form-eval-field__title">
-            <p>{field.label || field.id}</p>
+        <div>
+          <div className="tag-row">
+            <strong>{field.label || field.id}</strong>
             {field.status && (
               <Tag type={fieldStatusTag(field.status)} size="sm">
                 {FORM_FIELD_STATUS_LABELS[field.status] ?? field.status}
               </Tag>
             )}
           </div>
-          <p className="form-answer__meta">
+          <p className="field-help">
             {field.id} · {FORM_TYPE_LABELS[field.type] ?? field.type}
           </p>
 
           {field.type === 'image' ? (
             (field.images?.length ?? 0) > 0 ? (
-              <div className="form-eval-images">
+              <div className="form-eval-image-grid">
                 {field.images?.map((image, index) => {
                   const decision = imageDecisions[field.id]?.[String(index)];
                   return (
-                    <div className={`form-eval-image${decision ? ` is-${decision}` : ''}`} key={image}>
-                      <button
-                        type="button"
-                        className="form-eval-image__preview"
+                    <div
+                      className={`form-eval-image${decision === 'aprovado' ? ' is-approved' : decision === 'reprovado' ? ' is-rejected' : ''}`}
+                      key={image}
+                    >
+                      <img
+                        src={field.imageThumbnails?.[index] ?? image}
+                        alt={field.label}
+                        loading="lazy"
                         onClick={() => setLightbox({ fieldId: field.id, images: field.images ?? [], index })}
-                      >
-                        <img src={field.imageThumbnails?.[index] ?? image} alt={field.label} loading="lazy" />
-                        {decision && (
-                          <span className={`form-eval-image__badge is-${decision}`}>
-                            {decision === 'aprovado' ? 'Aprovada' : 'Reprovada'}
-                          </span>
-                        )}
-                      </button>
-                      <div className="form-eval-image__actions">
-                        <button
-                          type="button"
-                          className={decision === 'aprovado' ? 'is-approved' : ''}
-                          onClick={() => setImage(field.id, index, 'aprovado')}
-                        >
-                          Aprovar
-                        </button>
-                        <button
-                          type="button"
-                          className={decision === 'reprovado' ? 'is-rejected' : ''}
-                          onClick={() => setImage(field.id, index, 'reprovado')}
-                        >
-                          Reprovar
-                        </button>
+                      />
+                      <div className="form-eval-image__body">
+                        <span className="form-eval-image__status">
+                          {decision === 'aprovado'
+                            ? 'Aprovada'
+                            : decision === 'reprovado'
+                              ? 'Reprovada'
+                              : 'Sem decisão'}
+                        </span>
+                        <div className="form-eval-image__actions">
+                          <Button
+                            kind={decision === 'aprovado' ? 'primary' : 'tertiary'}
+                            size="xs"
+                            onClick={() => setImage(field.id, index, 'aprovado')}
+                          >
+                            Aprovar
+                          </Button>
+                          <Button
+                            kind={decision === 'reprovado' ? 'danger' : 'tertiary'}
+                            size="xs"
+                            onClick={() => setImage(field.id, index, 'reprovado')}
+                          >
+                            Reprovar
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   );
                 })}
               </div>
             ) : (
-              <p className="form-empty-answer">Nenhuma foto enviada.</p>
+              <p className="muted">Nenhuma foto enviada.</p>
             )
           ) : field.type === 'file' ? (
             (field.files?.length ?? 0) > 0 ? (
-              <div className="form-files">
+              <div className="demand-attachments">
                 {field.files?.map((file, index) => (
-                  <a key={file} href={file} target="_blank" rel="noopener noreferrer" className="form-file">
-                    <span>{field.fileNames?.[index] ?? file.split('/').pop()}</span>
+                  <div className="attachment-row" key={file}>
+                    <a href={file} target="_blank" rel="noreferrer">
+                      {field.fileNames?.[index] ?? file.split('/').pop()}
+                    </a>
                     <View size={16} />
-                  </a>
+                  </div>
                 ))}
               </div>
             ) : (
-              <p className="form-empty-answer">Nenhum arquivo enviado.</p>
+              <p className="muted">Nenhum arquivo enviado.</p>
             )
           ) : (
-            <div className="form-answer__value">{field.value || '—'}</div>
+            <div className="form-answer-field__value">{field.value || '—'}</div>
           )}
         </div>
 
         <div className="form-eval-field__decision">
-          <span>Avaliação do campo</span>
-          <div className="form-decision-group">
-            {DECISION_OPTIONS.map((option) => (
-              <button
-                type="button"
-                key={option.value}
-                className={decisions[field.id] === option.value ? `is-active is-${option.value}` : ''}
-                onClick={() => decide(field.id, option.value)}
-              >
-                {option.label}
-              </button>
+          <RadioButtonGroup
+            legendText="Avaliação do campo"
+            name={`decision-${field.id}`}
+            orientation="horizontal"
+            valueSelected={decisions[field.id] || undefined}
+            onChange={(value) => decide(field.id, value as Decision)}
+          >
+            {DECISIONS.map((decision) => (
+              <RadioButton
+                key={decision.name}
+                id={`decision-${field.id}-${decision.name}`}
+                labelText={decision.text}
+                value={decision.name}
+              />
             ))}
-          </div>
+          </RadioButtonGroup>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="page form-eval-page">
-      <div className="form-detail-head">
-        <div>
-          <nav className="form-breadcrumb">
-            <button type="button" onClick={() => navigate('/forms')}>Formulários</button>
-            <span>/</span>
-            <button type="button" onClick={() => navigate(`/forms/${form.id}`)}>{form.code}</button>
-            <span>/</span>
-            <span>Avaliação</span>
-          </nav>
-          <div className="form-detail-title">
-            <h1>Avaliação da resposta</h1>
+    <div className="page">
+      <Breadcrumb noTrailingSlash className="doc-breadcrumb">
+        <BreadcrumbItem><Link to="/forms">Formulários</Link></BreadcrumbItem>
+        <BreadcrumbItem><Link to={`/forms/${form.id}`}>{form.code}</Link></BreadcrumbItem>
+        <BreadcrumbItem isCurrentPage>Avaliação</BreadcrumbItem>
+      </Breadcrumb>
+
+      <PageHeader
+        eyebrow="Documentos"
+        title="Avaliação da resposta"
+        description={
+          <span className="tag-row">
+            <Tag type="cool-gray" size="sm">{form.code}</Tag>
             <Tag type={formStatusTag(selectedResponse?.status ?? form.status)} size="sm">
               {selectedResponse?.status ?? form.status}
             </Tag>
-          </div>
-          <p className="form-detail-subtitle">{form.code} · {form.name}</p>
-          <div className="form-detail-meta">
-            <span>{form.type}</span>
-            {selectedResponse && <span>Resposta enviada {relativeTime(selectedResponse.submitted_at ?? selectedResponse.created_at)}</span>}
-            {form.project_name && <span>[{form.project_code}] {form.project_name}</span>}
-          </div>
-        </div>
-        <div className="page-header__actions">
-          <Button kind="ghost" renderIcon={ArrowLeft} onClick={() => navigate(`/forms/${form.id}${selectedResponse ? `?response=${selectedResponse.id}` : ''}`)}>
-            Ver formulário
-          </Button>
-          <Button kind="ghost" onClick={() => navigate('/forms')}>Voltar</Button>
-        </div>
-      </div>
+            <Tag type="blue" size="sm">{form.type}</Tag>
+            {selectedResponse && (
+              <Tag type="gray" size="sm">
+                Enviada {relativeTime(selectedResponse.submitted_at ?? selectedResponse.created_at)}
+              </Tag>
+            )}
+          </span>
+        }
+        actions={
+          <>
+            <Button kind="ghost" renderIcon={ArrowLeft} onClick={() => navigate(`/forms/${form.id}${selectedResponse ? `?response=${selectedResponse.id}` : ''}`)}>
+              Ver formulário
+            </Button>
+            <Button kind="ghost" onClick={() => navigate('/forms')}>Voltar</Button>
+          </>
+        }
+      />
 
-      <div className="form-eval-layout">
-        <aside className="form-eval-nav">
-          <p>Seções</p>
-          {steps.map((step, index) => (
+      <div className="module-layout">
+        <aside className="module-sidebar">
+          <div className="module-sidebar__card">
+            <h3>Seções</h3>
+            {steps.map((step, index) => (
+              <button
+                type="button"
+                key={step.id}
+                className={`module-nav-item${stepIndex === index ? ' is-active' : ''}`}
+                onClick={() => setStepIndex(index)}
+              >
+                <span>{index + 1}. {step.title || `Seção ${index + 1}`}</span>
+                <span className="module-nav-item__count">
+                  {index < stepIndex ? <Checkmark size={14} /> : `${step.fields.length}`}
+                </span>
+              </button>
+            ))}
             <button
               type="button"
-              key={step.id}
-              className={stepIndex === index ? 'is-active' : index < stepIndex ? 'is-done' : ''}
-              onClick={() => setStepIndex(index)}
+              className={`module-nav-item${stepIndex === steps.length ? ' is-active' : ''}`}
+              onClick={() => setStepIndex(steps.length)}
             >
-              <span>{index + 1}</span>
-              <div>
-                <strong>{step.title || `Seção ${index + 1}`}</strong>
-                <small>{step.fields.length} pergunta(s)</small>
-              </div>
+              <span>{steps.length + 1}. Parecer</span>
+              <span className="module-nav-item__count">Resultado</span>
             </button>
-          ))}
-          <button
-            type="button"
-            className={stepIndex === steps.length ? 'is-active' : ''}
-            onClick={() => setStepIndex(steps.length)}
-          >
-            <span>{steps.length + 1}</span>
-            <div>
-              <strong>Parecer</strong>
-              <small>Resultado e observações</small>
-            </div>
-          </button>
-          <div className="form-eval-progress">
-            <div>
-              <span>Progresso</span>
-              <span>{Math.round(((stepIndex + 1) / totalSteps) * 100)}%</span>
-            </div>
-            <div className="form-eval-progress__bar">
-              <span style={{ width: `${((stepIndex + 1) / totalSteps) * 100}%` }} />
-            </div>
           </div>
-        </aside>
 
-        <div className="form-eval-content">
-          {stepIndex < steps.length ? (
-            <section className="form-panel">
-              <header className="form-panel__head">
-                <h2>{steps[stepIndex].title || `Seção ${stepIndex + 1}`}</h2>
-                <Tag type="gray" size="sm">{steps[stepIndex].fields.length} pergunta(s)</Tag>
-              </header>
-              <div className="form-eval-fields">
-                {steps[stepIndex].fields.length === 0 ? (
-                  <p className="form-empty-answer">Esta seção não possui perguntas.</p>
-                ) : (
-                  steps[stepIndex].fields.map(renderField)
-                )}
-              </div>
-            </section>
-          ) : (
-            <section className="form-panel">
-              <header className="form-panel__head">
-                <h2>Parecer da avaliação</h2>
-              </header>
-              <div className="form-eval-verdict">
-                <p className="form-panel__hint">
-                  Você avaliou {steps.reduce((sum, step) => sum + step.fields.length, 0)} pergunta(s) em {steps.length} seção(ões).
-                </p>
-                <span className="form-eval-label">Resultado geral</span>
-                <div className="form-verdict-options">
-                  <button
-                    type="button"
-                    className={status === 'Aprovado' ? 'is-approved' : ''}
-                    onClick={() => setStatus('Aprovado')}
-                  >
-                    <Checkmark size={18} />
-                    Aprovar formulário
-                  </button>
-                  <button
-                    type="button"
-                    className={status === 'Reprovado' ? 'is-rejected' : ''}
-                    onClick={() => {
-                      setRejectReason(notes);
-                      setRejectOpen(true);
-                    }}
-                  >
-                    <Close size={18} />
-                    Reprovar formulário
-                  </button>
-                </div>
-                {status === 'Reprovado' && notes.trim() && (
-                  <p className="form-eval-ok">Reprovação justificada no parecer.</p>
-                )}
-
-                <TextArea
-                  id="evaluation-notes"
-                  labelText="Parecer / observações"
-                  placeholder="Descreva o parecer da avaliação."
-                  value={notes}
-                  rows={6}
-                  onChange={(event) => setNotes(event.target.value)}
-                />
-                <p className="form-panel__hint">Obrigatório quando o formulário for reprovado.</p>
-              </div>
-            </section>
-          )}
-
-          <div className="form-eval-actions">
-            <Button kind="ghost" onClick={() => setStepIndex((current) => Math.max(0, current - 1))} disabled={stepIndex === 0}>
-              Anterior
-            </Button>
+          <div className="module-sidebar__card">
+            <h3>Progresso</h3>
+            <ProgressBar label="Etapas concluídas" value={progress} max={100} hideLabel />
+            <p className="muted small">
+              Etapa {stepIndex + 1} de {totalSteps} · {progress}%
+            </p>
             <span className={`form-save-state form-save-state--${saveState}`}>
               {saveState === 'saving' && 'Salvando…'}
               {saveState === 'saved' && `Salvo às ${savedAt}`}
               {saveState === 'error' && 'Erro ao salvar'}
             </span>
+          </div>
+
+          <div className="module-sidebar__card">
+            <h3>Resposta</h3>
+            <dl className="projects-summary">
+              <div><dt>Status</dt><dd>{selectedResponse?.status ?? form.status}</dd></div>
+              <div><dt>Projeto</dt><dd>{form.project_name ?? '—'}</dd></div>
+              <div><dt>Perguntas</dt><dd>{steps.reduce((sum, step) => sum + step.fields.length, 0)}</dd></div>
+            </dl>
+          </div>
+        </aside>
+
+        <div className="module-main">
+          {stepIndex < steps.length ? (
+            <Tile className="nokia-detail-section">
+              <div className="nokia-section-header">
+                <div>
+                  <h2>{steps[stepIndex].title || `Seção ${stepIndex + 1}`}</h2>
+                  <p>{steps[stepIndex].fields.length} pergunta(s) nesta seção.</p>
+                </div>
+              </div>
+              {steps[stepIndex].fields.length === 0 ? (
+                <p className="muted">Esta seção não possui perguntas.</p>
+              ) : (
+                steps[stepIndex].fields.map(renderField)
+              )}
+            </Tile>
+          ) : (
+            <Tile className="nokia-detail-section">
+              <div className="nokia-section-header">
+                <div>
+                  <h2>Parecer da avaliação</h2>
+                  <p>
+                    Você avaliou {steps.reduce((sum, step) => sum + step.fields.length, 0)} pergunta(s) em {steps.length}{' '}
+                    seção(ões).
+                  </p>
+                </div>
+              </div>
+
+              <RadioButtonGroup
+                legendText="Resultado geral"
+                name="evaluation-status"
+                orientation="horizontal"
+                valueSelected={status}
+                onChange={(value) => {
+                  const next = value as 'Aprovado' | 'Reprovado';
+                  if (next === 'Reprovado' && !notes.trim()) {
+                    setRejectReason(notes);
+                    setRejectOpen(true);
+                  }
+                  setStatus(next);
+                }}
+              >
+                <RadioButton id="evaluation-approved" labelText="Aprovar formulário" value="Aprovado" />
+                <RadioButton id="evaluation-rejected" labelText="Reprovar formulário" value="Reprovado" />
+              </RadioButtonGroup>
+
+              {status === 'Reprovado' && notes.trim() && (
+                <p className="field-help">Reprovação justificada no parecer.</p>
+              )}
+
+              <TextArea
+                id="evaluation-notes"
+                labelText="Parecer / observações"
+                placeholder="Descreva o parecer da avaliação."
+                value={notes}
+                rows={6}
+                onChange={(event) => setNotes(event.target.value)}
+              />
+              <p className="field-help">Obrigatório quando o formulário for reprovado.</p>
+            </Tile>
+          )}
+
+          <div className="section-actions">
+            <Button
+              kind="ghost"
+              renderIcon={ChevronLeft}
+              onClick={() => setStepIndex((current) => Math.max(0, current - 1))}
+              disabled={stepIndex === 0}
+            >
+              Anterior
+            </Button>
             {isLast ? (
               <Button renderIcon={Checkmark} onClick={() => void submit()} disabled={submitting}>
                 {submitting ? 'Registrando…' : 'Registrar avaliação'}
               </Button>
             ) : (
-              <Button renderIcon={ChevronRight} onClick={() => setStepIndex((current) => Math.min(totalSteps - 1, current + 1))}>
+              <Button
+                renderIcon={ChevronRight}
+                onClick={() => setStepIndex((current) => Math.min(totalSteps - 1, current + 1))}
+              >
                 Próximo
               </Button>
             )}
           </div>
+
+          <Tile className="nokia-detail-section">
+            <div className="nokia-section-header">
+              <div>
+                <h2>Histórico de avaliações</h2>
+                <p>{data.evaluations.length} avaliação(ões) registrada(s).</p>
+              </div>
+            </div>
+            <EvaluationHistory evaluations={data.evaluations} />
+          </Tile>
         </div>
       </div>
 
-      <section className="form-panel">
-        <header className="form-panel__head">
-          <h2>Histórico de avaliações</h2>
-          <Tag type="gray" size="sm">{evaluations.length}</Tag>
-        </header>
-        {evaluations.length > 0 ? (
-          <div className="form-evaluation-list">
-            {evaluations.map((evaluation) => (
-              <div className="form-evaluation-item" key={evaluation.id}>
-                <div className="form-evaluation-item__head">
-                  <Tag type={formStatusTag(evaluation.status)} size="sm">{evaluation.status}</Tag>
-                  <strong>{evaluation.user_name ?? 'Sistema'}</strong>
-                  <span>{relativeTime(evaluation.created_at)}</span>
-                </div>
-                {(evaluation.changes?.length ?? 0) > 0 && (
-                  <ul className="form-evaluation-changes">
-                    {evaluation.changes?.map((change, index) => (
-                      <li key={`${change.id}-${index}`}>
-                        <code>{change.id}{change.type === 'image' ? ` · foto ${(change.index ?? 0) + 1}` : ''}</code>
-                        <span>{change.label}</span>
-                        <span>{change.from ? FORM_FIELD_STATUS_LABELS[change.from] ?? change.from : '—'}</span>
-                        <span>→</span>
-                        <strong>{FORM_FIELD_STATUS_LABELS[change.to] ?? change.to}</strong>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {evaluation.notes && <p className="form-evaluation-notes">{evaluation.notes}</p>}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="form-empty-answer">Nenhuma avaliação registrada até o momento.</p>
-        )}
-      </section>
-
-      {rejectOpen && (
-        <div className="form-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="reject-title">
-          <div className="form-modal">
-            <h2 id="reject-title">Justificar a reprovação</h2>
-            <p className="form-panel__hint">Informe o motivo da reprovação. O texto será salvo no parecer da avaliação.</p>
-            <TextArea
-              id="reject-reason"
-              labelText="Justificativa"
-              value={rejectReason}
-              rows={4}
-              onChange={(event) => setRejectReason(event.target.value)}
-            />
-            <div className="form-modal__actions">
-              <Button kind="ghost" onClick={() => setRejectOpen(false)}>Cancelar</Button>
-              <Button
-                kind="danger"
-                disabled={!rejectReason.trim()}
-                onClick={() => {
-                  setNotes(rejectReason);
-                  setStatus('Reprovado');
-                  setRejectOpen(false);
-                }}
-              >
-                Confirmar reprovação
-              </Button>
-            </div>
-          </div>
+      <Modal
+        open={rejectOpen}
+        modalHeading="Justificar a reprovação"
+        primaryButtonText="Confirmar reprovação"
+        secondaryButtonText="Cancelar"
+        primaryButtonDisabled={!rejectReason.trim()}
+        onRequestSubmit={() => {
+          setNotes(rejectReason);
+          setStatus('Reprovado');
+          setRejectOpen(false);
+        }}
+        onRequestClose={() => setRejectOpen(false)}
+        size="sm"
+      >
+        <div className="modal-form">
+          <p className="muted">Informe o motivo da reprovação. O texto será salvo no parecer da avaliação.</p>
+          <TextArea
+            id="reject-reason"
+            labelText="Justificativa"
+            value={rejectReason}
+            rows={4}
+            onChange={(event) => setRejectReason(event.target.value)}
+          />
         </div>
-      )}
+      </Modal>
 
       {lightbox && (
-        <div className="form-lightbox" role="dialog" aria-modal="true" aria-label="Pré-visualização da imagem">
-          <button type="button" className="form-lightbox__close" aria-label="Fechar" onClick={() => setLightbox(null)}>
-            <Close size={20} />
-          </button>
-          <button
-            type="button"
-            className="form-lightbox__nav is-left"
-            aria-label="Imagem anterior"
-            disabled={lightbox.index === 0}
-            onClick={() => setLightbox((current) => current && { ...current, index: Math.max(0, current.index - 1) })}
-          >
-            <ChevronLeft size={24} />
-          </button>
-          <img src={lightbox.images[lightbox.index]} alt="Pré-visualização" />
-          <button
-            type="button"
-            className="form-lightbox__nav is-right"
-            aria-label="Próxima imagem"
-            disabled={lightbox.index === lightbox.images.length - 1}
-            onClick={() =>
-              setLightbox((current) =>
-                current && { ...current, index: Math.min(current.images.length - 1, current.index + 1) },
-              )
-            }
-          >
-            <ChevronRight size={24} />
-          </button>
-          <div className="form-lightbox__actions">
-            <button
-              type="button"
-              className={imageDecisions[lightbox.fieldId]?.[String(lightbox.index)] === 'aprovado' ? 'is-approved' : ''}
+        <div className="form-lightbox" role="dialog" aria-modal="true" aria-label="Pré-visualização da imagem" onClick={() => setLightbox(null)}>
+          <span className="form-lightbox__close">
+            <Button kind="ghost" size="sm" hasIconOnly renderIcon={Close} iconDescription="Fechar" onClick={() => setLightbox(null)} />
+          </span>
+          <span className="form-lightbox__nav is-left">
+            <Button
+              kind="ghost"
+              size="sm"
+              hasIconOnly
+              renderIcon={ChevronLeft}
+              iconDescription="Imagem anterior"
+              disabled={lightbox.index === 0}
+              onClick={(event) => {
+                event.stopPropagation();
+                setLightbox((current) => current && { ...current, index: Math.max(0, current.index - 1) });
+              }}
+            />
+          </span>
+          <img src={lightbox.images[lightbox.index]} alt="Pré-visualização" onClick={(event) => event.stopPropagation()} />
+          <span className="form-lightbox__nav is-right">
+            <Button
+              kind="ghost"
+              size="sm"
+              hasIconOnly
+              renderIcon={ChevronRight}
+              iconDescription="Próxima imagem"
+              disabled={lightbox.index === lightbox.images.length - 1}
+              onClick={(event) => {
+                event.stopPropagation();
+                setLightbox((current) =>
+                  current && { ...current, index: Math.min(current.images.length - 1, current.index + 1) },
+                );
+              }}
+            />
+          </span>
+          <div className="form-lightbox__bar" onClick={(event) => event.stopPropagation()}>
+            <Button
+              kind={imageDecisions[lightbox.fieldId]?.[String(lightbox.index)] === 'aprovado' ? 'primary' : 'ghost'}
+              size="sm"
+              renderIcon={Checkmark}
               onClick={() => setImage(lightbox.fieldId, lightbox.index, 'aprovado')}
             >
-              <Checkmark size={20} /> Aprovar
-            </button>
-            <button
-              type="button"
-              className={imageDecisions[lightbox.fieldId]?.[String(lightbox.index)] === 'reprovado' ? 'is-rejected' : ''}
+              Aprovar
+            </Button>
+            <Button
+              kind={imageDecisions[lightbox.fieldId]?.[String(lightbox.index)] === 'reprovado' ? 'danger' : 'ghost'}
+              size="sm"
+              renderIcon={Close}
               onClick={() => setImage(lightbox.fieldId, lightbox.index, 'reprovado')}
             >
-              <Close size={20} /> Reprovar
-            </button>
-            <span>{lightbox.index + 1} / {lightbox.images.length}</span>
+              Reprovar
+            </Button>
+            <span>
+              {lightbox.index + 1} / {lightbox.images.length}
+            </span>
           </div>
         </div>
       )}

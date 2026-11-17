@@ -1,7 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Add, ArrowLeft, Download, TrashCan, Upload } from '@carbon/icons-react';
-import { Button, InlineLoading, Select, SelectItem, TextInput } from '@carbon/react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Download, TrashCan, Upload } from '@carbon/icons-react';
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  Button,
+  InlineLoading,
+  Select,
+  SelectItem,
+  TextInput,
+  Tile,
+} from '@carbon/react';
+import { PageHeader } from '../../components/PageHeader';
 import { useToast } from '../../contexts/ToastContext';
 import { api } from '../../lib/api';
 import { errorDetails, errorMessage } from '../../lib/format';
@@ -23,15 +33,19 @@ function ListEditor({
   onChange: (items: string[]) => void;
 }) {
   return (
-    <div className="form-list-editor">
-      <span className="form-eval-label">{label}</span>
-      <div className="form-list-editor__rows">
+    <div>
+      <div className="module-sidebar__heading">
+        <p className="field-label">{label}</p>
+        <Button kind="ghost" size="sm" onClick={() => onChange([...items, ''])}>
+          {addLabel}
+        </Button>
+      </div>
+      <div className="projects-list">
         {items.map((item, index) => (
-          <div className="form-list-editor__row" key={index}>
-            <span>{index + 1}</span>
+          <div className="projects-list-row" key={index}>
             <TextInput
               id={`settings-list-${label}-${index}`}
-              labelText=""
+              labelText={`Item ${index + 1}`}
               hideLabel
               placeholder={placeholder}
               value={item}
@@ -39,22 +53,19 @@ function ListEditor({
                 onChange(items.map((current, position) => (position === index ? event.target.value : current)))
               }
             />
-            <button
-              type="button"
-              className="form-icon-button form-icon-button--danger"
-              title="Remover item"
+            <Button
+              kind="danger--ghost"
+              size="sm"
+              hasIconOnly
+              renderIcon={TrashCan}
+              iconDescription="Remover item"
               disabled={items.length <= 1}
               onClick={() => onChange(items.filter((_, position) => position !== index))}
-            >
-              <TrashCan size={16} />
-            </button>
+            />
           </div>
         ))}
       </div>
-      <Button kind="ghost" size="sm" renderIcon={Add} onClick={() => onChange([...items, ''])}>
-        {addLabel}
-      </Button>
-      <p className="form-panel__hint">{hint}</p>
+      <p className="field-help">{hint}</p>
     </div>
   );
 }
@@ -117,60 +128,71 @@ export function FormsSettingsPage() {
       .finally(() => setImporting(false));
   }
 
-  if (loading || !settings) {
-    return <InlineLoading description="Carregando configurações…" />;
-  }
+  if (loading || !settings) return <InlineLoading description="Carregando configurações…" />;
 
   return (
     <div className="page">
-      <div className="form-detail-head">
-        <div>
-          <nav className="form-breadcrumb">
-            <button type="button" onClick={() => navigate('/forms')}>Formulários</button>
-            <span>/</span>
-            <span>Configurações</span>
-          </nav>
-          <h1>Configurações de Formulários</h1>
-          <p className="form-detail-subtitle">
-            Ajuste os tipos, status e preferências do módulo. As configurações são individuais para a sua conta.
-          </p>
-        </div>
-        <div className="page-header__actions">
+      <Breadcrumb noTrailingSlash className="doc-breadcrumb">
+        <BreadcrumbItem><Link to="/forms">Formulários</Link></BreadcrumbItem>
+        <BreadcrumbItem isCurrentPage>Configurações</BreadcrumbItem>
+      </Breadcrumb>
+
+      <PageHeader
+        eyebrow="Documentos"
+        title="Configurações de Formulários"
+        description="Tipos, status e preferências do módulo. As configurações são individuais para a sua conta."
+        actions={
           <Button kind="ghost" renderIcon={ArrowLeft} onClick={() => navigate('/forms')}>
             Voltar para formulários
           </Button>
-        </div>
-      </div>
+        }
+      />
 
-      <div className="form-settings-grid">
-        <section className="form-panel">
-          <header className="form-panel__head"><h2>Tipos de formulário</h2></header>
+      <div className="projects-two-columns">
+        <Tile className="nokia-detail-section">
+          <div className="nokia-section-header">
+            <div>
+              <h2>Tipos de formulário</h2>
+              <p>Opções disponíveis ao criar ou editar um formulário.</p>
+            </div>
+          </div>
           <ListEditor
-            label="Lista de tipos"
+            label="Tipos"
             hint="Os tipos atuais dos formulários existentes continuam disponíveis."
             addLabel="Adicionar tipo"
             placeholder="Ex.: Registro Fotográfico"
             items={settings.types}
             onChange={(types) => setSettings((current) => (current ? { ...current, types } : current))}
           />
-        </section>
+        </Tile>
 
-        <section className="form-panel">
-          <header className="form-panel__head"><h2>Status de formulário</h2></header>
+        <Tile className="nokia-detail-section">
+          <div className="nokia-section-header">
+            <div>
+              <h2>Status de formulário</h2>
+              <p>Situações disponíveis para acompanhar os formulários.</p>
+            </div>
+          </div>
           <ListEditor
-            label="Lista de status"
+            label="Status"
             hint="Os status atuais dos formulários existentes continuam disponíveis."
             addLabel="Adicionar status"
             placeholder="Ex.: Pendente"
             items={settings.statuses}
             onChange={(statuses) => setSettings((current) => (current ? { ...current, statuses } : current))}
           />
-        </section>
+        </Tile>
       </div>
 
-      <section className="form-panel">
-        <header className="form-panel__head"><h2>Preferências do módulo</h2></header>
-        <div className="form-grid form-grid--three">
+      <Tile className="nokia-detail-section">
+        <div className="nokia-section-header">
+          <div>
+            <h2>Preferências do módulo</h2>
+            <p>Valores usados como padrão ao abrir a lista e criar novos formulários.</p>
+          </div>
+        </div>
+
+        <div className="projects-form-grid">
           <Select
             id="settings-default-template"
             labelText="Template padrão"
@@ -219,51 +241,65 @@ export function FormsSettingsPage() {
             ))}
           </Select>
         </div>
-        <div className="form-panel__actions">
+
+        <div className="section-actions">
           <Button kind="ghost" onClick={() => navigate('/forms')}>Cancelar</Button>
           <Button onClick={() => void save()} disabled={saving}>
             {saving ? 'Salvando…' : 'Salvar configurações'}
           </Button>
         </div>
-      </section>
+      </Tile>
 
-      <section className="form-panel">
-        <header className="form-panel__head"><h2>Template de configuração</h2></header>
-        <p className="form-panel__hint">
-          Exporte as configurações atuais em Excel para reutilizá-las em outra conta ou ambiente.
-        </p>
-        <div className="form-settings-grid">
-          <div className="form-side-card">
-            <h3>Exportar template</h3>
-            <p className="form-side-hint">Baixe uma planilha com os tipos, status, visualização, itens por página e template padrão atuais.</p>
-            <Button
-              kind="tertiary"
-              renderIcon={Download}
-              onClick={() => window.open('/api/v1/forms/settings/export', '_blank')}
-            >
-              Exportar template
-            </Button>
-          </div>
-          <div className="form-side-card">
-            <h3>Importar template</h3>
-            <p className="form-side-hint">Envie uma planilha no mesmo formato da exportação para substituir as configurações atuais.</p>
-            <label className="form-upload">
-              <Upload size={16} />
-              <span>{importing ? 'Importando…' : 'Selecionar planilha (.xlsx)'}</span>
-              <input
-                type="file"
-                accept=".xlsx,.xls"
-                disabled={importing}
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (file) importTemplate(file);
-                  event.target.value = '';
-                }}
-              />
-            </label>
+      <Tile className="nokia-detail-section">
+        <div className="nokia-section-header">
+          <div>
+            <h2>Template de configuração</h2>
+            <p>Exporte as configurações atuais em Excel para reutilizá-las em outra conta ou ambiente.</p>
           </div>
         </div>
-      </section>
+
+        <div className="projects-two-columns">
+          <div className="module-subcard">
+            <h3>Exportar template</h3>
+            <p className="muted">
+              Baixe uma planilha com os tipos, status, visualização, itens por página e template padrão atuais.
+            </p>
+            <div className="section-actions section-actions--start">
+              <Button
+                kind="tertiary"
+                renderIcon={Download}
+                onClick={() => window.open('/api/v1/forms/settings/export', '_blank')}
+              >
+                Exportar template
+              </Button>
+            </div>
+          </div>
+
+          <div className="module-subcard">
+            <h3>Importar template</h3>
+            <p className="muted">
+              Envie uma planilha no mesmo formato da exportação para substituir as configurações atuais.
+            </p>
+            <TextInput
+              id="settings-template-file"
+              type="file"
+              labelText="Planilha (.xlsx)"
+              accept=".xlsx,.xls"
+              disabled={importing}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) importTemplate(file);
+                event.target.value = '';
+              }}
+            />
+            {importing && (
+              <div className="section-actions section-actions--start">
+                <Button kind="tertiary" renderIcon={Upload} disabled>Importando…</Button>
+              </div>
+            )}
+          </div>
+        </div>
+      </Tile>
     </div>
   );
 }

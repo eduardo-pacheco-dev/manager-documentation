@@ -1,13 +1,29 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Checkmark, DocumentAdd } from '@carbon/icons-react';
-import { Button, InlineLoading, Modal, Select, SelectItem, TextInput } from '@carbon/react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeft, Checkmark, Copy, DocumentAdd, Edit, Launch, View } from '@carbon/icons-react';
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  Button,
+  InlineLoading,
+  Modal,
+  Select,
+  SelectItem,
+  Tab,
+  TabList,
+  TabPanel,
+  TabPanels,
+  Tabs,
+  Tag,
+  TextInput,
+  Tile,
+} from '@carbon/react';
+import { PageHeader } from '../../components/PageHeader';
 import { FormBuilder } from '../../components/FormBuilder';
 import { useToast } from '../../contexts/ToastContext';
 import { api } from '../../lib/api';
 import { errorMessage, relativeTime } from '../../lib/format';
-import { formStatusTag } from '../../lib/forms';
-import { Tag } from '@carbon/react';
+import { formStatusTag, publicFormLink } from '../../lib/forms';
 import type { FormDetailResponse } from '../../lib/types';
 
 interface ProjectOption {
@@ -23,7 +39,8 @@ export function FormEditPage() {
   const [data, setData] = useState<FormDetailResponse['data'] | null>(null);
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'details' | 'structure'>('details');
+  const [notFound, setNotFound] = useState(false);
+  const [tab, setTab] = useState(0);
   const [saving, setSaving] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
   const [templateName, setTemplateName] = useState('');
@@ -56,6 +73,7 @@ export function FormEditPage() {
         allows_multiple_responses: form.allows_multiple_responses ? '1' : '0',
       });
     } catch (error) {
+      setNotFound(true);
       toast.error('Não foi possível carregar o formulário', errorMessage(error));
     } finally {
       setLoading(false);
@@ -118,8 +136,28 @@ export function FormEditPage() {
     }
   }
 
-  if (loading || !data) {
-    return <InlineLoading description="Carregando formulário…" />;
+  async function copyPublicLink() {
+    if (!data) return;
+    const link = publicFormLink(data.form.public_token);
+    try {
+      await navigator.clipboard.writeText(link);
+      toast.success('Link público copiado.');
+    } catch {
+      toast.error('Não foi possível copiar o link', link);
+    }
+  }
+
+  if (loading) return <InlineLoading description="Carregando formulário…" />;
+
+  if (notFound || !data) {
+    return (
+      <div className="status-page">
+        <p className="status-page__code">404</p>
+        <h1>Formulário não encontrado</h1>
+        <p>O formulário pode ter sido excluído ou o endereço está incorreto.</p>
+        <Link to="/forms"><Button>Voltar para Formulários</Button></Link>
+      </div>
+    );
   }
 
   const { form, settings } = data;
@@ -127,180 +165,206 @@ export function FormEditPage() {
   const statusOptions = [form.status, ...(settings.statuses ?? [])].filter(
     (item, index, list) => list.indexOf(item) === index,
   );
+  const publicLink = publicFormLink(form.public_token);
 
   return (
     <div className="page">
-      <div className="form-detail-head">
-        <div>
-          <nav className="form-breadcrumb">
-            <button type="button" onClick={() => navigate('/forms')}>Formulários</button>
-            <span>/</span>
-            <button type="button" onClick={() => navigate(`/forms/${form.id}`)}>{form.code}</button>
-            <span>/</span>
-            <span>Editar</span>
-          </nav>
-          <div className="form-detail-title">
-            <h1>{form.code}</h1>
+      <Breadcrumb noTrailingSlash className="doc-breadcrumb">
+        <BreadcrumbItem><Link to="/forms">Formulários</Link></BreadcrumbItem>
+        <BreadcrumbItem><Link to={`/forms/${form.id}`}>{form.code}</Link></BreadcrumbItem>
+        <BreadcrumbItem isCurrentPage>Editar</BreadcrumbItem>
+      </Breadcrumb>
+
+      <PageHeader
+        eyebrow="Documentos"
+        title={form.name}
+        description={
+          <span className="tag-row">
+            <Tag type="cool-gray" size="sm">{form.code}</Tag>
             <Tag type={formStatusTag(form.status)} size="sm">{form.status}</Tag>
-          </div>
-          <p className="form-detail-subtitle">{form.name}</p>
-          <div className="form-detail-meta">
-            <span>{form.type}</span>
-            <span>{form.allows_multiple_responses ? 'Múltiplas respostas' : 'Resposta única'}</span>
-            {form.project_name && <span>[{form.project_code}] {form.project_name}</span>}
-            <span>Atualizado {relativeTime(form.updated_at)}</span>
-          </div>
-        </div>
-        <div className="page-header__actions">
-          <Button kind="ghost" renderIcon={ArrowLeft} onClick={() => navigate('/forms')}>Voltar</Button>
-          <Button kind="tertiary" renderIcon={DocumentAdd} onClick={() => {
-            setTemplateName(form.name);
-            setTemplateOpen(true);
-          }}>
-            Salvar template
-          </Button>
-          <Button renderIcon={Checkmark} onClick={() => navigate(`/forms/${form.id}/evaluate`)}>
-            Avaliar resposta
-          </Button>
-        </div>
+            <Tag type="blue" size="sm">{form.type}</Tag>
+            <Tag type="gray" size="sm">{form.allows_multiple_responses ? 'Múltiplas respostas' : 'Resposta única'}</Tag>
+          </span>
+        }
+        actions={
+          <>
+            <Button kind="ghost" renderIcon={ArrowLeft} onClick={() => navigate('/forms')}>Voltar</Button>
+            <Button
+              kind="tertiary"
+              renderIcon={DocumentAdd}
+              onClick={() => {
+                setTemplateName(form.name);
+                setTemplateOpen(true);
+              }}
+            >
+              Salvar template
+            </Button>
+            <Button renderIcon={Checkmark} onClick={() => navigate(`/forms/${form.id}/evaluate`)}>
+              Avaliar resposta
+            </Button>
+          </>
+        }
+      />
+
+      <div className="station-summary-grid">
+        <Tile>
+          <span>Seções</span>
+          <strong>{form.steps.length}</strong>
+        </Tile>
+        <Tile>
+          <span>Perguntas</span>
+          <strong>{form.steps.reduce((sum, step) => sum + step.fields.length, 0)}</strong>
+        </Tile>
+        <Tile>
+          <span>Respostas</span>
+          <strong>{form.response_count}</strong>
+        </Tile>
       </div>
 
-      <div className="form-tabs" role="tablist">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === 'details'}
-          className={tab === 'details' ? 'is-active' : ''}
-          onClick={() => setTab('details')}
-        >
-          Dados
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === 'structure'}
-          className={tab === 'structure' ? 'is-active' : ''}
-          onClick={() => setTab('structure')}
-        >
-          Estrutura <span>{form.steps.reduce((sum, step) => sum + step.fields.length, 0)}</span>
-        </button>
-      </div>
+      <Tabs selectedIndex={tab} onChange={({ selectedIndex }) => setTab(selectedIndex)}>
+        <TabList aria-label="Configuração do formulário" contained>
+          <Tab>Dados</Tab>
+          <Tab>Estrutura</Tab>
+        </TabList>
+        <TabPanels>
+          <TabPanel>
+            <div className="nokia-detail-layout">
+              <div className="nokia-detail-main">
+                <Tile className="nokia-detail-section">
+                  <div className="nokia-section-header">
+                    <div>
+                      <h2>Dados do formulário</h2>
+                      <p>Atualize as informações gerais do formulário.</p>
+                    </div>
+                  </div>
 
-      {tab === 'details' ? (
-        <div className="form-edit-grid">
-          <section className="form-panel">
-            <header className="form-panel__head">
-              <h2>Dados do formulário</h2>
-            </header>
-            <div className="form-grid">
-              <Select
-                id="edit-project"
-                labelText="Projeto (opcional)"
-                value={details.project_id}
-                onChange={(event) => setDetails((current) => ({ ...current, project_id: event.target.value }))}
-              >
-                <SelectItem value="" text="Sem projeto" />
-                {projects.map((project) => (
-                  <SelectItem key={project.id} value={String(project.id)} text={`[${project.code}] ${project.name}`} />
-                ))}
-              </Select>
+                  <div className="form-grid">
+                    <Select
+                      id="edit-project"
+                      labelText="Projeto (opcional)"
+                      value={details.project_id}
+                      onChange={(event) => setDetails((current) => ({ ...current, project_id: event.target.value }))}
+                    >
+                      <SelectItem value="" text="Sem projeto" />
+                      {projects.map((project) => (
+                        <SelectItem
+                          key={project.id}
+                          value={String(project.id)}
+                          text={`[${project.code || `PRJ-${String(project.id).padStart(4, '0')}`}] ${project.name}`}
+                        />
+                      ))}
+                    </Select>
 
-              <TextInput
-                id="edit-name"
-                labelText="Nome do formulário"
-                value={details.name}
-                invalid={Boolean(fieldErrors.name)}
-                invalidText={fieldErrors.name}
-                onChange={(event) => setDetails((current) => ({ ...current, name: event.target.value }))}
-              />
+                    <TextInput
+                      id="edit-name"
+                      labelText="Nome do formulário"
+                      value={details.name}
+                      invalid={Boolean(fieldErrors.name)}
+                      invalidText={fieldErrors.name}
+                      onChange={(event) => setDetails((current) => ({ ...current, name: event.target.value }))}
+                    />
 
-              <Select
-                id="edit-type"
-                labelText="Tipo"
-                value={details.type}
-                onChange={(event) => setDetails((current) => ({ ...current, type: event.target.value }))}
-              >
-                {typeOptions.map((type) => (
-                  <SelectItem key={type} value={type} text={type} />
-                ))}
-              </Select>
+                    <Select
+                      id="edit-type"
+                      labelText="Tipo"
+                      value={details.type}
+                      onChange={(event) => setDetails((current) => ({ ...current, type: event.target.value }))}
+                    >
+                      {typeOptions.map((type) => (
+                        <SelectItem key={type} value={type} text={type} />
+                      ))}
+                    </Select>
 
-              <Select
-                id="edit-status"
-                labelText="Status"
-                value={details.status}
-                onChange={(event) => setDetails((current) => ({ ...current, status: event.target.value }))}
-              >
-                {statusOptions.map((status) => (
-                  <SelectItem key={status} value={status} text={status} />
-                ))}
-              </Select>
+                    <Select
+                      id="edit-status"
+                      labelText="Status"
+                      value={details.status}
+                      onChange={(event) => setDetails((current) => ({ ...current, status: event.target.value }))}
+                    >
+                      {statusOptions.map((status) => (
+                        <SelectItem key={status} value={status} text={status} />
+                      ))}
+                    </Select>
 
-              <Select
-                id="edit-multiple"
-                labelText="Respostas"
-                value={details.allows_multiple_responses}
-                onChange={(event) =>
-                  setDetails((current) => ({ ...current, allows_multiple_responses: event.target.value }))
-                }
-              >
-                <SelectItem value="0" text="Resposta única" />
-                <SelectItem value="1" text="Múltiplas respostas" />
-              </Select>
-            </div>
-            <div className="form-panel__actions">
-              <Button kind="ghost" onClick={() => navigate('/forms')}>Cancelar</Button>
-              <Button onClick={() => void saveDetails()} disabled={saving}>
-                {saving ? 'Salvando…' : 'Salvar alterações'}
-              </Button>
-            </div>
-          </section>
+                    <Select
+                      id="edit-multiple"
+                      labelText="Respostas"
+                      value={details.allows_multiple_responses}
+                      onChange={(event) =>
+                        setDetails((current) => ({ ...current, allows_multiple_responses: event.target.value }))
+                      }
+                    >
+                      <SelectItem value="0" text="Resposta única" />
+                      <SelectItem value="1" text="Múltiplas respostas" />
+                    </Select>
+                  </div>
+                  <p className="field-help">
+                    Com resposta única, o mesmo registro é atualizado a cada novo envio. Com múltiplas respostas, cada
+                    envio cria um registro separado no histórico.
+                  </p>
 
-          <aside className="form-edit-aside">
-            <div className="form-side-card">
-              <h3>Estrutura</h3>
-              <div className="form-side-stats">
-                <div><strong>{form.steps.length}</strong><span>Seções</span></div>
-                <div><strong>{form.steps.reduce((sum, step) => sum + step.fields.length, 0)}</strong><span>Perguntas</span></div>
+                  <div className="section-actions">
+                    <Button kind="ghost" onClick={() => navigate('/forms')}>Cancelar</Button>
+                    <Button onClick={() => void saveDetails()} disabled={saving}>
+                      {saving ? 'Salvando…' : 'Salvar alterações'}
+                    </Button>
+                  </div>
+                </Tile>
               </div>
-              <Button kind="tertiary" size="sm" onClick={() => setTab('structure')}>Editar estrutura</Button>
+
+              <aside className="nokia-detail-aside">
+                <Tile className="nokia-detail-aside__card">
+                  <h2>Link público</h2>
+                  <p className="muted">Compartilhe este endereço para preenchimento externo.</p>
+                  <div className="demand-public-link">
+                    <span>Preenchimento</span>
+                    <code>{publicLink}</code>
+                    <div>
+                      <Button kind="ghost" size="xs" hasIconOnly renderIcon={Copy} iconDescription="Copiar link público" onClick={() => void copyPublicLink()} />
+                      <Button kind="ghost" size="xs" hasIconOnly renderIcon={Launch} iconDescription="Abrir link público" onClick={() => window.open(publicLink, '_blank')} />
+                    </div>
+                  </div>
+                </Tile>
+
+                <Tile className="nokia-detail-aside__card">
+                  <h2>Registro</h2>
+                  <dl>
+                    <div><dt>Criado em</dt><dd>{relativeTime(form.created_at)}</dd></div>
+                    <div><dt>Atualizado em</dt><dd>{relativeTime(form.updated_at)}</dd></div>
+                    <div><dt>Respostas</dt><dd>{form.response_count}</dd></div>
+                    <div><dt>Avaliações</dt><dd>{form.evaluation_count}</dd></div>
+                  </dl>
+                </Tile>
+
+                <Tile className="nokia-detail-aside__card">
+                  <h2>Ações</h2>
+                  <div className="nokia-aside-actions">
+                    <Button kind="ghost" size="sm" renderIcon={View} onClick={() => navigate(`/forms/${form.id}`)}>
+                      Visualizar respostas
+                    </Button>
+                    <Button kind="ghost" size="sm" renderIcon={Edit} onClick={() => setTab(1)}>Editar estrutura</Button>
+                    <Button kind="ghost" size="sm" renderIcon={Checkmark} onClick={() => navigate(`/forms/${form.id}/evaluate`)}>
+                      Avaliar resposta
+                    </Button>
+                  </div>
+                </Tile>
+              </aside>
             </div>
-            <div className="form-side-card">
-              <h3>Registro</h3>
-              <dl className="form-side-list">
-                <div><dt>Criado em</dt><dd>{new Date(form.created_at).toLocaleString('pt-BR')}</dd></div>
-                <div><dt>Atualizado em</dt><dd>{new Date(form.updated_at).toLocaleString('pt-BR')}</dd></div>
-                <div><dt>Respostas</dt><dd>{form.response_count}</dd></div>
-                <div><dt>Avaliações</dt><dd>{form.evaluation_count}</dd></div>
-              </dl>
-            </div>
-            <div className="form-side-card">
-              <h3>Link público</h3>
-              <p className="form-side-hint">Compartilhe este endereço para preenchimento externo.</p>
-              <code className="form-public-link">{window.location.origin}/f/{form.public_token}</code>
-              <Button
-                kind="tertiary"
-                size="sm"
-                onClick={() => {
-                  void navigator.clipboard
-                    .writeText(`${window.location.origin}/f/${form.public_token}`)
-                    .then(() => toast.success('Link público copiado'));
-                }}
-              >
-                Copiar link
-              </Button>
-            </div>
-          </aside>
-        </div>
-      ) : (
-        <section className="form-panel">
-          <header className="form-panel__head">
-            <h2>Estrutura do formulário</h2>
-            <p className="form-panel__hint">As alterações da estrutura são salvas automaticamente.</p>
-          </header>
-          <FormBuilder formId={form.id} initialSteps={form.steps} onSaved={onBuilderSaved} />
-        </section>
-      )}
+          </TabPanel>
+
+          <TabPanel>
+            <Tile className="nokia-detail-section">
+              <div className="nokia-section-header">
+                <div>
+                  <h2>Estrutura do formulário</h2>
+                  <p>As alterações das seções e perguntas são salvas automaticamente.</p>
+                </div>
+              </div>
+              <FormBuilder formId={form.id} initialSteps={form.steps} onSaved={onBuilderSaved} />
+            </Tile>
+          </TabPanel>
+        </TabPanels>
+      </Tabs>
 
       <Modal
         open={templateOpen}
@@ -312,15 +376,17 @@ export function FormEditPage() {
         onRequestClose={() => setTemplateOpen(false)}
         size="sm"
       >
-        <p className="form-panel__hint">
-          As seções e perguntas atuais serão copiadas. O template fica disponível para todos os usuários.
-        </p>
-        <TextInput
-          id="template-name"
-          labelText="Nome do template"
-          value={templateName}
-          onChange={(event) => setTemplateName(event.target.value)}
-        />
+        <div className="modal-form">
+          <p className="muted">
+            As seções e perguntas atuais serão copiadas. O template fica disponível para todos os usuários.
+          </p>
+          <TextInput
+            id="template-name"
+            labelText="Nome do template"
+            value={templateName}
+            onChange={(event) => setTemplateName(event.target.value)}
+          />
+        </div>
       </Modal>
     </div>
   );
