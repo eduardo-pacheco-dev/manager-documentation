@@ -240,7 +240,8 @@ export function FormDetailPage() {
     if (!element) return;
     function onWheel(event: WheelEvent) {
       event.preventDefault();
-      setZoom((current) => clampZoom(current - event.deltaY * 0.002));
+      const step = event.deltaY < 0 ? 0.25 : -0.25;
+      setZoom((current) => clampZoom(current + step));
     }
     element.addEventListener('wheel', onWheel, { passive: false });
     return () => element.removeEventListener('wheel', onWheel);
