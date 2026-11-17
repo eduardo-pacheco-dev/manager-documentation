@@ -161,6 +161,7 @@ export function FormEditPage() {
   }
 
   const { form, settings } = data;
+  const formSteps = form.steps ?? [];
   const typeOptions = [form.type, ...(settings.types ?? [])].filter((item, index, list) => list.indexOf(item) === index);
   const statusOptions = [form.status, ...(settings.statuses ?? [])].filter(
     (item, index, list) => list.indexOf(item) === index,
@@ -209,11 +210,11 @@ export function FormEditPage() {
       <div className="station-summary-grid">
         <Tile>
           <span>Seções</span>
-          <strong>{form.steps.length}</strong>
+          <strong>{formSteps.length}</strong>
         </Tile>
         <Tile>
           <span>Perguntas</span>
-          <strong>{form.steps.reduce((sum, step) => sum + step.fields.length, 0)}</strong>
+          <strong>{formSteps.reduce((sum, step) => sum + step.fields.length, 0)}</strong>
         </Tile>
         <Tile>
           <span>Respostas</span>
@@ -360,7 +361,7 @@ export function FormEditPage() {
                   <p>As alterações das seções e perguntas são salvas automaticamente.</p>
                 </div>
               </div>
-              <FormBuilder formId={form.id} initialSteps={form.steps} onSaved={onBuilderSaved} />
+              <FormBuilder formId={form.id} initialSteps={formSteps} onSaved={onBuilderSaved} />
             </Tile>
           </TabPanel>
         </TabPanels>

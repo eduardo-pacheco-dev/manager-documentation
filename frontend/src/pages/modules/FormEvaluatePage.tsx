@@ -149,7 +149,7 @@ export function FormEvaluatePage() {
       const response = responseId
         ? detail.data.responses.find((item) => String(item.id) === responseId) ?? detail.data.responses[0]
         : detail.data.responses[0];
-      const steps = response?.steps ?? form.steps;
+      const steps = response?.steps ?? form.steps ?? [];
       setDecisions(initialDecisions(steps));
       setImageDecisions(initialImageDecisions(steps));
       const currentStatus = response?.status ?? form.status;

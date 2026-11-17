@@ -202,6 +202,16 @@ func EncodeSteps(steps []FormStep) json.RawMessage {
 	return encoded
 }
 
+// NormalizeSteps guarantees the API always exposes a JSON array, even for rows
+// created before the structure was filled or stored as SQL NULL.
+func NormalizeSteps(raw json.RawMessage) json.RawMessage {
+	trimmed := strings.TrimSpace(string(raw))
+	if trimmed == "" || trimmed == "null" {
+		return json.RawMessage("[]")
+	}
+	return raw
+}
+
 // BlankSteps keeps the current structure but removes the answers of a previous
 // response.
 func BlankSteps(steps []FormStep) []FormStep {
@@ -352,6 +362,9 @@ func (s *Store) ListForms(filter FormFilter) ([]Form, int, FormStats, []string, 
 	if err := s.DB.Select(&forms, query, queryArgs...); err != nil {
 		return nil, 0, FormStats{}, nil, nil, err
 	}
+	for index := range forms {
+		forms[index].Steps = NormalizeSteps(forms[index].Steps)
+	}
 
 	var stats FormStats
 	if err := s.DB.Get(&stats, `SELECT COUNT(*) AS total,
@@ -381,6 +394,7 @@ func (s *Store) FindForm(userID, id int64) (Form, error) {
 	if errors.Is(err, sql.ErrNoRows) {
 		return form, ErrNotFound
 	}
+	form.Steps = NormalizeSteps(form.Steps)
 	return form, err
 }
 
@@ -394,6 +408,7 @@ func (s *Store) FindFormByToken(token string) (Form, error) {
 	if errors.Is(err, sql.ErrNoRows) {
 		return form, ErrNotFound
 	}
+	form.Steps = NormalizeSteps(form.Steps)
 	return form, err
 }
 
@@ -422,10 +437,7 @@ func (s *Store) CreateForm(userID int64, input FormInput) (Form, error) {
 	if typ == "" {
 		typ = DefaultFormTypes[0]
 	}
-	steps := input.Steps
-	if len(steps) == 0 {
-		steps = json.RawMessage("[]")
-	}
+	steps := NormalizeSteps(input.Steps)
 	fields := input.Fields
 	if len(fields) == 0 {
 		fields = json.RawMessage("[]")
@@ -482,6 +494,9 @@ func (s *Store) ListFormResponses(formID int64) ([]FormResponse, error) {
 		(SELECT COUNT(*) FROM form_evaluations e WHERE e.form_response_id = r.id) AS evaluations_count
 		FROM form_responses r LEFT JOIN users u ON u.id = r.user_id
 		WHERE r.form_id = ? ORDER BY COALESCE(r.submitted_at, r.created_at) DESC, r.id DESC`, formID)
+	for index := range responses {
+		responses[index].Steps = NormalizeSteps(responses[index].Steps)
+	}
 	return responses, err
 }
 
@@ -494,6 +509,7 @@ func (s *Store) FindFormResponse(formID, id int64) (FormResponse, error) {
 	if errors.Is(err, sql.ErrNoRows) {
 		return response, ErrNotFound
 	}
+	response.Steps = NormalizeSteps(response.Steps)
 	return response, err
 }
 
@@ -510,6 +526,7 @@ func (s *Store) LatestFormResponse(formID int64) (*FormResponse, error) {
 	if err != nil {
 		return nil, err
 	}
+	response.Steps = NormalizeSteps(response.Steps)
 	return &response, nil
 }
 
@@ -691,6 +708,7 @@ func (s *Store) FindFormByOwner(id int64) (Form, error) {
 	if errors.Is(err, sql.ErrNoRows) {
 		return form, ErrNotFound
 	}
+	form.Steps = NormalizeSteps(form.Steps)
 	return form, err
 }
 

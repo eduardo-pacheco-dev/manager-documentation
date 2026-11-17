@@ -164,9 +164,10 @@ export function FormDetailPage() {
   }
 
   const { form, responses, evaluations, settings } = data;
+  const formSteps = form.steps ?? [];
   const selectedResponse: FormResponseRecord | null =
     (selectedResponseId ? responses.find((item) => String(item.id) === selectedResponseId) : responses[0]) ?? null;
-  const steps: FormStep[] = selectedResponse?.steps ?? (responses.length === 0 ? form.steps : []);
+  const steps: FormStep[] = selectedResponse?.steps ?? (responses.length === 0 ? formSteps : []);
   const answeredCount = countAnsweredFields(steps);
   const hasAnswers = answeredCount > 0;
   const publicLink = publicFormLink(form.public_token);
@@ -280,8 +281,8 @@ export function FormDetailPage() {
               <div><dt>Status</dt><dd>{form.status}</dd></div>
               <div><dt>Tipo</dt><dd>{form.type}</dd></div>
               <div><dt>Projeto</dt><dd>{form.project_name ?? '—'}</dd></div>
-              <div><dt>Seções</dt><dd>{form.steps.length}</dd></div>
-              <div><dt>Perguntas</dt><dd>{form.steps.reduce((sum, step) => sum + step.fields.length, 0)}</dd></div>
+              <div><dt>Seções</dt><dd>{formSteps.length}</dd></div>
+              <div><dt>Perguntas</dt><dd>{formSteps.reduce((sum, step) => sum + step.fields.length, 0)}</dd></div>
               <div><dt>Respostas</dt><dd>{form.response_count}</dd></div>
               <div><dt>Avaliações</dt><dd>{form.evaluation_count}</dd></div>
               <div><dt>Criado em</dt><dd>{relativeTime(form.created_at)}</dd></div>

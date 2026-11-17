@@ -5,12 +5,6 @@ import { api } from '../lib/api';
 import { errorMessage } from '../lib/format';
 import type { FormSettings, FormTemplateRecord } from '../lib/types';
 
-interface ProjectOption {
-  id: number;
-  code: string;
-  name: string;
-}
-
 interface Props {
   open: boolean;
   types: string[];
@@ -23,9 +17,7 @@ interface Props {
 
 export function FormModal({ open, types, statuses, templates, settings, onClose, onSaved }: Props) {
   const toast = useToast();
-  const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [name, setName] = useState('');
-  const [projectId, setProjectId] = useState('');
   const [type, setType] = useState(types[0] ?? 'Registro Fotográfico');
   const [status, setStatus] = useState(statuses[0] ?? 'Pendente');
   const [templateId, setTemplateId] = useState('');
@@ -36,16 +28,11 @@ export function FormModal({ open, types, statuses, templates, settings, onClose,
   useEffect(() => {
     if (!open) return;
     setName('');
-    setProjectId('');
     setType(types[0] ?? 'Registro Fotográfico');
     setStatus(statuses[0] ?? 'Pendente');
     setMultiple('0');
     setTemplateId(settings?.default_template_id ? String(settings.default_template_id) : '');
     setFieldErrors({});
-    void api
-      .get<{ data: { projects: ProjectOption[] } }>('/projects')
-      .then((response) => setProjects(response.data?.projects ?? []))
-      .catch(() => setProjects([]));
   }, [open, types, statuses, settings]);
 
   async function save() {
@@ -57,7 +44,7 @@ export function FormModal({ open, types, statuses, templates, settings, onClose,
     try {
       const response = await api.post<{ data: { form: { id: number } } }>('/forms', {
         name: name.trim(),
-        project_id: projectId ? Number(projectId) : null,
+        project_id: null,
         type,
         status,
         allows_multiple_responses: multiple === '1',
@@ -106,22 +93,6 @@ export function FormModal({ open, types, statuses, templates, settings, onClose,
             ))}
           </Select>
         )}
-
-        <Select
-          id="form-project"
-          labelText="Projeto (opcional)"
-          value={projectId}
-          onChange={(event) => setProjectId(event.target.value)}
-        >
-          <SelectItem value="" text="Sem projeto" />
-          {projects.map((project) => (
-            <SelectItem
-              key={project.id}
-              value={String(project.id)}
-              text={`[${project.code || `PRJ-${String(project.id).padStart(4, '0')}`}] ${project.name}`}
-            />
-          ))}
-        </Select>
 
         <TextInput
           id="form-name"
