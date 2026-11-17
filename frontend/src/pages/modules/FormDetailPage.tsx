@@ -559,6 +559,8 @@ export function FormDetailPage() {
             className={`form-lightbox__image${zoom > MIN_ZOOM ? ' is-zoomed' : ''}${dragging ? ' is-dragging' : ''}`}
             src={preview.images[preview.index]}
             alt={preview.title}
+            draggable={false}
+            onDragStart={(event) => event.preventDefault()}
             style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
             onClick={(event) => event.stopPropagation()}
             onDoubleClick={(event) => {
