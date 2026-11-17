@@ -29,6 +29,7 @@ import {
   FORM_FIELD_STATUS_LABELS,
   FORM_TYPE_LABELS,
   fieldStatusTag,
+  formImageThumbnail,
   formStatusTag,
 } from '../../lib/forms';
 import type {
@@ -294,7 +295,7 @@ export function FormEvaluatePage() {
                       key={image}
                     >
                       <img
-                        src={field.imageThumbnails?.[index] ?? image}
+                        src={formImageThumbnail(image, field.imageThumbnails?.[index])}
                         alt={field.label}
                         loading="lazy"
                         onClick={() => setLightbox({ fieldId: field.id, images: field.images ?? [], index })}

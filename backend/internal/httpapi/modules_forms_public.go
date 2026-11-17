@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"html/template"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"net/url"
@@ -74,6 +75,24 @@ var formPublicTemplate = template.Must(template.New("form-public").Funcs(templat
 		return path.Base(parsed.Path)
 	},
 	"inc": func(value int) int { return value + 1 },
+	"thumb": func(field formPublicField, index int) string {
+		if index < 0 {
+			return ""
+		}
+		candidate := ""
+		if index < len(field.ImageThumbnails) && field.ImageThumbnails[index] != "" {
+			candidate = field.ImageThumbnails[index]
+		} else if index < len(field.Images) {
+			candidate = field.Images[index]
+		}
+		if index < len(field.Images) && candidate == field.Images[index] && strings.HasPrefix(candidate, "https://picsum.photos/seed/") {
+			rest := strings.TrimPrefix(candidate, "https://picsum.photos/seed/")
+			if parts := strings.Split(rest, "/"); len(parts) == 3 {
+				return "https://picsum.photos/seed/" + parts[0] + "/320/240"
+			}
+		}
+		return candidate
+	},
 }).Parse(`<!doctype html>
 <html lang="pt-BR">
 <head>
@@ -221,7 +240,7 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-of
           <div class="images">
             {{range $index, $image := $field.Images}}
             <div class="image-card">
-              <a href="{{$image}}" target="_blank" rel="noopener"><img src="{{$image}}" alt="{{$field.Label}}"></a>
+              <a href="{{$image}}" target="_blank" rel="noopener"><img src="{{thumb $field $index}}" alt="{{$field.Label}}" loading="lazy"></a>
               <button type="button" data-remove-image data-field="{{$field.ID}}" data-index="{{$index}}">Excluir</button>
             </div>
             {{end}}
@@ -709,7 +728,9 @@ func (s *Server) renderFormPublic(w http.ResponseWriter, status int, data formPu
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(status)
-	_ = formPublicTemplate.Execute(w, data)
+	if err := formPublicTemplate.Execute(w, data); err != nil {
+		log.Printf("forms public template: %v", err)
+	}
 }
 
 func (s *Server) captureFormUploads(ctx context.Context, form modules.Form, steps []modules.FormStep, r *http.Request) ([]modules.FormStep, int, map[string]string) {
@@ -745,8 +766,12 @@ func (s *Server) captureFormUploads(ctx context.Context, form modules.Form, step
 						errors[field.ID] = fmt.Sprintf("O campo %q deve conter uma imagem válida.", field.Label)
 						break
 					}
+					thumbnail := result.URL
+					if generated := s.storeFormThumbnail(ctx, header); generated != "" {
+						thumbnail = generated
+					}
 					field.Images = append(field.Images, result.URL)
-					field.ImageThumbnails = append(field.ImageThumbnails, result.URL)
+					field.ImageThumbnails = append(field.ImageThumbnails, thumbnail)
 					captured++
 				}
 				if len(field.Images) > 0 {

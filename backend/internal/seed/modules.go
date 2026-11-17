@@ -568,10 +568,9 @@ func seedForms(m *modules.Store, admin models.User) error {
 		"F3-1": "Estrutura sem avarias aparentes.", "F3-2": "Conforme", "F3-3": "4",
 	}, nil)
 	for index := range filled[1].Fields {
-		filled[1].Fields[index].Images = []string{
-			"https://picsum.photos/seed/" + strings.ToLower(approved.Code) + "-" + filled[1].Fields[index].ID + "/640/480",
-		}
-		filled[1].Fields[index].ImageThumbnails = filled[1].Fields[index].Images
+		seed := strings.ToLower(approved.Code) + "-" + filled[1].Fields[index].ID
+		filled[1].Fields[index].Images = []string{"https://picsum.photos/seed/" + seed + "/640/480"}
+		filled[1].Fields[index].ImageThumbnails = []string{"https://picsum.photos/seed/" + seed + "/320/240"}
 		filled[1].Fields[index].Status = "enviado"
 	}
 	submitted := time.Now().AddDate(0, 0, -5).UTC()

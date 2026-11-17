@@ -18,6 +18,7 @@ import {
   FORM_TYPE_LABELS,
   countAnsweredFields,
   fieldStatusTag,
+  formImageThumbnail,
   formStatusTag,
   publicFormLink,
 } from '../../lib/forms';
@@ -68,7 +69,11 @@ function AnswerField({ field, onPreviewImage, onPreviewFile }: { field: FormFiel
                 key={image}
                 onClick={() => onPreviewImage(field.images ?? [], index, field.label)}
               >
-                <img src={field.imageThumbnails?.[index] ?? image} alt={field.label} loading="lazy" />
+                <img
+                  src={formImageThumbnail(image, field.imageThumbnails?.[index])}
+                  alt={field.label}
+                  loading="lazy"
+                />
               </button>
             ))}
           </div>

@@ -71,3 +71,13 @@ export function totalFields(steps: FormStep[] | undefined): number {
 export function publicFormLink(token: string): string {
   return `${window.location.origin}/f/${token}`;
 }
+
+// formImageThumbnail prefers the generated low-resolution thumbnail. Seed and
+// legacy images may only have the full-size URL; Lorem Picsum URLs are reduced
+// on the fly so the demo does not download 640px photos for 128px previews.
+export function formImageThumbnail(image: string, thumbnail?: string): string {
+  if (thumbnail && thumbnail !== image) return thumbnail;
+  const picsum = image.match(/^https:\/\/picsum\.photos\/seed\/([^/]+)\/\d+\/\d+$/);
+  if (picsum) return `https://picsum.photos/seed/${picsum[1]}/320/240`;
+  return thumbnail || image;
+}

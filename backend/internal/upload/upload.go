@@ -1,6 +1,7 @@
 package upload
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -137,6 +138,49 @@ func (s *Service) SaveDocument(ctx context.Context, file multipart.File, header 
 		return s.saveLocal(key, file)
 	}
 	return s.uploadToS3(ctx, key, contentType, file)
+}
+
+// SaveThumbnail stores a generated JPEG thumbnail without re-reading a upload.
+// The result follows the active storage provider, like Save and SaveDocument.
+func (s *Service) SaveThumbnail(ctx context.Context, contents []byte, prefix string) (Result, error) {
+	now := time.Now()
+	key := fmt.Sprintf("%s/%d/%02d/thumb-%s.jpg", strings.Trim(prefix, "/"), now.Year(), int(now.Month()), uuid.NewString())
+	settings, err := s.store.GetStorageSettings()
+	if err != nil {
+		return Result{}, err
+	}
+	provider := settings.Provider
+	if !settings.Configured(provider) {
+		provider = "local"
+	}
+	if provider == "local" {
+		relative := strings.TrimPrefix(key, "uploads/")
+		target := filepath.Join(s.config.UploadDir, filepath.FromSlash(relative))
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			return Result{}, err
+		}
+		if err := os.WriteFile(target, contents, 0o644); err != nil {
+			return Result{}, err
+		}
+		return Result{
+			URL:  strings.TrimRight(s.config.PublicURL, "/") + "/" + key,
+			Path: key,
+		}, nil
+	}
+	target, err := s.s3Target(ctx, settings)
+	if err != nil {
+		return Result{}, err
+	}
+	_, err = target.client.PutObject(ctx, &s3.PutObjectInput{
+		Bucket:      aws.String(target.bucket),
+		Key:         aws.String(key),
+		Body:        bytes.NewReader(contents),
+		ContentType: aws.String("image/jpeg"),
+	})
+	if err != nil {
+		return Result{}, err
+	}
+	return Result{URL: target.publicURLFor(key), Path: key}, nil
 }
 
 func (s *Service) DeleteLocal(key string) {
