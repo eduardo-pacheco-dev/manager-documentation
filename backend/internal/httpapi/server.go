@@ -265,6 +265,7 @@ func (s *Server) Router() http.Handler {
 				projects.Group(func(admin chi.Router) {
 					admin.Use(s.requireAdmin)
 					admin.Post("/", s.iepmsProjectsCreate)
+					admin.Put("/{id}", s.iepmsProjectsUpdate)
 					admin.Delete("/{id}", s.iepmsProjectsDelete)
 				})
 			})

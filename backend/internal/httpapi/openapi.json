@@ -435,6 +435,7 @@
       "post": { "tags": ["iEPMS"], "summary": "Cadastra um projeto (somente administradores)", "responses": { "201": { "description": "Projeto criado" }, "422": { "description": "Validação" } } }
     },
     "/iepms-projects/{id}": {
+      "put": { "tags": ["iEPMS"], "summary": "Renomeia um projeto (somente administradores)", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Projeto atualizado" }, "422": { "description": "Validação" } } },
       "delete": { "tags": ["iEPMS"], "summary": "Remove um projeto e seus vínculos (somente administradores)", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Projeto removido" }, "404": { "description": "Não encontrado" } } }
     },
     "/projects": {

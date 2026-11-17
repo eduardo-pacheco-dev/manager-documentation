@@ -30,12 +30,8 @@ func (s *Server) iepmsProjectsIndex(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"data": projects})
 }
 
-func (s *Server) iepmsProjectsCreate(w http.ResponseWriter, r *http.Request) {
-	var payload iepmsProjectPayload
-	if !decodeJSON(w, r, &payload) {
-		return
-	}
-	name := strings.TrimSpace(payload.Name)
+func validateIepmsProjectName(raw string) (string, validationErrors) {
+	name := strings.TrimSpace(raw)
 	fields := validationErrors{}
 	if name == "" {
 		fields.add("name", "Informe o nome do projeto.")
@@ -43,6 +39,15 @@ func (s *Server) iepmsProjectsCreate(w http.ResponseWriter, r *http.Request) {
 	if len([]rune(name)) > 255 {
 		fields.add("name", "O nome deve ter no máximo 255 caracteres.")
 	}
+	return name, fields
+}
+
+func (s *Server) iepmsProjectsCreate(w http.ResponseWriter, r *http.Request) {
+	var payload iepmsProjectPayload
+	if !decodeJSON(w, r, &payload) {
+		return
+	}
+	name, fields := validateIepmsProjectName(payload.Name)
 	if !fields.empty() {
 		writeValidation(w, fields)
 		return
@@ -58,6 +63,36 @@ func (s *Server) iepmsProjectsCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusCreated, map[string]any{
 		"message": "Projeto cadastrado com sucesso.",
+		"data":    project,
+	})
+}
+
+func (s *Server) iepmsProjectsUpdate(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseID(r, "id")
+	if !ok {
+		writeError(w, http.StatusNotFound, "Projeto não encontrado.", nil)
+		return
+	}
+	var payload iepmsProjectPayload
+	if !decodeJSON(w, r, &payload) {
+		return
+	}
+	name, fields := validateIepmsProjectName(payload.Name)
+	if !fields.empty() {
+		writeValidation(w, fields)
+		return
+	}
+	project, err := s.Modules.UpdateIepmsProject(id, name)
+	if err != nil {
+		if isDuplicateKey(err) {
+			writeValidation(w, validationErrors{"name": "Já existe um projeto com este nome."})
+			return
+		}
+		writeError(w, http.StatusNotFound, "Projeto não encontrado.", nil)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"message": "Projeto atualizado com sucesso.",
 		"data":    project,
 	})
 }

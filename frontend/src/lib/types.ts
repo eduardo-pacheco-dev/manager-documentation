@@ -160,6 +160,7 @@ export interface IepmsUser {
 export interface IepmsProject {
   id: number;
   name: string;
+  users: number;
   created_at: string;
   updated_at: string;
 }

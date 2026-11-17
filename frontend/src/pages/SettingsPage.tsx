@@ -7,6 +7,7 @@ import {
   Checkmark,
   Cloud,
   DataBase,
+  Edit,
   Grid,
   Save,
   SettingsAdjust,
@@ -17,6 +18,7 @@ import {
   Button,
   Checkbox,
   InlineNotification,
+  Modal,
   PasswordInput,
   RadioButton,
   RadioButtonGroup,
@@ -105,6 +107,10 @@ export function SettingsPage() {
   const [projectError, setProjectError] = useState('');
   const [projectBusy, setProjectBusy] = useState(false);
   const [removingProject, setRemovingProject] = useState<IepmsProject | null>(null);
+  const [editingProject, setEditingProject] = useState<IepmsProject | null>(null);
+  const [editingProjectName, setEditingProjectName] = useState('');
+  const [editingProjectError, setEditingProjectError] = useState('');
+  const [projectSaving, setProjectSaving] = useState(false);
 
   const load = async () => {
     try {
@@ -217,6 +223,44 @@ export function SettingsPage() {
       }
     } finally {
       setProjectBusy(false);
+    }
+  }
+
+  function openProjectEdit(project: IepmsProject) {
+    setEditingProject(project);
+    setEditingProjectName(project.name);
+    setEditingProjectError('');
+  }
+
+  async function updateIepmsProject() {
+    if (!editingProject) return;
+    const name = editingProjectName.trim();
+    if (!name) {
+      setEditingProjectError('Informe o nome do projeto.');
+      return;
+    }
+    setProjectSaving(true);
+    setEditingProjectError('');
+    try {
+      const response = await api.put<{ data: IepmsProject }>(
+        `/iepms-projects/${editingProject.id}`,
+        { name },
+      );
+      setIepmsProjects((current) =>
+        current
+          .map((project) => (project.id === response.data.id ? response.data : project))
+          .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')),
+      );
+      setEditingProject(null);
+      toast.success('Projeto atualizado com sucesso');
+    } catch (error) {
+      if (error instanceof ApiError) {
+        setEditingProjectError(error.fields.name ?? error.message);
+      } else {
+        setEditingProjectError(errorMessage(error));
+      }
+    } finally {
+      setProjectSaving(false);
     }
   }
 
@@ -483,10 +527,18 @@ export function SettingsPage() {
                       <div className="module-row__main">
                         <strong>{project.name}</strong>
                         <span className="module-row__meta">
-                          Cadastrado em {shortDate(project.created_at)}
+                          {project.users} usuário(s) · Cadastrado em {shortDate(project.created_at)}
                         </span>
                       </div>
                       <div className="module-row__actions">
+                        <Button
+                          kind="ghost"
+                          size="sm"
+                          hasIconOnly
+                          renderIcon={Edit}
+                          iconDescription={`Editar ${project.name}`}
+                          onClick={() => openProjectEdit(project)}
+                        />
                         <Button
                           kind="danger--ghost"
                           size="sm"
@@ -774,10 +826,36 @@ export function SettingsPage() {
         </div>
       </div>
 
+      <Modal
+        open={editingProject !== null}
+        modalHeading="Editar projeto"
+        primaryButtonText={projectSaving ? 'Salvando…' : 'Salvar'}
+        secondaryButtonText="Cancelar"
+        primaryButtonDisabled={projectSaving || !editingProjectName.trim()}
+        onRequestSubmit={() => void updateIepmsProject()}
+        onRequestClose={() => setEditingProject(null)}
+        size="sm"
+      >
+        <TextInput
+          id="iepms-project-edit-name"
+          labelText="Nome do projeto"
+          value={editingProjectName}
+          invalid={Boolean(editingProjectError)}
+          invalidText={editingProjectError}
+          onChange={(event) => {
+            setEditingProjectName(event.target.value);
+            if (editingProjectError) setEditingProjectError('');
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') void updateIepmsProject();
+          }}
+        />
+      </Modal>
+
       <ConfirmModal
         open={removingProject !== null}
         title="Remover projeto"
-        message={removingProject ? `Remover o projeto ${removingProject.name}? Ele também será retirado do checklist dos usuários.` : ''}
+        message={removingProject ? `Remover o projeto ${removingProject.name}? Ele também será retirado do checklist dos ${removingProject.users} usuário(s) vinculados.` : ''}
         confirmLabel="Remover"
         loading={projectBusy}
         onCancel={() => setRemovingProject(null)}
