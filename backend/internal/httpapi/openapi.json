@@ -426,6 +426,17 @@
     "/iepms-users/{id}/password": {
       "post": { "tags": ["iEPMS"], "summary": "Descriptografa a senha do usuário após confirmar a senha do usuário autenticado", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Senha em texto puro" }, "422": { "description": "Senha incorreta ou não cadastrada" } } }
     },
+    "/iepms-users/{id}/projects": {
+      "get": { "tags": ["iEPMS"], "summary": "Lista o checklist de projetos do usuário com a validade de cada vínculo", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Projetos vinculados ao usuário" }, "404": { "description": "Usuário não encontrado" } } },
+      "put": { "tags": ["iEPMS"], "summary": "Substitui o checklist de projetos do usuário", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Checklist atualizado" }, "422": { "description": "Validação" } } }
+    },
+    "/iepms-projects": {
+      "get": { "tags": ["iEPMS"], "summary": "Lista os projetos cadastrados para o checklist", "responses": { "200": { "description": "Projetos cadastrados" } } },
+      "post": { "tags": ["iEPMS"], "summary": "Cadastra um projeto (somente administradores)", "responses": { "201": { "description": "Projeto criado" }, "422": { "description": "Validação" } } }
+    },
+    "/iepms-projects/{id}": {
+      "delete": { "tags": ["iEPMS"], "summary": "Remove um projeto e seus vínculos (somente administradores)", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Projeto removido" }, "404": { "description": "Não encontrado" } } }
+    },
     "/projects": {
       "get": { "tags": ["Projetos"], "summary": "Lista o portfólio de projetos", "parameters": [{ "name": "archived", "in": "query", "schema": { "type": "string", "enum": ["0", "1"] } }], "responses": { "200": { "description": "Projetos" } } },
       "post": { "tags": ["Projetos"], "summary": "Cria um projeto", "responses": { "201": { "description": "Projeto criado" }, "422": { "description": "Validação" } } }

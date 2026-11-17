@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Add, Download, OverflowMenuVertical, Settings, Upload } from '@carbon/icons-react';
 import {
   Button,
@@ -131,6 +131,7 @@ export function IepmsUsersPage() {
         size="sm"
         flipped
       >
+        <OverflowMenuItem itemText="Ver detalhes" onClick={() => navigate(`/iepms-users/${user.id}`)} />
         {user.has_password && (
           <OverflowMenuItem itemText="Ver senha" onClick={() => setRevealing(user)} />
         )}
@@ -251,9 +252,7 @@ export function IepmsUsersPage() {
                 {users.map((user) => (
                   <tr key={user.id}>
                     <td>
-                      <button type="button" className="link-button" onClick={() => openEdit(user)}>
-                        {user.name}
-                      </button>
+                      <Link to={`/iepms-users/${user.id}`}>{user.name}</Link>
                       <span className="cell-secondary">{user.resource_id}</span>
                     </td>
                     <td className="hide-sm">{user.personal_mailbox || '—'}</td>

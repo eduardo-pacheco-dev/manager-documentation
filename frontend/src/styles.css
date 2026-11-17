@@ -4640,3 +4640,41 @@ p {
     position: static;
   }
 }
+
+/* iEPMS user project checklist */
+.iepms-project-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.iepms-project-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.75rem;
+  border: 1px solid var(--cds-border-subtle-01);
+  background: var(--cds-layer-accent-01);
+}
+
+.iepms-project-row.is-checked {
+  border-color: var(--cds-border-interactive);
+  background: var(--cds-layer-01);
+}
+
+.iepms-project-row > .cds--form-item {
+  flex: 1 1 14rem;
+}
+
+.iepms-project-row__expiry {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  flex: 0 1 20rem;
+}
+
+.iepms-project-row__expiry > .cds--form-item {
+  flex: 1 1 auto;
+}

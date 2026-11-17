@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  Add,
   ArrowDown,
   ArrowUp,
   Checkmark,
   Cloud,
   DataBase,
+  Grid,
   Save,
   SettingsAdjust,
+  TrashCan,
   UserMultiple,
 } from '@carbon/icons-react';
 import {
@@ -30,12 +33,13 @@ import { BackupsPanel } from '../components/BackupsPanel';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { ApiError, api } from '../lib/api';
-import { errorMessage } from '../lib/format';
-import type { Module, SettingsResponse, StorageSettings, ThemePreference } from '../lib/types';
+import { errorMessage, shortDate } from '../lib/format';
+import type { IepmsProject, Module, SettingsResponse, StorageSettings, ThemePreference } from '../lib/types';
 
 const SECTION_LINKS = [
   { id: 'aparencia', label: 'Aparência' },
   { id: 'modulos', label: 'Módulos' },
+  { id: 'projetos-iepms', label: 'Projetos iEPMS', admin: true },
   { id: 'notificacoes', label: 'Notificações' },
   { id: 'sistema', label: 'Sistema', admin: true },
   { id: 'armazenamento', label: 'Armazenamento', admin: true },
@@ -96,6 +100,11 @@ export function SettingsPage() {
   const [saving, setSaving] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [storageErrors, setStorageErrors] = useState<Record<string, string>>({});
+  const [iepmsProjects, setIepmsProjects] = useState<IepmsProject[]>([]);
+  const [projectName, setProjectName] = useState('');
+  const [projectError, setProjectError] = useState('');
+  const [projectBusy, setProjectBusy] = useState(false);
+  const [removingProject, setRemovingProject] = useState<IepmsProject | null>(null);
 
   const load = async () => {
     try {
@@ -112,6 +121,10 @@ export function SettingsPage() {
     } finally {
       setLoading(false);
     }
+    api
+      .get<{ data: IepmsProject[] }>('/iepms-projects')
+      .then((response) => setIepmsProjects(response.data ?? []))
+      .catch(() => setIepmsProjects([]));
   };
 
   useEffect(() => {
@@ -178,6 +191,47 @@ export function SettingsPage() {
       else toast.error('Não foi possível salvar os módulos', errorMessage(error));
     } finally {
       setSaving(null);
+    }
+  }
+
+  async function createIepmsProject() {
+    const name = projectName.trim();
+    if (!name) {
+      setProjectError('Informe o nome do projeto.');
+      return;
+    }
+    setProjectBusy(true);
+    setProjectError('');
+    try {
+      const response = await api.post<{ data: IepmsProject }>('/iepms-projects', { name });
+      setIepmsProjects((current) =>
+        [...current, response.data].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')),
+      );
+      setProjectName('');
+      toast.success('Projeto cadastrado com sucesso');
+    } catch (error) {
+      if (error instanceof ApiError) {
+        setProjectError(error.fields.name ?? error.message);
+      } else {
+        setProjectError(errorMessage(error));
+      }
+    } finally {
+      setProjectBusy(false);
+    }
+  }
+
+  async function removeIepmsProject() {
+    if (!removingProject) return;
+    setProjectBusy(true);
+    try {
+      await api.delete(`/iepms-projects/${removingProject.id}`);
+      setIepmsProjects((current) => current.filter((project) => project.id !== removingProject.id));
+      setRemovingProject(null);
+      toast.success('Projeto removido com sucesso');
+    } catch (error) {
+      toast.error('Não foi possível remover o projeto', errorMessage(error));
+    } finally {
+      setProjectBusy(false);
     }
   }
 
@@ -387,6 +441,67 @@ export function SettingsPage() {
               </Button>
             </div>
           </SettingsSection>
+
+          {data.is_admin && (
+            <SettingsSection
+              id="projetos-iepms"
+              title="Projetos iEPMS"
+              description="Cadastre os projetos que aparecerão no checklist dos usuários do iEPMS."
+              icon={Grid}
+            >
+              <div className="inline-form">
+                <TextInput
+                  id="iepms-project-name"
+                  labelText="Nome do projeto"
+                  placeholder="Ex.: Projeto Alfa"
+                  value={projectName}
+                  invalid={Boolean(projectError)}
+                  invalidText={projectError}
+                  onChange={(event) => {
+                    setProjectName(event.target.value);
+                    if (projectError) setProjectError('');
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') void createIepmsProject();
+                  }}
+                />
+                <Button
+                  renderIcon={Add}
+                  onClick={() => void createIepmsProject()}
+                  disabled={projectBusy || !projectName.trim()}
+                >
+                  {projectBusy ? 'Adicionando…' : 'Adicionar'}
+                </Button>
+              </div>
+
+              {iepmsProjects.length === 0 ? (
+                <p className="muted">Nenhum projeto cadastrado.</p>
+              ) : (
+                <div className="module-list">
+                  {iepmsProjects.map((project) => (
+                    <div key={project.id} className="module-row">
+                      <div className="module-row__main">
+                        <strong>{project.name}</strong>
+                        <span className="module-row__meta">
+                          Cadastrado em {shortDate(project.created_at)}
+                        </span>
+                      </div>
+                      <div className="module-row__actions">
+                        <Button
+                          kind="danger--ghost"
+                          size="sm"
+                          hasIconOnly
+                          renderIcon={TrashCan}
+                          iconDescription={`Remover ${project.name}`}
+                          onClick={() => setRemovingProject(project)}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </SettingsSection>
+          )}
 
           <SettingsSection
             id="notificacoes"
@@ -658,6 +773,16 @@ export function SettingsPage() {
           </SettingsSection>
         </div>
       </div>
+
+      <ConfirmModal
+        open={removingProject !== null}
+        title="Remover projeto"
+        message={removingProject ? `Remover o projeto ${removingProject.name}? Ele também será retirado do checklist dos usuários.` : ''}
+        confirmLabel="Remover"
+        loading={projectBusy}
+        onCancel={() => setRemovingProject(null)}
+        onConfirm={() => void removeIepmsProject()}
+      />
 
       <ConfirmModal
         open={deleteOpen}

@@ -1177,6 +1177,31 @@ var migrations = [][]string{
 	{
 		`CREATE UNIQUE INDEX uq_iepms_users_account ON iepms_users (outsourcing_account)`,
 	},
+	{
+		`CREATE TABLE iepms_projects (
+			id BIGINT NOT NULL AUTO_INCREMENT,
+			name VARCHAR(255) NOT NULL,
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL,
+			PRIMARY KEY (id),
+			UNIQUE KEY uq_iepms_projects_name (name)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+	},
+	{
+		`CREATE TABLE iepms_user_projects (
+			id BIGINT NOT NULL AUTO_INCREMENT,
+			iepms_user_id BIGINT NOT NULL,
+			project_id BIGINT NOT NULL,
+			expires_at DATE NULL,
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL,
+			PRIMARY KEY (id),
+			UNIQUE KEY uq_iepms_user_projects (iepms_user_id, project_id),
+			KEY idx_iepms_user_projects_project (project_id),
+			CONSTRAINT fk_iepms_user_projects_user FOREIGN KEY (iepms_user_id) REFERENCES iepms_users(id) ON DELETE CASCADE,
+			CONSTRAINT fk_iepms_user_projects_project FOREIGN KEY (project_id) REFERENCES iepms_projects(id) ON DELETE CASCADE
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+	},
 }
 
 // CleanupSessions removes expired sessions and tokens. It is safe to call at

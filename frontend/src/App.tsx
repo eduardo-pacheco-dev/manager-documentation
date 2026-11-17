@@ -26,6 +26,7 @@ import { ProjectsPage } from './pages/modules/ProjectsPage';
 import { CollaboratorsPage } from './pages/modules/CollaboratorsPage';
 import { IepmsUsersPage } from './pages/modules/IepmsUsersPage';
 import { IepmsSettingsPage } from './pages/modules/IepmsSettingsPage';
+import { IepmsUserDetailPage } from './pages/modules/IepmsUserDetailPage';
 import { RadioLinksPage } from './pages/modules/RadioLinksPage';
 import { RadioLinkDetailPage } from './pages/modules/RadioLinkDetailPage';
 import { NotFoundPage, ForbiddenPage } from './pages/StatusPages';
@@ -90,6 +91,7 @@ export default function App() {
         <Route path="/collaborators" element={<CollaboratorsPage />} />
         <Route path="/iepms-users" element={<IepmsUsersPage />} />
         <Route path="/iepms-users/settings" element={<IepmsSettingsPage />} />
+        <Route path="/iepms-users/:id" element={<IepmsUserDetailPage />} />
         <Route path="/radio-links" element={<RadioLinksPage />} />
         <Route path="/radio-links/:id" element={<RadioLinkDetailPage />} />
         <Route element={<AdminRoute />}>

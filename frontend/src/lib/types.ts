@@ -157,6 +157,21 @@ export interface IepmsUser {
   updated_at: string;
 }
 
+export interface IepmsProject {
+  id: number;
+  name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface IepmsUserProject {
+  project_id: number;
+  name: string;
+  expires_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface IepmsUsersResponse {
   data: IepmsUser[];
   stats: { total: number; active: number; inactive: number };
