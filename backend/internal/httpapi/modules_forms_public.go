@@ -292,7 +292,7 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-of
     {{end}}
 
     <div class="actions">
-      <span class="save-state" id="save-state">Salvamento automático ativo.</span>
+      <span class="save-state" id="save-state"></span>
       <div class="wizard-actions">
         <button class="btn btn--ghost" type="button" id="wizard-prev">Anterior</button>
         <span class="step-label" id="wizard-label"></span>
