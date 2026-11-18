@@ -165,7 +165,8 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-of
 .file-row button{border:0;background:none;color:var(--danger);font-size:.72rem;cursor:pointer}
 .na{display:inline-flex;align-items:center;gap:.4rem;margin-top:.5rem;font-size:.78rem;color:var(--muted)}
 .actions{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-top:1.5rem;flex-wrap:wrap}
-.wizard-actions{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.wizard-actions{display:flex;align-items:center;gap:.5rem;flex-wrap:nowrap}
+.wizard-actions .btn{flex:0 0 auto}
 .btn--ghost{background:transparent;color:var(--blue);border-color:var(--blue)}
 .btn--ghost:hover{background:#edf5ff;color:var(--blue-hover)}
 .step-label{color:var(--helper);font-size:.75rem}
@@ -176,7 +177,7 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-of
 .field-error{margin:.35rem 0 0;color:var(--danger);font-size:.75rem}
 .empty{color:var(--muted);font-size:.85rem;padding:1rem;border:1px dashed #c6c6c6;text-align:center}
 .footer{max-width:58rem;margin:0 auto;padding:0 1rem 2rem;color:var(--helper);font-size:.72rem;display:flex;flex-wrap:wrap;gap:.5rem;justify-content:space-between}
-@media (max-width:42rem){.shell{padding-top:1rem}.panel{padding:1rem}.header span.meta{display:none}.actions .btn{width:100%}}
+@media (max-width:42rem){.shell{padding-top:1rem}.panel{padding:1rem}.header span.meta{display:none}.actions{gap:.5rem}.wizard-actions{flex:1;justify-content:flex-end}.wizard-actions .btn{flex:1 1 0;min-width:0;padding:0 .75rem}}
 </style>
 </head>
 <body>
