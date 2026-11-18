@@ -62,6 +62,7 @@ type formPublicData struct {
 	HasStructure   bool
 	MaxImageHint   string
 	MaxFileHint    string
+	MaxImages      int
 }
 
 var formPublicTemplate = template.Must(template.New("form-public").Funcs(template.FuncMap{
@@ -148,23 +149,38 @@ h2{margin:0;font-size:1.05rem;font-weight:500}
 input[type=text],input[type=number],input[type=date],input[type=time],textarea,select{width:100%;padding:.7rem;border:0;border-bottom:1px solid #8d8d8d;background:#f4f4f4;color:var(--text);font-family:inherit;font-size:.87rem}
 textarea{min-height:6rem;resize:vertical}
 input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-offset:-2px}
-.options{display:flex;flex-direction:column;gap:.45rem}
-.options label{display:flex;align-items:flex-start;gap:.55rem;font-size:.85rem;color:var(--text);cursor:pointer}
-.options input{margin-top:.2rem}
+.options{display:flex;flex-direction:column;gap:.5rem;margin-top:.35rem}
+.options label{display:flex;align-items:center;gap:.75rem;padding:.8rem 1rem;border:1px solid #8d8d8d;background:var(--layer);font-size:.87rem;color:var(--text);cursor:pointer;transition:border-color .15s,background .15s,color .15s}
+.options label:hover{border-color:var(--blue)}
+.options label:has(input:checked){border-color:var(--blue);background:#edf5ff;color:#002d9c}
+.options input[type=radio],.options input[type=checkbox]{appearance:none;-webkit-appearance:none;width:1.15rem;height:1.15rem;flex:none;margin:0;border:1px solid #8d8d8d;background:#fff;cursor:pointer}
+.options input[type=radio]{border-radius:50%}
+.options input[type=radio]:checked{border:5px solid var(--blue)}
+.options input[type=checkbox]{border-radius:2px;position:relative}
+.options input[type=checkbox]:checked{background:var(--blue);border-color:var(--blue)}
+.options input[type=checkbox]:checked::after{content:"";position:absolute;left:.33rem;top:.1rem;width:.32rem;height:.62rem;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
 .scale{display:flex;flex-wrap:wrap;gap:.35rem}
 .scale label{flex:1;min-width:2.6rem;display:flex;flex-direction:column;align-items:center;gap:.25rem;padding:.5rem .25rem;border:1px solid var(--border);font-size:.72rem;color:var(--muted);cursor:pointer;text-align:center}
 .scale input{margin:0}
 .upload-hint{color:var(--helper);font-size:.72rem;margin:.35rem 0 .5rem}
-.images{display:flex;flex-wrap:wrap;gap:.6rem;margin:.5rem 0}
-.image-card{position:relative;border:1px solid var(--border);background:#fff}
-.image-card img{display:block;width:8rem;height:6rem;object-fit:cover}
-.image-card button{position:absolute;top:.25rem;right:.25rem;border:0;background:#161616cc;color:#fff;font-size:.7rem;padding:.25rem .45rem;cursor:pointer}
+.upload-actions{display:flex;gap:.5rem;flex-wrap:wrap;margin:.35rem 0 .6rem}
+.upload-action{display:inline-flex;align-items:center;justify-content:center;gap:.45rem;flex:1 1 7rem;min-height:2.75rem;padding:.5rem .75rem;border:1px solid #8d8d8d;background:var(--layer);color:var(--text);font-family:inherit;font-size:.82rem;cursor:pointer;transition:border-color .15s,background .15s,color .15s}
+.upload-action:hover:not(:disabled){border-color:var(--blue);color:var(--blue)}
+.upload-action.is-active{border-color:var(--blue);background:#edf5ff;color:#002d9c}
+.upload-action:disabled{opacity:.45;cursor:not-allowed}
+.upload-action svg{width:1rem;height:1rem;flex:none}
+.upload-count{display:inline-flex;align-items:center;margin:.1rem 0 .55rem;padding:.2rem .55rem;background:#e8f4ff;color:#0043ce;font-size:.72rem}
+.images{display:grid;grid-template-columns:repeat(auto-fill,minmax(6.5rem,1fr));gap:.5rem;margin:.5rem 0}
+.image-card{position:relative;border:1px solid var(--border);background:#fff;aspect-ratio:4/3;overflow:hidden}
+.image-card img{display:block;width:100%;height:100%;object-fit:cover}
+.image-card button{position:absolute;top:.3rem;right:.3rem;display:flex;align-items:center;justify-content:center;width:1.5rem;height:1.5rem;border:0;background:#161616cc;color:#fff;font-size:.85rem;line-height:1;cursor:pointer}
+.image-card button:hover{background:#161616}
 .files{display:flex;flex-direction:column;gap:.4rem;margin:.5rem 0}
 .file-row{display:flex;align-items:center;gap:.6rem;padding:.55rem .7rem;border:1px solid var(--border);font-size:.8rem}
 .file-row a{color:var(--blue);text-decoration:none;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .file-row button{border:0;background:none;color:var(--danger);font-size:.72rem;cursor:pointer}
 .na{display:inline-flex;align-items:center;gap:.4rem;margin-top:.5rem;font-size:.78rem;color:var(--muted)}
-.actions{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-top:1.5rem;flex-wrap:wrap}
+.actions{position:sticky;bottom:0;z-index:10;display:flex;align-items:center;justify-content:space-between;gap:1rem;margin:1.5rem 0 0;padding:.85rem 0;background:var(--bg);border-top:1px solid var(--border);flex-wrap:wrap}
 .wizard-actions{display:flex;align-items:center;gap:.5rem;flex-wrap:nowrap}
 .wizard-actions .btn{flex:0 0 auto}
 .btn--ghost{background:transparent;color:var(--blue);border-color:var(--blue)}
@@ -222,7 +238,7 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-of
       {{range $step.Fields}}
       {{$field := .}}
       <div class="field">
-        <label class="label" id="field-{{$field.ID}}-label" for="field-{{$field.ID}}">{{$field.Label}}{{if $field.Required}} <span class="required">*</span>{{end}}</label>
+        <label class="label" id="field-{{$field.ID}}-label" for="field-{{$field.ID}}">{{$field.Label}}{{if $field.Required}} <span class="required">(obrigatório)</span>{{end}}</label>
         {{if $field.Help}}<p class="help">{{$field.Help}}</p>{{end}}
 
         {{if eq $field.Type "textarea"}}
@@ -258,19 +274,35 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-of
           </div>
           {{if or $field.ScaleMinLabel $field.ScaleMaxLabel}}<p class="upload-hint">{{$field.ScaleMinLabel}}{{if and $field.ScaleMinLabel $field.ScaleMaxLabel}} · {{end}}{{$field.ScaleMaxLabel}}</p>{{end}}
         {{else if eq $field.Type "image"}}
-          <p class="upload-hint">{{$.MaxImageHint}}</p>
+          <div class="upload-actions">
+            <button type="button" class="upload-action{{if $field.NotApplicable}} is-active{{end}}" data-na-toggle aria-pressed="{{if $field.NotApplicable}}true{{else}}false{{end}}">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x="2.5" y="2.5" width="11" height="11" rx="1"></rect><path d="M4 12L12 4"></path></svg>
+              N/A
+            </button>
+            <button type="button" class="upload-action" data-upload-trigger="field-{{$field.ID}}-gallery" {{if or $field.NotApplicable (ge (len $field.Images) $.MaxImages)}}disabled{{end}}>
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="1"></rect><circle cx="5.5" cy="6.5" r="1.2"></circle><path d="M2.5 12l3.5-3.5L9 11l2-2 2.5 2.5"></path></svg>
+              Galeria
+            </button>
+            <button type="button" class="upload-action" data-upload-trigger="field-{{$field.ID}}-camera" {{if or $field.NotApplicable (ge (len $field.Images) $.MaxImages)}}disabled{{end}}>
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><path d="M2 5.5h2.6L5.6 4h4.8l1 1.5H14v8H2z"></path><circle cx="8" cy="9" r="2.3"></circle></svg>
+              Câmera
+            </button>
+          </div>
+          <input type="checkbox" name="na_answers[{{$field.ID}}]" value="1" class="na-input" {{if $field.NotApplicable}}checked{{end}} hidden>
+          <input type="file" id="field-{{$field.ID}}-gallery" name="answers[{{$field.ID}}][]" accept="image/*" multiple hidden>
+          <input type="file" id="field-{{$field.ID}}-camera" name="answers[{{$field.ID}}][]" accept="image/*" capture="environment" multiple hidden>
+          <span class="upload-count">{{len $field.Images}}/{{$.MaxImages}} imagens</span>
           {{if $field.Images}}
           <div class="images">
             {{range $index, $image := $field.Images}}
             <div class="image-card">
               <a href="{{$image}}" target="_blank" rel="noopener"><img src="{{thumb $field $index}}" alt="{{$field.Label}}" loading="lazy"></a>
-              <button type="button" data-remove-image data-field="{{$field.ID}}" data-index="{{$index}}">Excluir</button>
+              <button type="button" data-remove-image data-field="{{$field.ID}}" data-index="{{$index}}" aria-label="Excluir imagem">&times;</button>
             </div>
             {{end}}
           </div>
           {{end}}
-          <input type="file" id="field-{{$field.ID}}" name="answers[{{$field.ID}}][]" accept="image/*" capture="environment" multiple>
-          <label class="na"><input type="checkbox" name="na_answers[{{$field.ID}}]" value="1" {{if $field.NotApplicable}}checked{{end}}> Não aplicável</label>
+          <p class="upload-hint">{{$.MaxImageHint}}</p>
         {{else if eq $field.Type "file"}}
           <p class="upload-hint">{{$.MaxFileHint}}</p>
           {{if $field.Files}}
@@ -439,6 +471,29 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-of
     try {
       navigator.sendBeacon(autosaveUrl, new FormData(form));
     } catch (error) {}
+  });
+
+  form.querySelectorAll('[data-upload-trigger]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const input = document.getElementById(button.dataset.uploadTrigger);
+      if (input) input.click();
+    });
+  });
+  form.querySelectorAll('[data-na-toggle]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const field = button.closest('.field');
+      if (!field) return;
+      const checkbox = field.querySelector('input[name^="na_answers"]');
+      if (!checkbox) return;
+      checkbox.checked = !checkbox.checked;
+      const active = checkbox.checked;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
+      field.querySelectorAll('[data-upload-trigger]').forEach((trigger) => {
+        trigger.disabled = active;
+      });
+      checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+    });
   });
 
   const remove = async (url, button, type) => {
@@ -732,6 +787,7 @@ func (s *Server) formPublicData(form modules.Form, steps []modules.FormStep) for
 		PublicLink:     "/f/" + form.PublicToken,
 		MaxImageHint:   formPublicUploadHint,
 		MaxFileHint:    "Até 5 arquivos por campo, com no máximo 30 MB por arquivo.",
+		MaxImages:      formMaxImages,
 		FieldErrors:    map[string]string{},
 	}
 	total := 0
