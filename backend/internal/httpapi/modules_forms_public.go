@@ -228,7 +228,7 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-of
 .file-row a{color:var(--blue);text-decoration:none;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .file-row button{border:0;background:none;color:var(--danger);font-size:.72rem;cursor:pointer}
 .na{display:inline-flex;align-items:center;gap:.4rem;margin-top:.5rem;font-size:.78rem;color:var(--muted)}
-.actions{position:sticky;bottom:0;z-index:10;display:flex;align-items:center;justify-content:space-between;gap:1rem;margin:1.5rem 0 0;padding:.85rem 0;background:var(--bg);border-top:1px solid var(--border);flex-wrap:wrap}
+.actions{position:sticky;bottom:0;z-index:10;display:flex;align-items:center;justify-content:flex-end;gap:1rem;margin:1.5rem 0 0;padding:.85rem 0;background:var(--bg);border-top:1px solid var(--border);flex-wrap:wrap}
 .wizard-actions{display:flex;align-items:center;gap:.5rem;flex-wrap:nowrap}
 .wizard-actions .btn{flex:0 0 auto}
 .btn--ghost{background:transparent;color:var(--blue);border-color:var(--blue)}
@@ -240,6 +240,7 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-of
 .header-sync svg{width:1rem;height:1rem}
 .header-sync[disabled]{cursor:progress;color:#8d8d8d}
 .header-sync[disabled] svg{animation:spin 1s linear infinite}
+.header .save-state{color:#c6c6c6;font-size:.72rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:32vw}
 @keyframes spin{to{transform:rotate(360deg)}}
 .form-step[hidden]{display:none}
 .btn{display:inline-flex;align-items:center;justify-content:center;min-height:3rem;padding:0 1.25rem;border:1px solid transparent;background:var(--blue);color:#fff;font-family:inherit;font-size:.875rem;cursor:pointer;text-decoration:none}
@@ -256,6 +257,7 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-of
   <div class="brand"><span class="mark">DC</span> Documentation Center</div>
   <div class="header-actions">
     <span class="meta">Formulário externo</span>
+    <span class="save-state" id="save-state"></span>
     <button class="header-sync" type="button" id="sync-button" aria-label="Sincronizar" title="Sincronizar">
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.46-3.54"></path><path d="M13 2.5V5h-2.5"></path></svg>
     </button>
@@ -396,7 +398,6 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-of
     {{end}}
 
     <div class="actions">
-      <span class="save-state" id="save-state"></span>
       <div class="wizard-actions">
         <button class="btn btn--ghost" type="button" id="wizard-prev">Anterior</button>
         <span class="step-label" id="wizard-label"></span>
