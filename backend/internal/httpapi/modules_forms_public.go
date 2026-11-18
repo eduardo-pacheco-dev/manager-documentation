@@ -175,6 +175,19 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-of
 .image-card img{display:block;width:100%;height:100%;object-fit:cover}
 .image-card button{position:absolute;top:.3rem;right:.3rem;display:flex;align-items:center;justify-content:center;width:1.5rem;height:1.5rem;border:0;background:#161616cc;color:#fff;font-size:.85rem;line-height:1;cursor:pointer}
 .image-card button:hover{background:#161616}
+.image-card a{cursor:zoom-in}
+.lightbox{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:3rem 3.5rem;background:#161616f2}
+.lightbox[hidden]{display:none}
+.lightbox img{max-width:min(1100px,100%);max-height:calc(100vh - 8rem);object-fit:contain;background:#262626}
+.lightbox__close{position:absolute;top:.75rem;right:.75rem;display:flex;align-items:center;justify-content:center;width:2.5rem;height:2.5rem;border:0;background:#393939;color:#fff;font-size:1.5rem;line-height:1;cursor:pointer}
+.lightbox__close:hover{background:#525252}
+.lightbox__nav{position:absolute;top:50%;transform:translateY(-50%);display:flex;align-items:center;justify-content:center;width:2.75rem;height:3.5rem;border:0;background:#393939cc;color:#fff;font-size:1.75rem;line-height:1;cursor:pointer}
+.lightbox__nav:hover{background:#525252}
+.lightbox__nav--prev{left:.5rem}
+.lightbox__nav--next{right:.5rem}
+.lightbox__bar{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.85rem 1rem;background:#161616;color:#f4f4f4;font-size:.8rem}
+.lightbox__bar a{color:#78a9ff;text-decoration:none}
+.lightbox__bar a:hover{text-decoration:underline}
 .files{display:flex;flex-direction:column;gap:.4rem;margin:.5rem 0}
 .file-row{display:flex;align-items:center;gap:.6rem;padding:.55rem .7rem;border:1px solid var(--border);font-size:.8rem}
 .file-row a{color:var(--blue);text-decoration:none;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -193,7 +206,7 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-of
 .field-error{margin:.35rem 0 0;color:var(--danger);font-size:.75rem}
 .empty{color:var(--muted);font-size:.85rem;padding:1rem;border:1px dashed #c6c6c6;text-align:center}
 .footer{max-width:58rem;margin:0 auto;padding:0 1rem 2rem;color:var(--helper);font-size:.72rem;display:flex;flex-wrap:wrap;gap:.5rem;justify-content:space-between}
-@media (max-width:42rem){.shell{padding-top:1rem}.panel{padding:1rem}.header span.meta{display:none}.actions{gap:.5rem}.wizard-actions{flex:1;justify-content:flex-end}.wizard-actions .btn{flex:1 1 0;min-width:0;padding:0 .75rem}}
+    @media (max-width:42rem){.shell{padding-top:1rem}.panel{padding:1rem}.header span.meta{display:none}.actions{gap:.5rem}.wizard-actions{flex:1;justify-content:flex-end}.wizard-actions .btn{flex:1 1 0;min-width:0;padding:0 .75rem}.lightbox{padding:3.5rem .5rem 4.5rem}.lightbox__nav{width:2.25rem;height:2.75rem}}
 </style>
 </head>
 <body>
@@ -296,7 +309,7 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-of
           <div class="images">
             {{range $index, $image := $field.Images}}
             <div class="image-card">
-              <a href="{{$image}}" target="_blank" rel="noopener"><img src="{{thumb $field $index}}" alt="{{$field.Label}}" loading="lazy"></a>
+              <a href="{{$image}}" target="_blank" rel="noopener" data-image-preview data-field="{{$field.ID}}" data-index="{{$index}}" data-src="{{$image}}" data-label="{{$field.Label}}"><img src="{{thumb $field $index}}" alt="{{$field.Label}}" loading="lazy"></a>
               <button type="button" data-remove-image data-field="{{$field.ID}}" data-index="{{$index}}" aria-label="Excluir imagem">&times;</button>
             </div>
             {{end}}
@@ -334,6 +347,16 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-of
   </form>
   {{end}}
 </main>
+<div class="lightbox" id="image-lightbox" hidden role="dialog" aria-modal="true" aria-label="Pré-visualização da imagem" tabindex="-1">
+  <button type="button" class="lightbox__close" id="lightbox-close" aria-label="Fechar">&times;</button>
+  <button type="button" class="lightbox__nav lightbox__nav--prev" id="lightbox-prev" aria-label="Imagem anterior">&lsaquo;</button>
+  <img id="lightbox-image" src="" alt="">
+  <button type="button" class="lightbox__nav lightbox__nav--next" id="lightbox-next" aria-label="Próxima imagem">&rsaquo;</button>
+  <div class="lightbox__bar">
+    <span id="lightbox-caption"></span>
+    <a id="lightbox-open" href="#" target="_blank" rel="noopener">Abrir original</a>
+  </div>
+</div>
 <footer class="footer"><span>Documentation Center · Formulários</span><span>Powered by IBM Carbon Design System</span></footer>
 <script>
 (function () {
@@ -495,6 +518,91 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-of
       checkbox.dispatchEvent(new Event('change', { bubbles: true }));
     });
   });
+
+  const lightbox = document.getElementById('image-lightbox');
+  const lightboxImage = document.getElementById('lightbox-image');
+  const lightboxCaption = document.getElementById('lightbox-caption');
+  const lightboxOpen = document.getElementById('lightbox-open');
+  const lightboxPrev = document.getElementById('lightbox-prev');
+  const lightboxNext = document.getElementById('lightbox-next');
+  let gallery = [];
+  let galleryIndex = 0;
+
+  const renderLightbox = () => {
+    if (!lightbox || !gallery.length) return;
+    galleryIndex = Math.max(0, Math.min(gallery.length - 1, galleryIndex));
+    const item = gallery[galleryIndex];
+    lightboxImage.src = item.src;
+    lightboxImage.alt = item.label;
+    lightboxCaption.textContent = item.label + ' · ' + (galleryIndex + 1) + ' / ' + gallery.length;
+    lightboxOpen.href = item.src;
+    if (lightboxPrev) lightboxPrev.hidden = galleryIndex === 0;
+    if (lightboxNext) lightboxNext.hidden = galleryIndex === gallery.length - 1;
+  };
+
+  const closeLightbox = () => {
+    if (!lightbox) return;
+    lightbox.hidden = true;
+    lightboxImage.src = '';
+    document.body.style.overflow = '';
+  };
+
+  const openLightbox = (links, index) => {
+    if (!lightbox) return;
+    gallery = links.map((link) => ({
+      src: link.dataset.src,
+      label: link.dataset.label || 'Imagem',
+    }));
+    galleryIndex = index;
+    renderLightbox();
+    lightbox.hidden = false;
+    document.body.style.overflow = 'hidden';
+    lightbox.focus();
+  };
+
+  form.querySelectorAll('[data-image-preview]').forEach((link) => {
+    link.addEventListener('click', (event) => {
+      event.preventDefault();
+      const field = link.dataset.field || '';
+      const links = [...form.querySelectorAll('[data-image-preview][data-field="' + field + '"]')];
+      openLightbox(links, Number(link.dataset.index || '0'));
+    });
+  });
+
+  if (lightbox) {
+    lightbox.addEventListener('click', (event) => {
+      if (event.target === lightbox) closeLightbox();
+    });
+    const closeButton = document.getElementById('lightbox-close');
+    if (closeButton) closeButton.addEventListener('click', closeLightbox);
+    if (lightboxPrev) {
+      lightboxPrev.addEventListener('click', () => {
+        galleryIndex -= 1;
+        renderLightbox();
+      });
+    }
+    if (lightboxNext) {
+      lightboxNext.addEventListener('click', () => {
+        galleryIndex += 1;
+        renderLightbox();
+      });
+    }
+    window.addEventListener('keydown', (event) => {
+      if (lightbox.hidden) return;
+      if (event.key === 'Escape') {
+        closeLightbox();
+        return;
+      }
+      if (event.key === 'ArrowLeft' && galleryIndex > 0) {
+        galleryIndex -= 1;
+        renderLightbox();
+      }
+      if (event.key === 'ArrowRight' && galleryIndex < gallery.length - 1) {
+        galleryIndex += 1;
+        renderLightbox();
+      }
+    });
+  }
 
   const remove = async (url, button, type) => {
     const field = button.dataset.field;
