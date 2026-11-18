@@ -6,6 +6,23 @@ import (
 	"github.com/eduardo-pacheco-dev/manager-documentation/backend/internal/modules"
 )
 
+func TestFormPublicFieldImageStatus(t *testing.T) {
+	field := formPublicField{FormField: modules.FormField{
+		Status:         "enviado",
+		ImageDecisions: map[string]string{"0": "reprovado"},
+	}}
+	if got := field.ImageStatus(0); got != "reprovado" {
+		t.Fatalf("imagem com decisao = %q, want %q", got, "reprovado")
+	}
+	if got := field.ImageStatus(1); got != "enviado" {
+		t.Fatalf("imagem sem decisao = %q, want %q", got, "enviado")
+	}
+	empty := formPublicField{}
+	if got := empty.ImageStatus(0); got != "pendente" {
+		t.Fatalf("imagem sem status = %q, want %q", got, "pendente")
+	}
+}
+
 func publicField(status, value string) formPublicField {
 	return formPublicField{FormField: modules.FormField{Status: status, Value: value}}
 }

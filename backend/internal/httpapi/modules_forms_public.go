@@ -36,6 +36,33 @@ type formPublicField struct {
 	Error         string
 }
 
+// ImageStatus returns the evaluation status of a single image. Individual
+// image decisions take precedence over the field status.
+func (f formPublicField) ImageStatus(index int) string {
+	if value := f.ImageDecisions[strconv.Itoa(index)]; value != "" {
+		return value
+	}
+	if f.Status != "" {
+		return f.Status
+	}
+	return "pendente"
+}
+
+func formImageStatusLabel(status string) string {
+	switch status {
+	case "aprovado":
+		return "Aprovado"
+	case "reprovado":
+		return "Reprovado"
+	case "enviado":
+		return "Enviado"
+	case "nao_aplicavel":
+		return "Não aplicável"
+	default:
+		return "Pendente"
+	}
+}
+
 type formPublicStep struct {
 	ID     string
 	Title  string
@@ -69,6 +96,7 @@ var formPublicTemplate = template.Must(template.New("form-public").Funcs(templat
 	"has": func(values map[string]bool, value string) bool {
 		return values[value]
 	},
+	"statusLabel": formImageStatusLabel,
 	"base": func(value string) string {
 		parsed, err := url.Parse(value)
 		if err != nil {
@@ -175,6 +203,13 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-of
 .image-card img{display:block;width:100%;height:100%;object-fit:cover}
 .image-card button{position:absolute;top:.3rem;right:.3rem;display:flex;align-items:center;justify-content:center;width:1.5rem;height:1.5rem;border:0;background:#161616cc;color:#fff;font-size:.85rem;line-height:1;cursor:pointer}
 .image-card button:hover{background:#161616}
+.image-status{position:absolute;right:.3rem;bottom:.3rem;display:flex;align-items:center;justify-content:center;width:1.4rem;height:1.4rem;border-radius:50%;background:#8d8d8d;color:#fff;pointer-events:none}
+.image-status svg{width:.9rem;height:.9rem}
+.image-status.is-aprovado{background:var(--success)}
+.image-status.is-enviado{background:var(--blue)}
+.image-status.is-reprovado{background:var(--danger)}
+.image-status.is-nao_aplicavel{background:#6f6f6f}
+.image-status.is-pendente{background:#8d8d8d}
 .image-card a{cursor:zoom-in}
 .lightbox{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:3rem 3.5rem;background:#161616f2}
 .lightbox[hidden]{display:none}
@@ -308,8 +343,20 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-of
           {{if $field.Images}}
           <div class="images">
             {{range $index, $image := $field.Images}}
+            {{$status := $field.ImageStatus $index}}
             <div class="image-card">
               <a href="{{$image}}" target="_blank" rel="noopener" data-image-preview data-field="{{$field.ID}}" data-index="{{$index}}" data-src="{{$image}}" data-label="{{$field.Label}}"><img src="{{thumb $field $index}}" alt="{{$field.Label}}" loading="lazy"></a>
+              <span class="image-status is-{{$status}}" title="Status: {{statusLabel $status}}" aria-label="Status: {{statusLabel $status}}">
+                {{if or (eq $status "aprovado") (eq $status "enviado")}}
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 8.5l3.2 3L13 5"></path></svg>
+                {{else if eq $status "reprovado"}}
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"></path></svg>
+                {{else if eq $status "nao_aplicavel"}}
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 8h8"></path></svg>
+                {{else}}
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="8" cy="8" r="5.5"></circle><path d="M8 4.8V8l2.2 1.4"></path></svg>
+                {{end}}
+              </span>
               <button type="button" data-remove-image data-field="{{$field.ID}}" data-index="{{$index}}" aria-label="Excluir imagem">&times;</button>
             </div>
             {{end}}
