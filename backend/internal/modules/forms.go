@@ -50,6 +50,14 @@ type Form struct {
 	ProjectID               *int64          `db:"project_id" json:"project_id"`
 	ProjectCode             *string         `db:"project_code" json:"project_code"`
 	ProjectName             *string         `db:"project_name" json:"project_name"`
+	StationID               *int64          `db:"station_id" json:"station_id"`
+	StationSiteID           *string         `db:"station_site_id" json:"station_site_id"`
+	StationCode             *string         `db:"station_code" json:"station_code"`
+	StationMunicipio        *string         `db:"station_municipio" json:"station_municipio"`
+	StationEstado           *string         `db:"station_estado" json:"station_estado"`
+	RadioLinkID             *int64          `db:"radio_link_id" json:"radio_link_id"`
+	RadioLinkName           *string         `db:"radio_link_name" json:"radio_link_name"`
+	RadioLinkCode           *string         `db:"radio_link_code" json:"radio_link_code"`
 	Code                    string          `db:"code" json:"code"`
 	Name                    string          `db:"name" json:"name"`
 	Type                    string          `db:"type" json:"type"`
@@ -67,6 +75,8 @@ type Form struct {
 
 type FormInput struct {
 	ProjectID               *int64
+	StationID               *int64
+	RadioLinkID             *int64
 	Name                    string
 	Type                    string
 	Status                  string
@@ -76,13 +86,15 @@ type FormInput struct {
 }
 
 type FormFilter struct {
-	UserID    int64
-	Search    string
-	Status    string
-	Sort      string
-	Direction string
-	Page      int
-	PerPage   int
+	UserID      int64
+	Search      string
+	Status      string
+	StationID   int64
+	RadioLinkID int64
+	Sort        string
+	Direction   string
+	Page        int
+	PerPage     int
 }
 
 type FormStats struct {
@@ -311,6 +323,20 @@ func FormResultStatus(current string) string {
 	}
 }
 
+// formSelect centralizes the joins and derived columns used by the form
+// queries. A form may be linked to a project and to at most one asset
+// (station or radio link).
+const formSelect = `SELECT f.*, CONCAT('PRJ-', LPAD(p.id, 4, '0')) AS project_code, p.name AS project_name,
+		st.site_id AS station_site_id, st.station_id AS station_code,
+		st.municipio AS station_municipio, st.estado AS station_estado,
+		rl.name AS radio_link_name, rl.code AS radio_link_code,
+		(SELECT COUNT(*) FROM form_responses r WHERE r.form_id = f.id) AS response_count,
+		(SELECT COUNT(*) FROM form_evaluations e WHERE e.form_id = f.id) AS evaluation_count
+		FROM forms f
+		LEFT JOIN projects p ON p.id = f.project_id
+		LEFT JOIN stations st ON st.id = f.station_id
+		LEFT JOIN radio_links rl ON rl.id = f.radio_link_id`
+
 func (s *Store) ListForms(filter FormFilter) ([]Form, int, FormStats, []string, []string, error) {
 	if filter.Page < 1 {
 		filter.Page = 1
@@ -328,6 +354,14 @@ func (s *Store) ListForms(filter FormFilter) ([]Form, int, FormStats, []string, 
 	if status := strings.TrimSpace(filter.Status); status != "" {
 		conditions = append(conditions, "f.status = ?")
 		args = append(args, status)
+	}
+	if filter.StationID > 0 {
+		conditions = append(conditions, "f.station_id = ?")
+		args = append(args, filter.StationID)
+	}
+	if filter.RadioLinkID > 0 {
+		conditions = append(conditions, "f.radio_link_id = ?")
+		args = append(args, filter.RadioLinkID)
 	}
 	where := strings.Join(conditions, " AND ")
 
@@ -352,11 +386,7 @@ func (s *Store) ListForms(filter FormFilter) ([]Form, int, FormStats, []string, 
 		direction = "ASC"
 	}
 
-	query := `SELECT f.*, CONCAT('PRJ-', LPAD(p.id, 4, '0')) AS project_code, p.name AS project_name,
-		(SELECT COUNT(*) FROM form_responses r WHERE r.form_id = f.id) AS response_count,
-		(SELECT COUNT(*) FROM form_evaluations e WHERE e.form_id = f.id) AS evaluation_count
-		FROM forms f LEFT JOIN projects p ON p.id = f.project_id
-		WHERE ` + where + ` ORDER BY ` + sortColumn + ` ` + direction + `, f.id ` + direction + ` LIMIT ? OFFSET ?`
+	query := formSelect + ` WHERE ` + where + ` ORDER BY ` + sortColumn + ` ` + direction + `, f.id ` + direction + ` LIMIT ? OFFSET ?`
 	queryArgs := append(append([]any{}, args...), filter.PerPage, (filter.Page-1)*filter.PerPage)
 	forms := []Form{}
 	if err := s.DB.Select(&forms, query, queryArgs...); err != nil {
@@ -386,10 +416,7 @@ func (s *Store) ListForms(filter FormFilter) ([]Form, int, FormStats, []string, 
 
 func (s *Store) FindForm(userID, id int64) (Form, error) {
 	var form Form
-	err := s.DB.Get(&form, `SELECT f.*, CONCAT('PRJ-', LPAD(p.id, 4, '0')) AS project_code, p.name AS project_name,
-		(SELECT COUNT(*) FROM form_responses r WHERE r.form_id = f.id) AS response_count,
-		(SELECT COUNT(*) FROM form_evaluations e WHERE e.form_id = f.id) AS evaluation_count
-		FROM forms f LEFT JOIN projects p ON p.id = f.project_id
+	err := s.DB.Get(&form, formSelect+`
 		WHERE f.id = ? AND f.user_id = ? AND f.deleted_at IS NULL`, id, userID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return form, ErrNotFound
@@ -400,10 +427,7 @@ func (s *Store) FindForm(userID, id int64) (Form, error) {
 
 func (s *Store) FindFormByToken(token string) (Form, error) {
 	var form Form
-	err := s.DB.Get(&form, `SELECT f.*, CONCAT('PRJ-', LPAD(p.id, 4, '0')) AS project_code, p.name AS project_name,
-		(SELECT COUNT(*) FROM form_responses r WHERE r.form_id = f.id) AS response_count,
-		(SELECT COUNT(*) FROM form_evaluations e WHERE e.form_id = f.id) AS evaluation_count
-		FROM forms f LEFT JOIN projects p ON p.id = f.project_id
+	err := s.DB.Get(&form, formSelect+`
 		WHERE f.public_token = ? AND f.deleted_at IS NULL`, strings.TrimSpace(token))
 	if errors.Is(err, sql.ErrNoRows) {
 		return form, ErrNotFound
@@ -443,9 +467,9 @@ func (s *Store) CreateForm(userID int64, input FormInput) (Form, error) {
 		fields = json.RawMessage("[]")
 	}
 	result, err := s.DB.Exec(`INSERT INTO forms
-		(user_id, project_id, code, name, type, status, allows_multiple_responses, public_token, steps, fields, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		userID, input.ProjectID, s.generateFormCode(userID), strings.TrimSpace(input.Name), typ, status,
+		(user_id, project_id, station_id, radio_link_id, code, name, type, status, allows_multiple_responses, public_token, steps, fields, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		userID, input.ProjectID, input.StationID, input.RadioLinkID, s.generateFormCode(userID), strings.TrimSpace(input.Name), typ, status,
 		input.AllowsMultipleResponses, strings.ReplaceAll(uuid.NewString(), "-", ""), steps, fields, timestamp, timestamp)
 	if err != nil {
 		return Form{}, err
@@ -456,9 +480,9 @@ func (s *Store) CreateForm(userID int64, input FormInput) (Form, error) {
 
 func (s *Store) UpdateForm(userID, id int64, input FormInput) (Form, error) {
 	status := strings.TrimSpace(input.Status)
-	_, err := s.DB.Exec(`UPDATE forms SET project_id = ?, name = ?, type = ?, status = COALESCE(NULLIF(?, ''), status),
+	_, err := s.DB.Exec(`UPDATE forms SET project_id = ?, station_id = ?, radio_link_id = ?, name = ?, type = ?, status = COALESCE(NULLIF(?, ''), status),
 		allows_multiple_responses = ?, updated_at = ? WHERE id = ? AND user_id = ? AND deleted_at IS NULL`,
-		input.ProjectID, strings.TrimSpace(input.Name), strings.TrimSpace(input.Type), status,
+		input.ProjectID, input.StationID, input.RadioLinkID, strings.TrimSpace(input.Name), strings.TrimSpace(input.Type), status,
 		input.AllowsMultipleResponses, now(), id, userID)
 	if err != nil {
 		return Form{}, err

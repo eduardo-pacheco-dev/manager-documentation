@@ -285,6 +285,17 @@ func (s *Server) radioLinkStations(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"data": items})
 }
 
+// radioLinkOptions feeds the radio link pickers used by other modules.
+func (s *Server) radioLinkOptions(w http.ResponseWriter, r *http.Request) {
+	limit := parsePositiveInt(r.URL.Query().Get("limit"), 30)
+	items, err := s.Modules.SearchRadioLinkOptions(r.URL.Query().Get("search"), limit)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Não foi possível buscar os rádio links.", nil)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": items})
+}
+
 func normalizeRadioLinkPayload(payload *radioLinkPayload) {
 	payload.Name = strings.TrimSpace(payload.Name)
 	payload.Code = strings.TrimSpace(payload.Code)

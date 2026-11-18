@@ -528,6 +528,16 @@ func seedForms(m *modules.Store, admin models.User) error {
 	if err := m.DB.Get(&firstProject, `SELECT id FROM projects WHERE owner_id = ? ORDER BY id LIMIT 1`, admin.ID); err == nil {
 		projectID = &firstProject
 	}
+	var stationID *int64
+	var firstStation int64
+	if err := m.DB.Get(&firstStation, `SELECT id FROM stations ORDER BY id LIMIT 1`); err == nil {
+		stationID = &firstStation
+	}
+	var radioLinkID *int64
+	var firstRadioLink int64
+	if err := m.DB.Get(&firstRadioLink, `SELECT id FROM radio_links ORDER BY id LIMIT 1`); err == nil {
+		radioLinkID = &firstRadioLink
+	}
 
 	steps := []modules.FormStep{
 		{
@@ -587,7 +597,7 @@ func seedForms(m *modules.Store, admin models.User) error {
 
 	filledSteps, _ := json.Marshal(steps)
 	_, err = m.CreateForm(admin.ID, modules.FormInput{
-		ProjectID: projectID, Name: "Checklist de Segurança",
+		ProjectID: projectID, StationID: stationID, Name: "Checklist de Segurança",
 		Type: "Checklist", Status: "Pendente", Steps: filledSteps,
 	})
 	if err != nil {
@@ -595,7 +605,7 @@ func seedForms(m *modules.Store, admin models.User) error {
 	}
 
 	_, err = m.CreateForm(admin.ID, modules.FormInput{
-		ProjectID: projectID, Name: "Vistoria Periódica - Abrigo",
+		ProjectID: projectID, RadioLinkID: radioLinkID, Name: "Vistoria Periódica - Abrigo",
 		Type: "Vistoria", Status: "Em preenchimento", Steps: filledSteps,
 		AllowsMultipleResponses: true,
 	})

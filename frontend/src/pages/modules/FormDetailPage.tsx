@@ -37,6 +37,7 @@ import {
   fieldStatusTag,
   formImageThumbnail,
   formStatusTag,
+  formTargetLabel,
   publicFormLink,
 } from '../../lib/forms';
 import type { FormDetailResponse, FormEvaluationRecord, FormField, FormResponseRecord, FormStep } from '../../lib/types';
@@ -349,6 +350,12 @@ export function FormDetailPage() {
   const answeredCount = countAnsweredFields(steps);
   const hasAnswers = answeredCount > 0;
   const publicLink = publicFormLink(form.public_token);
+  const targetLabel = formTargetLabel(form);
+  const targetHref = form.station_id
+    ? `/stations/${form.station_id}`
+    : form.radio_link_id
+      ? `/radio-links/${form.radio_link_id}`
+      : null;
   const evaluateRoute = `/forms/${form.id}/evaluate${selectedResponse ? `?response=${selectedResponse.id}` : ''}`;
   const previewFile = preview?.type === 'file' ? preview : null;
   const previewExtension = previewFile ? fileExtension(previewFile.name) : '';
@@ -375,6 +382,7 @@ export function FormDetailPage() {
             {form.project_name && (
               <Tag type="purple" size="sm">[{form.project_code}] {form.project_name}</Tag>
             )}
+            {targetLabel && <Tag type="teal" size="sm">{targetLabel}</Tag>}
           </span>
         }
         actions={
@@ -454,6 +462,7 @@ export function FormDetailPage() {
               <div><dt>Status</dt><dd>{form.status}</dd></div>
               <div><dt>Tipo</dt><dd>{form.type}</dd></div>
               <div><dt>Projeto</dt><dd>{form.project_name ?? '—'}</dd></div>
+              <div><dt>Vínculo</dt><dd>{targetHref ? <Link to={targetHref}>{targetLabel}</Link> : '—'}</dd></div>
               <div><dt>Seções</dt><dd>{formSteps.length}</dd></div>
               <div><dt>Perguntas</dt><dd>{formSteps.reduce((sum, step) => sum + step.fields.length, 0)}</dd></div>
               <div><dt>Respostas</dt><dd>{form.response_count}</dd></div>

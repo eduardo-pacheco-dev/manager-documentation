@@ -202,6 +202,7 @@ func (s *Server) Router() http.Handler {
 				radio.Get("/", s.radioLinksIndex)
 				radio.Post("/", s.radioLinksCreate)
 				radio.Get("/stations", s.radioLinkStations)
+				radio.Get("/options", s.radioLinkOptions)
 				radio.Get("/{id}", s.radioLinksShow)
 				radio.Put("/{id}", s.radioLinksUpdate)
 				radio.Delete("/{id}", s.radioLinksDelete)

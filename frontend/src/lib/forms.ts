@@ -72,6 +72,27 @@ export function publicFormLink(token: string): string {
   return `${window.location.origin}/f/${token}`;
 }
 
+// formTargetLabel describes the asset a form is attached to (station or
+// radio link), or null when it is not linked to one.
+export function formTargetLabel(form: {
+  station_id: number | null;
+  station_site_id: string | null;
+  station_code: string | null;
+  station_municipio: string | null;
+  station_estado: string | null;
+  radio_link_id: number | null;
+  radio_link_name: string | null;
+}): string | null {
+  if (form.station_id) {
+    const location = [form.station_municipio, form.station_estado].filter(Boolean).join('/');
+    return `Estação ${form.station_site_id ?? `#${form.station_id}`}${form.station_code ? ` (${form.station_code})` : ''}${location ? ` — ${location}` : ''}`;
+  }
+  if (form.radio_link_id) {
+    return `Rádio link ${form.radio_link_name ?? `#${form.radio_link_id}`}`;
+  }
+  return null;
+}
+
 // formImageThumbnail prefers the generated low-resolution thumbnail. Seed and
 // legacy images may only have the full-size URL; Lorem Picsum URLs are reduced
 // on the fly so the demo does not download 640px photos for 128px previews.

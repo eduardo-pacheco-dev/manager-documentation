@@ -215,6 +215,14 @@ export interface FormRecord {
   project_id: number | null;
   project_code: string | null;
   project_name: string | null;
+  station_id: number | null;
+  station_site_id: string | null;
+  station_code: string | null;
+  station_municipio: string | null;
+  station_estado: string | null;
+  radio_link_id: number | null;
+  radio_link_name: string | null;
+  radio_link_code: string | null;
   code: string;
   name: string;
   type: string;

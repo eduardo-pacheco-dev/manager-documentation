@@ -19,6 +19,8 @@ import (
 
 type formPayload struct {
 	ProjectID               *int64             `json:"project_id"`
+	StationID               *int64             `json:"station_id"`
+	RadioLinkID             *int64             `json:"radio_link_id"`
 	Name                    string             `json:"name"`
 	Type                    string             `json:"type"`
 	Status                  string             `json:"status"`
@@ -44,13 +46,15 @@ func (s *Server) formsIndex(w http.ResponseWriter, r *http.Request) {
 		perPage = 100
 	}
 	forms, total, stats, statuses, types, err := s.Modules.ListForms(modules.FormFilter{
-		UserID:    user.ID,
-		Search:    query.Get("search"),
-		Status:    query.Get("status"),
-		Sort:      query.Get("sort"),
-		Direction: query.Get("direction"),
-		Page:      page,
-		PerPage:   perPage,
+		UserID:      user.ID,
+		Search:      query.Get("search"),
+		Status:      query.Get("status"),
+		StationID:   int64(parsePositiveInt(query.Get("station_id"), 0)),
+		RadioLinkID: int64(parsePositiveInt(query.Get("radio_link_id"), 0)),
+		Sort:        query.Get("sort"),
+		Direction:   query.Get("direction"),
+		Page:        page,
+		PerPage:     perPage,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Não foi possível carregar os formulários.", nil)
@@ -86,6 +90,29 @@ func mergeFormOptions(configured, existing []string) []string {
 		result = append(result, value)
 	}
 	return result
+}
+
+// validateFormAssets enforces that a form is linked to at most one asset and
+// that the referenced station or radio link exists.
+func (s *Server) validateFormAssets(payload formPayload) validationErrors {
+	fields := validationErrors{}
+	if payload.StationID != nil && payload.RadioLinkID != nil {
+		fields.add("station_id", "Escolha uma estação ou um rádio link, não ambos.")
+		return fields
+	}
+	if payload.StationID != nil {
+		var count int
+		if err := s.Modules.DB.Get(&count, `SELECT COUNT(*) FROM stations WHERE id = ?`, *payload.StationID); err != nil || count == 0 {
+			fields.add("station_id", "A estação selecionada não existe.")
+		}
+	}
+	if payload.RadioLinkID != nil {
+		var count int
+		if err := s.Modules.DB.Get(&count, `SELECT COUNT(*) FROM radio_links WHERE id = ?`, *payload.RadioLinkID); err != nil || count == 0 {
+			fields.add("radio_link_id", "O rádio link selecionado não existe.")
+		}
+	}
+	return fields
 }
 
 func (s *Server) formsShow(w http.ResponseWriter, r *http.Request) {
@@ -132,6 +159,9 @@ func (s *Server) formsCreate(w http.ResponseWriter, r *http.Request) {
 	if len([]rune(payload.Name)) > 255 {
 		fields.add("name", "O nome deve ter no máximo 255 caracteres.")
 	}
+	for name, message := range s.validateFormAssets(payload) {
+		fields.add(name, message)
+	}
 	if !fields.empty() {
 		writeValidation(w, fields)
 		return
@@ -150,6 +180,8 @@ func (s *Server) formsCreate(w http.ResponseWriter, r *http.Request) {
 	steps, _ := json.Marshal(payload.Steps)
 	form, err := s.Modules.CreateForm(currentUser(r).ID, modules.FormInput{
 		ProjectID:               payload.ProjectID,
+		StationID:               payload.StationID,
+		RadioLinkID:             payload.RadioLinkID,
 		Name:                    payload.Name,
 		Type:                    payload.Type,
 		Status:                  payload.Status,
@@ -187,12 +219,17 @@ func (s *Server) formsUpdate(w http.ResponseWriter, r *http.Request) {
 	if strings.TrimSpace(payload.Status) == "" {
 		fields.add("status", "Selecione o status do formulário.")
 	}
+	for name, message := range s.validateFormAssets(payload) {
+		fields.add(name, message)
+	}
 	if !fields.empty() {
 		writeValidation(w, fields)
 		return
 	}
 	form, err := s.Modules.UpdateForm(currentUser(r).ID, id, modules.FormInput{
 		ProjectID:               payload.ProjectID,
+		StationID:               payload.StationID,
+		RadioLinkID:             payload.RadioLinkID,
 		Name:                    payload.Name,
 		Type:                    payload.Type,
 		Status:                  payload.Status,

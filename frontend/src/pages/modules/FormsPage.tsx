@@ -31,7 +31,7 @@ import { FormModal } from '../../components/FormModal';
 import { useToast } from '../../contexts/ToastContext';
 import { api } from '../../lib/api';
 import { errorMessage, relativeTime } from '../../lib/format';
-import { formStatusTag, publicFormLink } from '../../lib/forms';
+import { formStatusTag, formTargetLabel, publicFormLink } from '../../lib/forms';
 import type { FormRecord, FormsListResponse } from '../../lib/types';
 
 type ViewMode = 'table' | 'cards' | 'compact';
@@ -262,6 +262,7 @@ export function FormsPage() {
                     </button>
                   </th>
                   <th className="hide-md">Projeto</th>
+                  <th className="hide-md">Vínculo</th>
                   <th className="hide-sm">
                     <button type="button" className="sort-button" onClick={() => toggleSort('type')}>
                       {sortLabel('type', 'Tipo')}
@@ -294,6 +295,7 @@ export function FormsPage() {
                     <td className="hide-md">
                       {form.project_name ? `[${form.project_code}] ${form.project_name}` : '—'}
                     </td>
+                    <td className="hide-md">{formTargetLabel(form) ?? '—'}</td>
                     <td className="hide-sm">{form.type}</td>
                     <td>
                       <Tag type={formStatusTag(form.status)} size="sm">
@@ -340,7 +342,8 @@ export function FormsPage() {
               </div>
               <p className="user-card__meta">
                 {form.project_name ? `[${form.project_code}] ${form.project_name}` : 'Sem projeto'} ·{' '}
-                {form.response_count} resposta(s) · {relativeTime(form.updated_at)}
+                {formTargetLabel(form) ?? 'Sem vínculo'} · {form.response_count} resposta(s) ·{' '}
+                {relativeTime(form.updated_at)}
               </p>
               <div className="user-card__actions">
                 <Button kind="ghost" size="sm" renderIcon={Edit} onClick={() => navigate(`/forms/${form.id}/edit`)}>Editar</Button>
@@ -360,6 +363,7 @@ export function FormsPage() {
                   {form.code} · {form.name}
                 </button>
                 <span>{form.type} · {form.response_count} resposta(s)</span>
+                {formTargetLabel(form) && <span>{formTargetLabel(form)}</span>}
               </div>
               <Tag type={formStatusTag(form.status)} size="sm">{form.status}</Tag>
               <p className="user-card__meta">{relativeTime(form.updated_at)}</p>

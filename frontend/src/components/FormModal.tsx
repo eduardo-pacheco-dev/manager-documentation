@@ -3,6 +3,8 @@ import { Modal, Select, SelectItem, TextInput } from '@carbon/react';
 import { useToast } from '../contexts/ToastContext';
 import { api } from '../lib/api';
 import { errorMessage } from '../lib/format';
+import { StationSearch } from './StationSearch';
+import { RadioLinkSearch } from './RadioLinkSearch';
 import type { FormSettings, FormTemplateRecord } from '../lib/types';
 
 interface Props {
@@ -22,6 +24,11 @@ export function FormModal({ open, types, statuses, templates, settings, onClose,
   const [status, setStatus] = useState(statuses[0] ?? 'Pendente');
   const [templateId, setTemplateId] = useState('');
   const [multiple, setMultiple] = useState('0');
+  const [targetKind, setTargetKind] = useState<'none' | 'station' | 'radio'>('none');
+  const [stationId, setStationId] = useState<number | null>(null);
+  const [stationLabel, setStationLabel] = useState<string | null>(null);
+  const [radioLinkId, setRadioLinkId] = useState<number | null>(null);
+  const [radioLinkLabel, setRadioLinkLabel] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
@@ -31,6 +38,11 @@ export function FormModal({ open, types, statuses, templates, settings, onClose,
     setType(types[0] ?? 'Registro Fotográfico');
     setStatus(statuses[0] ?? 'Pendente');
     setMultiple('0');
+    setTargetKind('none');
+    setStationId(null);
+    setStationLabel(null);
+    setRadioLinkId(null);
+    setRadioLinkLabel(null);
     setTemplateId(settings?.default_template_id ? String(settings.default_template_id) : '');
     setFieldErrors({});
   }, [open, types, statuses, settings]);
@@ -45,6 +57,8 @@ export function FormModal({ open, types, statuses, templates, settings, onClose,
       const response = await api.post<{ data: { form: { id: number } } }>('/forms', {
         name: name.trim(),
         project_id: null,
+        station_id: targetKind === 'station' ? stationId : null,
+        radio_link_id: targetKind === 'radio' ? radioLinkId : null,
         type,
         status,
         allows_multiple_responses: multiple === '1',
@@ -121,6 +135,52 @@ export function FormModal({ open, types, statuses, templates, settings, onClose,
             ))}
           </Select>
         </div>
+
+        <Select
+          id="form-target"
+          labelText="Vínculo (opcional)"
+          value={targetKind}
+          onChange={(event) => {
+            const value = event.target.value as 'none' | 'station' | 'radio';
+            setTargetKind(value);
+            if (value !== 'station') {
+              setStationId(null);
+              setStationLabel(null);
+            }
+            if (value !== 'radio') {
+              setRadioLinkId(null);
+              setRadioLinkLabel(null);
+            }
+          }}
+        >
+          <SelectItem value="none" text="Sem vínculo" />
+          <SelectItem value="station" text="Estação" />
+          <SelectItem value="radio" text="Rádio link" />
+        </Select>
+
+        {targetKind === 'station' && (
+          <StationSearch
+            id="form-station"
+            value={stationId}
+            valueLabel={stationLabel}
+            onChange={(id, station) => {
+              setStationId(id);
+              setStationLabel(station?.site_id ?? null);
+            }}
+          />
+        )}
+
+        {targetKind === 'radio' && (
+          <RadioLinkSearch
+            id="form-radio-link"
+            value={radioLinkId}
+            valueLabel={radioLinkLabel}
+            onChange={(id, link) => {
+              setRadioLinkId(id);
+              setRadioLinkLabel(link?.name ?? null);
+            }}
+          />
+        )}
 
         <Select
           id="form-multiple"

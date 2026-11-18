@@ -20,10 +20,12 @@ import {
 } from '@carbon/react';
 import { PageHeader } from '../../components/PageHeader';
 import { FormBuilder } from '../../components/FormBuilder';
+import { StationSearch } from '../../components/StationSearch';
+import { RadioLinkSearch } from '../../components/RadioLinkSearch';
 import { useToast } from '../../contexts/ToastContext';
 import { api } from '../../lib/api';
 import { errorMessage, relativeTime } from '../../lib/format';
-import { formStatusTag, publicFormLink } from '../../lib/forms';
+import { formStatusTag, formTargetLabel, publicFormLink } from '../../lib/forms';
 import type { FormDetailResponse } from '../../lib/types';
 
 interface ProjectOption {
@@ -53,6 +55,11 @@ export function FormEditPage() {
     allows_multiple_responses: '0',
   });
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [targetKind, setTargetKind] = useState<'none' | 'station' | 'radio'>('none');
+  const [stationId, setStationId] = useState<number | null>(null);
+  const [stationLabel, setStationLabel] = useState<string | null>(null);
+  const [radioLinkId, setRadioLinkId] = useState<number | null>(null);
+  const [radioLinkLabel, setRadioLinkLabel] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -72,6 +79,11 @@ export function FormEditPage() {
         status: form.status,
         allows_multiple_responses: form.allows_multiple_responses ? '1' : '0',
       });
+      setTargetKind(form.station_id ? 'station' : form.radio_link_id ? 'radio' : 'none');
+      setStationId(form.station_id);
+      setStationLabel(form.station_site_id);
+      setRadioLinkId(form.radio_link_id);
+      setRadioLinkLabel(form.radio_link_name);
     } catch (error) {
       setNotFound(true);
       toast.error('Não foi possível carregar o formulário', errorMessage(error));
@@ -103,6 +115,8 @@ export function FormEditPage() {
       const response = await api.put<{ message: string }>(`/forms/${id}`, {
         name: details.name.trim(),
         project_id: details.project_id ? Number(details.project_id) : null,
+        station_id: targetKind === 'station' ? stationId : null,
+        radio_link_id: targetKind === 'radio' ? radioLinkId : null,
         type: details.type,
         status: details.status,
         allows_multiple_responses: details.allows_multiple_responses === '1',
@@ -167,6 +181,7 @@ export function FormEditPage() {
     (item, index, list) => list.indexOf(item) === index,
   );
   const publicLink = publicFormLink(form.public_token);
+  const targetLabel = formTargetLabel(form);
 
   return (
     <div className="page">
@@ -185,6 +200,7 @@ export function FormEditPage() {
             <Tag type={formStatusTag(form.status)} size="sm">{form.status}</Tag>
             <Tag type="blue" size="sm">{form.type}</Tag>
             <Tag type="gray" size="sm">{form.allows_multiple_responses ? 'Múltiplas respostas' : 'Resposta única'}</Tag>
+            {targetLabel && <Tag type="teal" size="sm">{targetLabel}</Tag>}
           </span>
         }
         actions={
@@ -255,6 +271,52 @@ export function FormEditPage() {
                         />
                       ))}
                     </Select>
+
+                    <Select
+                      id="edit-target"
+                      labelText="Vínculo (opcional)"
+                      value={targetKind}
+                      onChange={(event) => {
+                        const value = event.target.value as 'none' | 'station' | 'radio';
+                        setTargetKind(value);
+                        if (value !== 'station') {
+                          setStationId(null);
+                          setStationLabel(null);
+                        }
+                        if (value !== 'radio') {
+                          setRadioLinkId(null);
+                          setRadioLinkLabel(null);
+                        }
+                      }}
+                    >
+                      <SelectItem value="none" text="Sem vínculo" />
+                      <SelectItem value="station" text="Estação" />
+                      <SelectItem value="radio" text="Rádio link" />
+                    </Select>
+
+                    {targetKind === 'station' && (
+                      <StationSearch
+                        id="edit-station"
+                        value={stationId}
+                        valueLabel={stationLabel}
+                        onChange={(value, station) => {
+                          setStationId(value);
+                          setStationLabel(station?.site_id ?? null);
+                        }}
+                      />
+                    )}
+
+                    {targetKind === 'radio' && (
+                      <RadioLinkSearch
+                        id="edit-radio-link"
+                        value={radioLinkId}
+                        valueLabel={radioLinkLabel}
+                        onChange={(value, link) => {
+                          setRadioLinkId(value);
+                          setRadioLinkLabel(link?.name ?? null);
+                        }}
+                      />
+                    )}
 
                     <TextInput
                       id="edit-name"

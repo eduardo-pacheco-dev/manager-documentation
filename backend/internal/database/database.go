@@ -1252,6 +1252,15 @@ var migrations = [][]string{
 			CONSTRAINT fk_form_user_settings_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 	},
+	{
+		`ALTER TABLE forms
+			ADD COLUMN station_id BIGINT NULL AFTER project_id,
+			ADD COLUMN radio_link_id BIGINT NULL AFTER station_id,
+			ADD KEY idx_forms_station (station_id),
+			ADD KEY idx_forms_radio_link (radio_link_id),
+			ADD CONSTRAINT fk_forms_station FOREIGN KEY (station_id) REFERENCES stations(id) ON DELETE SET NULL,
+			ADD CONSTRAINT fk_forms_radio_link FOREIGN KEY (radio_link_id) REFERENCES radio_links(id) ON DELETE SET NULL`,
+	},
 }
 
 // CleanupSessions removes expired sessions and tokens. It is safe to call at

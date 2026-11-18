@@ -23,6 +23,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { api } from '../../lib/api';
 import { errorMessage, relativeTime } from '../../lib/format';
+import type { FormRecord, FormsListResponse } from '../../lib/types';
 
 interface Attachment {
   id: number; category: string; original_name: string; url: string; size: number;
@@ -89,6 +90,7 @@ export function StationDetailPage() {
   const { user } = useAuth();
   const toast = useToast();
   const [station, setStation] = useState<Station | null>(null);
+  const [forms, setForms] = useState<FormRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -104,6 +106,10 @@ export function StationDetailPage() {
       const response = await api.get<{ data: { station: Station } }>(`/stations/${id}`);
       const loaded = response.data.station;
       setStation({ ...loaded, attachments: loaded.attachments ?? [], comments: loaded.comments ?? [] });
+      const formsResponse = await api
+        .get<FormsListResponse>(`/forms?station_id=${id}&per_page=100`)
+        .catch(() => null);
+      setForms(formsResponse?.data ?? []);
     } catch {
       setNotFound(true);
     } finally {
@@ -388,6 +394,23 @@ export function StationDetailPage() {
               <div><dt>Criado em</dt><dd>{relativeTime(station.created_at)}</dd></div>
               <div><dt>Atualizado em</dt><dd>{relativeTime(station.updated_at)}</dd></div>
             </dl>
+          </Tile>
+          <Tile className="nokia-detail-aside__card">
+            <h2>Formulários</h2>
+            {forms.length === 0 ? (
+              <p className="muted">Nenhum formulário vinculado a esta estação.</p>
+            ) : (
+              <div className="module-main">
+                {forms.map((form) => (
+                  <div className="module-nav-row" key={form.id}>
+                    <button type="button" onClick={() => navigate(`/forms/${form.id}`)}>
+                      <span>{form.code} · {form.name}</span>
+                      <span className="module-nav-item__count">{form.status}</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </Tile>
         </aside>
       </div>

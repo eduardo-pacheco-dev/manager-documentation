@@ -94,6 +94,37 @@ const radioLinkSelect = `SELECT r.*,
 
 var radioLinkOrder = ` ORDER BY r.updated_at DESC, r.id DESC`
 
+// RadioLinkOption is the lightweight shape used by pickers such as the forms
+// module, where only the identification of the link is needed.
+type RadioLinkOption struct {
+	ID   int64   `db:"id" json:"id"`
+	Name string  `db:"name" json:"name"`
+	Code *string `db:"code" json:"code"`
+}
+
+func (s *Store) SearchRadioLinkOptions(search string, limit int) ([]RadioLinkOption, error) {
+	if limit <= 0 || limit > 50 {
+		limit = 20
+	}
+	search = strings.TrimSpace(search)
+	items := []RadioLinkOption{}
+	query := `SELECT id, name, code FROM radio_links`
+	args := []any{}
+	if search != "" {
+		like := "%" + search + "%"
+		query += ` WHERE (name LIKE ? OR COALESCE(code, '') LIKE ? OR COALESCE(technology, '') LIKE ?)`
+		args = append(args, like, like, like)
+	}
+	if search != "" {
+		query += ` ORDER BY name ASC LIMIT ?`
+	} else {
+		query += ` ORDER BY updated_at DESC LIMIT ?`
+	}
+	args = append(args, limit)
+	err := s.DB.Select(&items, query, args...)
+	return items, err
+}
+
 func (s *Store) ListRadioLinks(filter RadioLinkFilter) ([]RadioLink, int, RadioLinkStats, []string, []string, error) {
 	conditions := []string{"1 = 1"}
 	args := []any{}

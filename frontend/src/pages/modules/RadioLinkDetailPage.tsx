@@ -26,7 +26,7 @@ import {
 import { useToast } from '../../contexts/ToastContext';
 import { api } from '../../lib/api';
 import { errorMessage, relativeTime } from '../../lib/format';
-import type { RadioLink } from '../../lib/types';
+import type { FormRecord, FormsListResponse, RadioLink } from '../../lib/types';
 
 interface StationDetails {
   id: number;
@@ -71,6 +71,7 @@ export function RadioLinkDetailPage() {
   const [link, setLink] = useState<RadioLink | null>(null);
   const [stationA, setStationA] = useState<StationDetails | null>(null);
   const [stationB, setStationB] = useState<StationDetails | null>(null);
+  const [forms, setForms] = useState<FormRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -92,6 +93,10 @@ export function RadioLinkDetailPage() {
       ]);
       setStationA(a?.data.station ?? null);
       setStationB(b?.data.station ?? null);
+      const formsResponse = await api
+        .get<FormsListResponse>(`/forms?radio_link_id=${id}&per_page=100`)
+        .catch(() => null);
+      setForms(formsResponse?.data ?? []);
     } catch (error) {
       setNotFound(true);
       toast.error('Não foi possível carregar o rádio link', errorMessage(error));
@@ -475,6 +480,23 @@ export function RadioLinkDetailPage() {
         <aside className="nokia-detail-aside">
           {endpointSection('Ponta A', 'Estação de origem', stationA, link.station_a_id)}
           {endpointSection('Ponta B', 'Estação de destino', stationB, link.station_b_id)}
+          <Tile className="nokia-detail-aside__card">
+            <h2>Formulários</h2>
+            {forms.length === 0 ? (
+              <p className="muted">Nenhum formulário vinculado a este rádio link.</p>
+            ) : (
+              <div className="module-main">
+                {forms.map((form) => (
+                  <div className="module-nav-row" key={form.id}>
+                    <button type="button" onClick={() => navigate(`/forms/${form.id}`)}>
+                      <span>{form.code} · {form.name}</span>
+                      <span className="module-nav-item__count">{form.status}</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Tile>
         </aside>
       </div>
 
