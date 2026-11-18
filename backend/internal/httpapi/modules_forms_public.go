@@ -234,10 +234,12 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-of
 .btn--ghost{background:transparent;color:var(--blue);border-color:var(--blue)}
 .btn--ghost:hover{background:#edf5ff;color:var(--blue-hover)}
 .step-label{color:var(--helper);font-size:.75rem}
-.sync-state{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap}
-.btn--sync{display:inline-flex;align-items:center;gap:.4rem;min-height:2.5rem;padding:0 .9rem}
-.btn--sync svg{width:1rem;height:1rem}
-.btn--sync[disabled] svg{animation:spin 1s linear infinite}
+.header-actions{display:flex;align-items:center;gap:.75rem}
+.header-sync{display:inline-flex;align-items:center;justify-content:center;width:2rem;height:2rem;border:0;background:transparent;color:#c6c6c6;cursor:pointer}
+.header-sync:hover{background:#393939;color:#fff}
+.header-sync svg{width:1rem;height:1rem}
+.header-sync[disabled]{cursor:progress;color:#8d8d8d}
+.header-sync[disabled] svg{animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .form-step[hidden]{display:none}
 .btn{display:inline-flex;align-items:center;justify-content:center;min-height:3rem;padding:0 1.25rem;border:1px solid transparent;background:var(--blue);color:#fff;font-family:inherit;font-size:.875rem;cursor:pointer;text-decoration:none}
@@ -252,7 +254,12 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-of
 <body>
 <header class="header">
   <div class="brand"><span class="mark">DC</span> Documentation Center</div>
-  <span class="meta">Formulário externo</span>
+  <div class="header-actions">
+    <span class="meta">Formulário externo</span>
+    <button class="header-sync" type="button" id="sync-button" aria-label="Sincronizar" title="Sincronizar">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.46-3.54"></path><path d="M13 2.5V5h-2.5"></path></svg>
+    </button>
+  </div>
 </header>
 <main class="shell">
   <p class="eyebrow">Formulário externo</p>
@@ -389,13 +396,7 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-of
     {{end}}
 
     <div class="actions">
-      <div class="sync-state">
-        <button class="btn btn--ghost btn--sync" type="button" id="sync-button">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.46-3.54"></path><path d="M13 2.5V5h-2.5"></path></svg>
-          Sincronizar
-        </button>
-        <span class="save-state" id="save-state"></span>
-      </div>
+      <span class="save-state" id="save-state"></span>
       <div class="wizard-actions">
         <button class="btn btn--ghost" type="button" id="wizard-prev">Anterior</button>
         <span class="step-label" id="wizard-label"></span>
