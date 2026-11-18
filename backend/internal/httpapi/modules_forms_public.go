@@ -39,6 +39,7 @@ type formPublicField struct {
 type formPublicStep struct {
 	ID     string
 	Title  string
+	Status string
 	Fields []formPublicField
 }
 
@@ -125,6 +126,17 @@ h2{margin:0;font-size:1.05rem;font-weight:500}
 .bar span{display:block;height:100%;background:var(--blue)}
 .panel{background:var(--layer);border:1px solid var(--border);padding:1.5rem;margin-bottom:1rem}
 .section-head{display:flex;align-items:center;justify-content:space-between;gap:1rem;border-bottom:1px solid var(--border);padding-bottom:.85rem;margin-bottom:1rem}
+.stepper{display:grid;grid-template-columns:repeat(auto-fit,minmax(8.5rem,1fr));gap:.4rem;margin:0 0 1rem;padding:0;list-style:none}
+.stepper li{display:flex}
+.stepper button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.4rem;width:100%;height:100%;padding:.75rem .5rem;border:1px solid var(--border);background:var(--layer);color:var(--muted);font-family:inherit;font-size:.8rem;line-height:1.25;text-align:center;cursor:pointer}
+.stepper button:hover{border-color:var(--blue);color:var(--blue)}
+.stepper button[aria-current="step"]{border-color:var(--blue);background:#edf5ff;color:#002d9c;font-weight:500}
+.stepper .num{display:inline-flex;align-items:center;justify-content:center;width:1.4rem;height:1.4rem;flex:none;border-radius:50%;background:#e0e0e0;color:#161616;font-size:.7rem;font-weight:600}
+.stepper button[data-step-status="andamento"] .num{background:#f1c21b;color:#161616}
+.stepper button[data-step-status="aprovado"] .num{background:var(--success);color:#fff}
+.stepper button[data-step-status="vazio"]{border-bottom:3px solid #c6c6c6}
+.stepper button[data-step-status="andamento"]{border-bottom:3px solid #f1c21b}
+.stepper button[data-step-status="aprovado"]{border-bottom:3px solid var(--success)}
 .count{color:var(--helper);font-size:.75rem}
 .alert{padding:1rem;margin-bottom:1rem;border-left:3px solid var(--success);background:var(--success-bg);color:var(--success);font-size:.85rem}
 .alert--error{border-color:var(--danger);background:var(--danger-bg);color:#a2191f}
@@ -190,6 +202,16 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-of
     <div class="empty">Este formulário ainda não possui perguntas.</div>
   {{else}}
   <form method="post" enctype="multipart/form-data" action="{{.SubmitURL}}" id="public-form">
+    <ol class="stepper" id="wizard-steps" aria-label="Etapas do formulário">
+      {{range $si, $step := .Steps}}
+      <li>
+        <button type="button" data-step-target="{{$si}}" data-step-status="{{$step.Status}}">
+          <span class="num">{{inc $si}}</span>
+          <span>{{if $step.Title}}{{$step.Title}}{{else}}Seção {{inc $si}}{{end}}</span>
+        </button>
+      </li>
+      {{end}}
+    </ol>
     {{range $si, $step := .Steps}}
     <section class="panel form-step" data-form-section data-index="{{$si}}">
       <div class="section-head">
@@ -295,6 +317,8 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-of
   const nextButton = document.getElementById('wizard-next');
   const submitButton = document.getElementById('wizard-submit');
   const wizardLabel = document.getElementById('wizard-label');
+  const stepper = document.getElementById('wizard-steps');
+  const stepButtons = [...form.querySelectorAll('[data-step-target]')];
   const storageKey = 'public-form-step-' + window.location.pathname;
   let currentSection = 0;
 
@@ -304,6 +328,13 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-of
     sections.forEach((section, position) => {
       section.hidden = position !== currentSection;
     });
+    stepButtons.forEach((button, position) => {
+      if (position === currentSection) {
+        button.setAttribute('aria-current', 'step');
+      } else {
+        button.removeAttribute('aria-current');
+      }
+    });
     if (prevButton) prevButton.disabled = currentSection === 0;
     if (nextButton) nextButton.hidden = currentSection === sections.length - 1;
     if (submitButton) submitButton.hidden = currentSection !== sections.length - 1;
@@ -312,6 +343,15 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-of
       sessionStorage.setItem(storageKey, String(currentSection));
     } catch (error) {}
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const sectionIsValid = (section) => {
+    const invalid = section.querySelector(':invalid');
+    if (invalid) {
+      invalid.reportValidity();
+      return false;
+    }
+    return true;
   };
 
   if (sections.length > 1) {
@@ -325,8 +365,25 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-of
       if (section) initial = sections.indexOf(section);
     }
     showSection(initial);
+    stepButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        showSection(Number(button.dataset.stepTarget || '0'));
+      });
+    });
+    const markInProgress = (section) => {
+      if (!section) return;
+      const button = stepButtons[sections.indexOf(section)];
+      if (button && button.dataset.stepStatus === 'vazio') {
+        button.dataset.stepStatus = 'andamento';
+      }
+    };
+    form.addEventListener('input', (event) => markInProgress(event.target.closest('[data-form-section]')));
+    form.addEventListener('change', (event) => markInProgress(event.target.closest('[data-form-section]')));
     prevButton.addEventListener('click', () => showSection(currentSection - 1));
-    nextButton.addEventListener('click', () => showSection(currentSection + 1));
+    nextButton.addEventListener('click', () => {
+      if (!sectionIsValid(sections[currentSection])) return;
+      showSection(currentSection + 1);
+    });
     submitButton.addEventListener('click', (event) => {
       sections.forEach((section) => { section.hidden = false; });
       if (!form.checkValidity()) {
@@ -346,6 +403,7 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-of
       }
     });
   } else {
+    if (stepper) stepper.hidden = true;
     if (prevButton) prevButton.hidden = true;
     if (nextButton) nextButton.hidden = true;
     if (wizardLabel) wizardLabel.textContent = '';
@@ -703,6 +761,7 @@ func (s *Server) formPublicData(form modules.Form, steps []modules.FormStep) for
 			}
 			publicStep.Fields = append(publicStep.Fields, publicField)
 		}
+		publicStep.Status = formPublicStepStatus(publicStep.Fields)
 		data.Steps = append(data.Steps, publicStep)
 	}
 	data.TotalQuestions = total
@@ -712,6 +771,36 @@ func (s *Server) formPublicData(form modules.Form, steps []modules.FormStep) for
 	}
 	data.HasStructure = total > 0
 	return data
+}
+
+// formPublicStepStatus summarizes a step for the wizard indicator:
+// "aprovado" when every field is approved (or not applicable), "andamento"
+// when at least one answer was submitted, and "vazio" when nothing was filled.
+func formPublicStepStatus(fields []formPublicField) string {
+	if len(fields) == 0 {
+		return "vazio"
+	}
+	concluded := 0
+	touched := false
+	for _, field := range fields {
+		switch field.Status {
+		case "aprovado", "nao_aplicavel":
+			concluded++
+		case "enviado", "reprovado":
+			touched = true
+		default:
+			if field.Value != "" || len(field.Images) > 0 || len(field.Files) > 0 {
+				touched = true
+			}
+		}
+	}
+	if concluded == len(fields) {
+		return "aprovado"
+	}
+	if touched {
+		return "andamento"
+	}
+	return "vazio"
 }
 
 func (s *Server) renderFormPublic(w http.ResponseWriter, status int, data formPublicData) {
