@@ -291,12 +291,11 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-of
     {{end}}
 
     <div class="actions">
-      <span class="save-state" id="save-state"></span>
+      <span class="save-state" id="save-state">Salvamento automático ativo.</span>
       <div class="wizard-actions">
         <button class="btn btn--ghost" type="button" id="wizard-prev">Anterior</button>
         <span class="step-label" id="wizard-label"></span>
         <button class="btn" type="button" id="wizard-next">Próximo</button>
-        <button class="btn" type="submit" id="wizard-submit">Enviar respostas</button>
       </div>
     </div>
   </form>
@@ -315,7 +314,6 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-of
   const sections = [...form.querySelectorAll('[data-form-section]')];
   const prevButton = document.getElementById('wizard-prev');
   const nextButton = document.getElementById('wizard-next');
-  const submitButton = document.getElementById('wizard-submit');
   const wizardLabel = document.getElementById('wizard-label');
   const stepper = document.getElementById('wizard-steps');
   const stepButtons = [...form.querySelectorAll('[data-step-target]')];
@@ -337,21 +335,11 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-of
     });
     if (prevButton) prevButton.disabled = currentSection === 0;
     if (nextButton) nextButton.hidden = currentSection === sections.length - 1;
-    if (submitButton) submitButton.hidden = currentSection !== sections.length - 1;
     if (wizardLabel) wizardLabel.textContent = 'Etapa ' + (currentSection + 1) + ' de ' + sections.length;
     try {
       sessionStorage.setItem(storageKey, String(currentSection));
     } catch (error) {}
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const sectionIsValid = (section) => {
-    const invalid = section.querySelector(':invalid');
-    if (invalid) {
-      invalid.reportValidity();
-      return false;
-    }
-    return true;
   };
 
   if (sections.length > 1) {
@@ -380,22 +368,7 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-of
     form.addEventListener('input', (event) => markInProgress(event.target.closest('[data-form-section]')));
     form.addEventListener('change', (event) => markInProgress(event.target.closest('[data-form-section]')));
     prevButton.addEventListener('click', () => showSection(currentSection - 1));
-    nextButton.addEventListener('click', () => {
-      if (!sectionIsValid(sections[currentSection])) return;
-      showSection(currentSection + 1);
-    });
-    submitButton.addEventListener('click', (event) => {
-      sections.forEach((section) => { section.hidden = false; });
-      if (!form.checkValidity()) {
-        event.preventDefault();
-        const invalid = form.querySelector(':invalid');
-        if (invalid) {
-          const section = invalid.closest('[data-form-section]');
-          if (section) showSection(sections.indexOf(section));
-          invalid.reportValidity();
-        }
-      }
-    });
+    nextButton.addEventListener('click', () => showSection(currentSection + 1));
     form.addEventListener('keydown', (event) => {
       if (event.key === 'Enter' && event.target.tagName !== 'TEXTAREA' && currentSection < sections.length - 1) {
         event.preventDefault();
@@ -425,8 +398,46 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-of
     }
   };
 
-  form.querySelectorAll('input[type=file], input[name^="na_answers"]').forEach((input) => {
-    input.addEventListener('change', autosave);
+  let saveTimer = null;
+  const scheduleAutosave = (delay) => {
+    if (saveTimer) window.clearTimeout(saveTimer);
+    saveTimer = window.setTimeout(() => {
+      saveTimer = null;
+      void autosave();
+    }, delay);
+  };
+  const flushAutosave = () => {
+    if (saveTimer) {
+      window.clearTimeout(saveTimer);
+      saveTimer = null;
+    }
+    void autosave();
+  };
+
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    flushAutosave();
+  });
+  form.addEventListener('input', (event) => {
+    if (event.target.type === 'file') return;
+    scheduleAutosave(700);
+  });
+  form.addEventListener('change', (event) => {
+    if (event.target.type === 'file') {
+      flushAutosave();
+      return;
+    }
+    scheduleAutosave(250);
+  });
+  window.addEventListener('pagehide', () => {
+    if (!autosaveUrl) return;
+    if (saveTimer) {
+      window.clearTimeout(saveTimer);
+      saveTimer = null;
+    }
+    try {
+      navigator.sendBeacon(autosaveUrl, new FormData(form));
+    } catch (error) {}
   });
 
   const remove = async (url, button, type) => {
