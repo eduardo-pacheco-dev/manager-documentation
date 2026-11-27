@@ -7,6 +7,10 @@ import (
 )
 
 func (s *Server) listNotifications(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	user := currentUser(r)
 	page := parsePositiveInt(r.URL.Query().Get("page"), 1)
 	perPage := parsePositiveInt(r.URL.Query().Get("per_page"), 20)
@@ -28,6 +32,10 @@ func (s *Server) listNotifications(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) markNotificationRead(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	user := currentUser(r)
 	id := chi.URLParam(r, "id")
 	owned, err := s.Store.NotificationOwnedBy(user.ID, id)
@@ -43,6 +51,10 @@ func (s *Server) markNotificationRead(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) markAllNotificationsRead(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	user := currentUser(r)
 	if err := s.Store.MarkAllNotificationsRead(user.ID); err != nil {
 		writeError(w, http.StatusInternalServerError, "Não foi possível atualizar as notificações.", nil)
@@ -52,6 +64,10 @@ func (s *Server) markAllNotificationsRead(w http.ResponseWriter, r *http.Request
 }
 
 func (s *Server) deleteNotification(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	user := currentUser(r)
 	id := chi.URLParam(r, "id")
 	owned, err := s.Store.NotificationOwnedBy(user.ID, id)
@@ -67,6 +83,10 @@ func (s *Server) deleteNotification(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) clearNotifications(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	user := currentUser(r)
 	if err := s.Store.ClearNotifications(user.ID); err != nil {
 		writeError(w, http.StatusInternalServerError, "Não foi possível limpar as notificações.", nil)

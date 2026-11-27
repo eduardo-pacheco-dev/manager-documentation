@@ -11,6 +11,8 @@ import (
 )
 
 type authPayload struct {
+	Company              string `json:"company"`
+	CompanyID            int64  `json:"company_id"`
 	Name                 string `json:"name"`
 	Surname              string `json:"surname"`
 	Email                string `json:"email"`
@@ -23,10 +25,24 @@ type authPayload struct {
 type authResponse struct {
 	Data struct {
 		User    models.PublicUser `json:"user"`
+		Company models.Company    `json:"company"`
 		Token   string            `json:"token,omitempty"`
 		CSRF    string            `json:"csrf_token,omitempty"`
 		Modules []moduleView      `json:"modules"`
 	} `json:"data"`
+}
+
+// resolveLoginCompany accepts the company slug/ID sent by the login form. The
+// default value keeps older integrations working with the seeded company.
+func (s *Server) resolveLoginCompany(payload authPayload) (models.Company, error) {
+	identifier := strings.TrimSpace(payload.Company)
+	if payload.CompanyID > 0 {
+		return s.Store.FindCompanyByID(payload.CompanyID)
+	}
+	if identifier == "" {
+		identifier = "padrao"
+	}
+	return s.Store.FindCompanyByIdentifier(identifier)
 }
 
 func (s *Server) signup(w http.ResponseWriter, r *http.Request) {
@@ -37,6 +53,15 @@ func (s *Server) signup(w http.ResponseWriter, r *http.Request) {
 	email := normalizeEmail(payload.Email)
 	if !s.Limiter.Allow(email + "|" + clientIP(r)) {
 		writeError(w, http.StatusTooManyRequests, "Muitas tentativas. Tente novamente em alguns minutos.", nil)
+		return
+	}
+	company, companyErr := s.resolveLoginCompany(payload)
+	if companyErr != nil {
+		writeValidation(w, validationErrors{"company": "Empresa não encontrada."})
+		return
+	}
+	if !company.IsActive {
+		writeValidation(w, validationErrors{"company": "Esta empresa está desativada."})
 		return
 	}
 
@@ -63,8 +88,8 @@ func (s *Server) signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := s.Store.FindUserByEmail(email); err == nil {
-		writeValidation(w, validationErrors{"email": "Este e-mail já está em uso."})
+	if _, err := s.Store.FindUserByCompanyEmail(company.ID, email); err == nil {
+		writeValidation(w, validationErrors{"email": "Este e-mail já está em uso nesta empresa."})
 		return
 	}
 
@@ -74,6 +99,7 @@ func (s *Server) signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := models.User{
+		CompanyID:          company.ID,
 		Name:               strings.TrimSpace(payload.Name),
 		Surname:            ptr(payload.Surname),
 		Email:              email,
@@ -88,9 +114,11 @@ func (s *Server) signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = s.Notifier.Notify(user, "Sua conta foi criada", "Bem-vindo ao Documentation Center. Acesse as configurações para personalizar sua experiência.", "/settings", "success")
+	if tenant, err := s.tenantFor(company.ID); err == nil {
+		_ = tenant.Notifier.Notify(user, "Sua conta foi criada", "Bem-vindo ao Documentation Center. Acesse as configurações para personalizar sua experiência.", "/settings", "success")
+	}
 
-	s.writeAuthResponse(w, r, user, http.StatusCreated, payload.DeviceName, false)
+	s.writeAuthResponse(w, r, company, user, http.StatusCreated, payload.DeviceName, false)
 }
 
 func (s *Server) login(w http.ResponseWriter, r *http.Request) {
@@ -118,7 +146,14 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := s.Store.FindUserByEmail(email)
+	company, err := s.resolveLoginCompany(payload)
+	if err != nil || !company.IsActive {
+		writeError(w, http.StatusUnauthorized, "As credenciais informadas não correspondem a um usuário.", map[string]string{
+			"email": "As credenciais informadas não correspondem a um usuário.",
+		})
+		return
+	}
+	user, err := s.Store.FindUserByCompanyEmail(company.ID, email)
 	if err != nil || bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(payload.Password)) != nil {
 		writeError(w, http.StatusUnauthorized, "As credenciais informadas não correspondem a um usuário.", map[string]string{
 			"email": "As credenciais informadas não correspondem a um usuário.",
@@ -132,15 +167,20 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.writeAuthResponse(w, r, user, http.StatusOK, payload.DeviceName, payload.Remember)
+	s.writeAuthResponse(w, r, company, user, http.StatusOK, payload.DeviceName, payload.Remember)
 }
 
-func (s *Server) writeAuthResponse(w http.ResponseWriter, r *http.Request, user models.User, status int, deviceName string, remember bool) {
+func (s *Server) writeAuthResponse(w http.ResponseWriter, r *http.Request, company models.Company, user models.User, status int, deviceName string, remember bool) {
 	ttl := s.Config.SessionTTL
 	if remember && ttl < 30*24*time.Hour {
 		ttl = 30 * 24 * time.Hour
 	}
-	token, csrf, err := s.Store.CreateSession(user.ID, ttl)
+	sessionStore, err := s.tenantFor(user.CompanyID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Não foi possível iniciar a sessão.", nil)
+		return
+	}
+	token, csrf, err := sessionStore.Store.CreateSession(user.ID, ttl)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Não foi possível iniciar a sessão.", nil)
 		return
@@ -149,12 +189,13 @@ func (s *Server) writeAuthResponse(w http.ResponseWriter, r *http.Request, user 
 
 	response := authResponse{}
 	response.Data.User = user.Public()
+	response.Data.Company = company
 	response.Data.CSRF = csrf
 	_, enabled := modulesForUser(user)
 	response.Data.Modules = enabled
 
 	if name := strings.TrimSpace(deviceName); name != "" {
-		if apiToken, err := s.Store.CreateAPIToken(user.ID, name); err == nil {
+		if apiToken, err := sessionStore.Store.CreateAPIToken(user.ID, name); err == nil {
 			response.Data.Token = apiToken
 		}
 	}
@@ -167,11 +208,19 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 	response := struct {
 		Data struct {
 			User    models.PublicUser `json:"user"`
+			Company models.Company    `json:"company"`
 			CSRF    string            `json:"csrf_token,omitempty"`
 			Modules []moduleView      `json:"modules"`
 		} `json:"data"`
 	}{}
 	response.Data.User = auth.User.Public()
+	companyID := auth.TenantCompanyID
+	if companyID == 0 {
+		companyID = auth.User.CompanyID
+	}
+	if company, err := s.Store.FindCompanyByID(companyID); err == nil {
+		response.Data.Company = company
+	}
 	response.Data.CSRF = auth.CSRFToken
 	_, enabled := modulesForUser(auth.User)
 	response.Data.Modules = enabled
@@ -192,11 +241,19 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) showProfile(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	auth := authFrom(r)
 	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{"user": auth.User.Public()}})
 }
 
 func (s *Server) updateProfile(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	auth := authFrom(r)
 	var payload struct {
 		Name  string `json:"name"`

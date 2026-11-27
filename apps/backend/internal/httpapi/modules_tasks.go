@@ -23,6 +23,10 @@ func taskView(value string) string {
 }
 
 func (s *Server) tasksIndex(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	user := currentUser(r)
 	query := r.URL.Query()
 	view := taskView(query.Get("view"))
@@ -87,6 +91,10 @@ type taskPayload struct {
 }
 
 func (s *Server) tasksCreate(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	var payload taskPayload
 	if !decodeJSON(w, r, &payload) {
 		return
@@ -112,6 +120,10 @@ func (s *Server) tasksCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) tasksUpdate(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Tarefa não encontrada.", nil)
@@ -134,6 +146,10 @@ func (s *Server) tasksUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) tasksShow(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	task, err := s.Modules.FindTodoTask(currentUser(r).ID, id)
 	if err != nil {
@@ -144,6 +160,10 @@ func (s *Server) tasksShow(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) tasksDelete(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Tarefa não encontrada.", nil)
@@ -157,6 +177,10 @@ func (s *Server) tasksDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) tasksToggle(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	task, message, err := s.Modules.ToggleTodoTask(currentUser(r).ID, id)
 	if err != nil {
@@ -174,6 +198,10 @@ func (s *Server) tasksToggle(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) tasksToggleImportant(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	task, err := s.Modules.ToggleTodoImportant(currentUser(r).ID, id)
 	if err != nil {
@@ -184,6 +212,10 @@ func (s *Server) tasksToggleImportant(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) tasksToggleMyDay(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	task, err := s.Modules.ToggleTodoMyDay(currentUser(r).ID, id)
 	if err != nil {
@@ -194,6 +226,10 @@ func (s *Server) tasksToggleMyDay(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) tasksMove(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	var payload struct {
 		TodoListID int64  `json:"todo_list_id"`
@@ -211,6 +247,10 @@ func (s *Server) tasksMove(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) tasksCreateList(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	var payload struct {
 		Name  string `json:"name"`
 		Color string `json:"color"`
@@ -232,6 +272,10 @@ func (s *Server) tasksCreateList(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) tasksUpdateList(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	var payload struct {
 		Name  string `json:"name"`
@@ -249,6 +293,10 @@ func (s *Server) tasksUpdateList(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) tasksDeleteList(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	if err := s.Modules.DeleteTodoList(currentUser(r).ID, id); err != nil {
 		writeError(w, http.StatusNotFound, "Lista não encontrada.", nil)
@@ -258,6 +306,10 @@ func (s *Server) tasksDeleteList(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) tasksCreateStep(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	taskID, _ := parseID(r, "id")
 	var payload struct {
 		Title string `json:"title"`
@@ -278,6 +330,10 @@ func (s *Server) tasksCreateStep(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) tasksUpdateStep(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	taskID, _ := parseID(r, "id")
 	stepID, _ := parseID(r, "stepId")
 	var payload struct {
@@ -295,6 +351,10 @@ func (s *Server) tasksUpdateStep(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) tasksDeleteStep(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	taskID, _ := parseID(r, "id")
 	stepID, _ := parseID(r, "stepId")
 	if err := s.Modules.DeleteTodoStep(currentUser(r).ID, taskID, stepID); err != nil {
@@ -305,6 +365,10 @@ func (s *Server) tasksDeleteStep(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) tasksExport(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	user := currentUser(r)
 	query := r.URL.Query()
 	view := taskView(query.Get("view"))

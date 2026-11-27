@@ -3,11 +3,13 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button, Checkbox, InlineNotification, PasswordInput, TextInput, Theme } from '@carbon/react';
 import { useAuth } from '../contexts/AuthContext';
 import { ApiError } from '../lib/api';
+import { DEFAULT_COMPANY_SLUG } from '../lib/constants';
 
 export function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [company, setCompany] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(false);
@@ -23,7 +25,7 @@ export function LoginPage() {
     setErrors({});
     setGeneralError('');
     try {
-      await login(email, password, remember);
+      await login(company, email, password, remember);
       navigate(from, { replace: true });
     } catch (error) {
       if (error instanceof ApiError) {
@@ -62,7 +64,7 @@ export function LoginPage() {
           <div className="auth-form">
             <p className="auth-form__eyebrow">Acesse sua conta</p>
             <h2>Entrar</h2>
-            <p className="auth-form__lead">Use o e-mail e a senha cadastrados.</p>
+            <p className="auth-form__lead">Informe a empresa, o e-mail e a senha cadastrados.</p>
 
             {generalError && (
               <InlineNotification
@@ -76,12 +78,23 @@ export function LoginPage() {
 
             <form onSubmit={handleSubmit} className="auth-form__fields">
               <TextInput
+                id="company"
+                labelText="Empresa"
+                placeholder={DEFAULT_COMPANY_SLUG}
+                helperText="Identificador da empresa. Use padrao para a empresa padrão."
+                autoComplete="organization"
+                autoFocus
+                value={company}
+                onChange={(event) => setCompany(event.target.value)}
+                invalid={Boolean(errors.company)}
+                invalidText={errors.company}
+              />
+              <TextInput
                 id="email"
                 type="email"
                 labelText="E-mail"
                 placeholder="voce@empresa.com"
                 autoComplete="email"
-                autoFocus
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 invalid={Boolean(errors.email)}

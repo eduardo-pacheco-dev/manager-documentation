@@ -1,4 +1,5 @@
 import { ApiError } from './api';
+import { ROLE_LABELS } from './constants';
 
 export function parseDate(value: string | null | undefined): Date | null {
   if (!value) return null;
@@ -73,8 +74,9 @@ export function initials(name: string): string {
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
 
-export function roleLabel(isAdmin: boolean): string {
-  return isAdmin ? 'Administrador' : 'Usuário';
+export function roleLabel({ isAdmin, isSuperAdmin }: { isAdmin?: boolean; isSuperAdmin?: boolean }): string {
+  if (isSuperAdmin) return ROLE_LABELS.superAdmin;
+  return isAdmin ? ROLE_LABELS.admin : ROLE_LABELS.user;
 }
 
 export function formatNumber(value: number): string {

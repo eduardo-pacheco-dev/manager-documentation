@@ -27,6 +27,7 @@ func hashToken(token string) string {
 
 type Session struct {
 	ID        string    `db:"id"`
+	CompanyID int64     `db:"company_id"`
 	UserID    int64     `db:"user_id"`
 	CSRFToken string    `db:"csrf_token"`
 	ExpiresAt time.Time `db:"expires_at"`
@@ -78,6 +79,7 @@ func (s *Store) DeleteUserSessions(userID int64) error {
 
 type APIToken struct {
 	ID         int64      `db:"id"`
+	CompanyID  int64      `db:"company_id"`
 	UserID     int64      `db:"user_id"`
 	Name       string     `db:"name"`
 	TokenHash  string     `db:"token_hash"`

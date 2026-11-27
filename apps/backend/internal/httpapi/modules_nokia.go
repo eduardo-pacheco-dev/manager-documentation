@@ -42,6 +42,10 @@ func (p nokiaSitePayload) input() modules.NokiaSiteInput {
 }
 
 func (s *Server) nokiaIndex(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	query := r.URL.Query()
 	page := parsePositiveInt(query.Get("page"), 1)
 	perPage := parsePositiveInt(query.Get("per_page"), 15)
@@ -66,6 +70,10 @@ func (s *Server) nokiaIndex(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) nokiaShow(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	site, err := s.Modules.FindNokiaSite(id)
 	if err != nil {
@@ -80,6 +88,10 @@ func (s *Server) nokiaShow(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) nokiaCreate(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	var payload nokiaSitePayload
 	if !decodeJSON(w, r, &payload) {
 		return
@@ -176,6 +188,10 @@ func (s *Server) createNokiaChecklistFollowUps(userID int64, site modules.NokiaS
 }
 
 func (s *Server) nokiaUpdate(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	var payload nokiaSitePayload
 	if !decodeJSON(w, r, &payload) {
@@ -198,6 +214,10 @@ func (s *Server) nokiaUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) nokiaDelete(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	paths, err := s.Modules.DeleteNokiaSite(id)
 	if err != nil {
@@ -211,6 +231,10 @@ func (s *Server) nokiaDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) nokiaUpdateChecklist(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	field := chiURLParam(r, "field")
 	if _, ok := modules.NokiaChecklists[field]; !ok {
@@ -237,6 +261,10 @@ func (s *Server) nokiaUpdateChecklist(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) nokiaUpdateDates(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	var payload map[string]string
 	if !decodeJSON(w, r, &payload) {
@@ -254,6 +282,10 @@ func (s *Server) nokiaUpdateDates(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) nokiaUpdateInterruption(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	var payload struct {
 		Reason string `json:"reason"`
@@ -278,6 +310,10 @@ func (s *Server) nokiaUpdateInterruption(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) nokiaClearInterruption(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	if err := s.Modules.ClearNokiaInterruption(id); err != nil {
 		writeError(w, http.StatusInternalServerError, "Não foi possível encerrar a interrupção.", nil)
@@ -287,6 +323,10 @@ func (s *Server) nokiaClearInterruption(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *Server) nokiaToggleTask(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	taskID, _ := parseID(r, "taskId")
 	if err := s.Modules.ToggleNokiaTask(id, taskID); err != nil {
@@ -297,6 +337,10 @@ func (s *Server) nokiaToggleTask(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) nokiaCreateRejection(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	var payload struct {
 		FAMs          []string `json:"fams"`
@@ -324,6 +368,10 @@ func (s *Server) nokiaCreateRejection(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) nokiaResolveRejection(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	rejectionID, _ := parseID(r, "rejectionId")
 	if err := s.Modules.ResolveNokiaRejection(id, rejectionID); err != nil {
@@ -334,6 +382,10 @@ func (s *Server) nokiaResolveRejection(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) nokiaUploadAttachment(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	if err := r.ParseMultipartForm(40 << 20); err != nil {
 		writeError(w, http.StatusBadRequest, "Arquivo inválido.", nil)
@@ -373,6 +425,10 @@ func (s *Server) nokiaUploadAttachment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) nokiaDownloadAttachment(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	attachmentID, _ := parseID(r, "attachmentId")
 	attachment, err := s.Modules.FindNokiaAttachment(id, attachmentID)
@@ -384,6 +440,10 @@ func (s *Server) nokiaDownloadAttachment(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) nokiaDeleteAttachment(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	attachmentID, _ := parseID(r, "attachmentId")
 	path, err := s.Modules.DeleteNokiaAttachment(id, attachmentID)
@@ -396,6 +456,10 @@ func (s *Server) nokiaDeleteAttachment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) nokiaCreateComment(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	var payload struct {
 		Body string `json:"body"`
@@ -411,6 +475,10 @@ func (s *Server) nokiaCreateComment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) nokiaDeleteComment(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	commentID, _ := parseID(r, "commentId")
 	comment, err := s.Modules.FindNokiaComment(id, commentID)
@@ -431,6 +499,10 @@ func (s *Server) nokiaDeleteComment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) nokiaROMList(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	roms, err := s.Modules.NokiaROMs()
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Não foi possível carregar os ROMs.", nil)
@@ -440,6 +512,10 @@ func (s *Server) nokiaROMList(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) nokiaStationSites(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	includeLinked := r.URL.Query().Get("include_linked") == "1"
 	options, err := s.Modules.StationSiteOptions(r.URL.Query().Get("search"), !includeLinked)
 	if err != nil {
@@ -450,12 +526,20 @@ func (s *Server) nokiaStationSites(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) nokiaSettings(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	roms, _ := s.Modules.NokiaROMs()
 	tasks, _ := s.Modules.NokiaTasks()
 	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{"roms": roms, "tasks": tasks}})
 }
 
 func (s *Server) nokiaCreateROM(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	var payload struct {
 		FirstName string `json:"first_name"`
 		LastName  string `json:"last_name"`
@@ -478,6 +562,10 @@ func (s *Server) nokiaCreateROM(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) nokiaUpdateROM(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	var payload struct {
 		FirstName string `json:"first_name"`
@@ -496,6 +584,10 @@ func (s *Server) nokiaUpdateROM(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) nokiaDeleteROM(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	if err := s.Modules.DeleteNokiaROM(id); err != nil {
 		writeError(w, http.StatusInternalServerError, "Não foi possível excluir o ROM.", nil)
@@ -505,6 +597,10 @@ func (s *Server) nokiaDeleteROM(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) nokiaCreateTask(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	var payload struct {
 		Name string `json:"name"`
 	}
@@ -520,6 +616,10 @@ func (s *Server) nokiaCreateTask(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) nokiaUpdateTask(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	var payload struct {
 		Name string `json:"name"`
@@ -535,6 +635,10 @@ func (s *Server) nokiaUpdateTask(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) nokiaMoveTask(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	var payload struct {
 		Direction string `json:"direction"`
@@ -550,6 +654,10 @@ func (s *Server) nokiaMoveTask(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) nokiaDeleteTask(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	if err := s.Modules.DeleteNokiaTask(id); err != nil {
 		writeError(w, http.StatusInternalServerError, "Não foi possível excluir a tarefa.", nil)
@@ -559,6 +667,10 @@ func (s *Server) nokiaDeleteTask(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) nokiaExport(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	search := r.URL.Query().Get("search")
 	items, _, _, _, err := s.Modules.ListNokiaSites(modules.NokiaSiteFilter{Search: search, Page: 1, PerPage: 10000})
 	if err != nil {
@@ -608,6 +720,10 @@ func (s *Server) nokiaExport(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) nokiaPendingExport(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	metrics, err := s.Modules.NokiaMetrics()
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Não foi possível gerar o relatório de pendências.", nil)
@@ -626,6 +742,10 @@ func (s *Server) nokiaPendingExport(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) nokiaTemplate(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	tasks, _ := s.Modules.NokiaTasks()
 	headers := nokiaTemplateHeaders(tasks)
 	f := excelize.NewFile()
@@ -670,6 +790,10 @@ func (s *Server) nokiaTemplate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) nokiaImport(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	if err := r.ParseMultipartForm(12 << 20); err != nil {
 		writeError(w, http.StatusBadRequest, "Arquivo inválido.", nil)
 		return

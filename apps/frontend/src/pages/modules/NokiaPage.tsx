@@ -114,7 +114,7 @@ const EMPTY_FORM = {
 };
 
 export function NokiaPage() {
-  const { user } = useAuth();
+  const { user, isCompanyAdmin } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
   const [data, setData] = useState<Data | null>(null);
@@ -346,7 +346,7 @@ export function NokiaPage() {
         eyebrow="Projetos"
         title="Projetos Nokia"
         description="Sites, checklist de FAMs, tarefas, datas, rejeições e interrupções."
-        titleAccessory={user?.is_admin ? (
+        titleAccessory={isCompanyAdmin ? (
           <Button
             kind="ghost"
             size="md"
@@ -682,7 +682,7 @@ export function NokiaPage() {
               <div key={item.id} className="comment-row">
                 <div><strong>{item.author_name ?? 'Usuário removido'}</strong><span>{relativeTime(item.created_at)}</span></div>
                 <p>{item.body}</p>
-                {(user?.is_admin || item.user_id === user?.id) && (
+                {(isCompanyAdmin || item.user_id === user?.id) && (
                   <Button kind="danger--ghost" size="xs" hasIconOnly renderIcon={TrashCan} iconDescription="Remover comentário" onClick={async () => { await api.delete(`/nokia/sites/${detail.id}/comments/${item.id}`); await openDetail(detail); }} />
                 )}
               </div>

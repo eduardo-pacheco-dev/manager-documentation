@@ -38,6 +38,7 @@ func CategoryLabel(key string) string {
 
 type DevDoc struct {
 	ID          int64     `db:"id" json:"id"`
+	CompanyID   int64     `db:"company_id" json:"company_id,omitempty"`
 	UserID      int64     `db:"user_id" json:"user_id"`
 	Title       string    `db:"title" json:"title"`
 	Slug        string    `db:"slug" json:"slug"`

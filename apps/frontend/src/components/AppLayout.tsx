@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   Asleep,
+  Building,
   Calendar,
   ChartBar,
   Checkmark,
@@ -31,6 +32,8 @@ import {
   HeaderName,
   OverflowMenu,
   OverflowMenuItem,
+  Select,
+  SelectItem,
   SideNav,
   SideNavItems,
   SideNavLink,
@@ -40,7 +43,11 @@ import {
 } from '@carbon/react';
 import { useAuth } from '../contexts/AuthContext';
 import { useAppTheme } from '../contexts/ThemeContext';
-import type { Module } from '../lib/types';
+import { useToast } from '../contexts/ToastContext';
+import { api } from '../lib/api';
+import { ROLE_LABELS } from '../lib/constants';
+import { errorMessage } from '../lib/format';
+import type { Company, Module } from '../lib/types';
 
 function iconFor(key: string) {
   switch (key) {
@@ -50,6 +57,8 @@ function iconFor(key: string) {
       return UserMultiple;
     case 'dev-docs':
       return Document;
+    case 'companies':
+      return Building;
     case 'agenda':
       return Calendar;
     case 'tasks':
@@ -106,12 +115,15 @@ function NavItem({
 }
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user, modules, unread, logout } = useAuth();
+  const { user, company, activeCompanyID, modules, unread, logout, isSuperAdmin, setActiveCompany } = useAuth();
   const { preference, cyclePreference } = useAppTheme();
+  const toast = useToast();
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useIsMobile();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [switching, setSwitching] = useState(false);
   const [rail, setRail] = useState(() => {
     try {
       return window.localStorage.getItem('sidebar.rail') === '1';
@@ -123,6 +135,39 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setMobileOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    if (!isSuperAdmin) {
+      setCompanies([]);
+      return;
+    }
+    let active = true;
+    void api
+      .get<{ data: Company[] }>('/companies')
+      .then((response) => {
+        if (active) setCompanies(response.data ?? []);
+      })
+      .catch((error) => {
+        if (active) toast.error('Não foi possível carregar as empresas', errorMessage(error));
+      });
+    return () => {
+      active = false;
+    };
+  }, [isSuperAdmin, toast]);
+
+  async function changeCompany(event: React.ChangeEvent<HTMLSelectElement>) {
+    const identifier = event.target.value;
+    if (!identifier || Number(identifier) === activeCompanyID) return;
+    setSwitching(true);
+    try {
+      await setActiveCompany(Number(identifier));
+      toast.success('Empresa ativa alterada');
+    } catch (error) {
+      toast.error('Não foi possível trocar de empresa', errorMessage(error));
+    } finally {
+      setSwitching(false);
+    }
+  }
 
   function toggleRail() {
     setRail((current) => {
@@ -188,7 +233,28 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <div className="user-menu__identity">
                 <strong>{user.full_name}</strong>
                 <span>{user.email}</span>
+                <span className="user-menu__role">
+                  {isSuperAdmin ? ROLE_LABELS.superAdmin : user.is_admin ? 'Administrador da empresa' : ROLE_LABELS.user}
+                </span>
+                <span>Empresa: {company?.name ?? '—'}</span>
               </div>
+              {isSuperAdmin && (
+                <div className="user-menu__company">
+                  <Select
+                    id="active-company"
+                    labelText="Empresa ativa"
+                    value={activeCompanyID ? String(activeCompanyID) : ''}
+                    onChange={(event) => void changeCompany(event)}
+                    disabled={switching}
+                    size="sm"
+                  >
+                    <SelectItem value="" text="Selecione uma empresa" />
+                    {companies.map((item) => (
+                      <SelectItem key={item.id} value={String(item.id)} text={item.name} />
+                    ))}
+                  </Select>
+                </div>
+              )}
               <OverflowMenuItem itemText="Perfil" onClick={() => go('/profile')} />
               <OverflowMenuItem itemText="Configurações" onClick={() => go('/settings')} />
               <OverflowMenuItem
@@ -288,6 +354,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               active={location.pathname === module.path || location.pathname.startsWith(`${module.path}/`)}
             />
           ))}
+          {isSuperAdmin && (
+            <SideNavLink
+              as={NavLink}
+              to="/companies"
+              renderIcon={Building}
+              isActive={location.pathname.startsWith('/companies')}
+            >
+              Empresas
+            </SideNavLink>
+          )}
           <SideNavLink
             as={NavLink}
             to="/profile"

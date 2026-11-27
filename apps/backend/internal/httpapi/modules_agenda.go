@@ -17,6 +17,10 @@ import (
 )
 
 func (s *Server) agendaIndex(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	user := currentUser(r)
 	if err := s.Modules.EnsureAgendaCalendars(user.ID); err != nil {
 		writeError(w, http.StatusInternalServerError, "Não foi possível preparar a agenda.", nil)
@@ -124,6 +128,10 @@ func (p agendaEventPayload) input() modules.AgendaEventInput {
 }
 
 func (s *Server) agendaCreateEvent(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	var payload agendaEventPayload
 	if !decodeJSON(w, r, &payload) {
 		return
@@ -143,6 +151,10 @@ func (s *Server) agendaCreateEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) agendaUpdateEvent(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	var payload agendaEventPayload
 	if !decodeJSON(w, r, &payload) {
@@ -161,6 +173,10 @@ func (s *Server) agendaUpdateEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) agendaDeleteEvent(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	var payload struct {
 		Scope        string `json:"scope"`
@@ -180,6 +196,10 @@ func (s *Server) agendaDeleteEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) agendaShowEvent(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	event, err := s.Modules.FindAgendaEvent(currentUser(r).ID, id)
 	if err != nil {
@@ -190,6 +210,10 @@ func (s *Server) agendaShowEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) agendaDuplicateEvent(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	event, err := s.Modules.DuplicateAgendaEvent(currentUser(r).ID, id)
 	if err != nil {
@@ -200,6 +224,10 @@ func (s *Server) agendaDuplicateEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) agendaRespondEvent(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	var payload struct {
 		Status  string `json:"status"`
@@ -221,6 +249,10 @@ func (s *Server) agendaRespondEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) agendaMoveEvent(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	var payload struct {
 		StartAt      string `json:"start_at"`
@@ -252,6 +284,10 @@ type agendaCalendarPayload struct {
 }
 
 func (s *Server) agendaCreateCalendar(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	var payload agendaCalendarPayload
 	if !decodeJSON(w, r, &payload) {
 		return
@@ -272,6 +308,10 @@ func (s *Server) agendaCreateCalendar(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) agendaUpdateCalendar(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	var payload agendaCalendarPayload
 	if !decodeJSON(w, r, &payload) {
@@ -289,6 +329,10 @@ func (s *Server) agendaUpdateCalendar(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) agendaDeleteCalendar(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	if err := s.Modules.DeleteAgendaCalendar(currentUser(r).ID, id); err != nil {
 		writeError(w, http.StatusForbidden, "Não foi possível excluir o calendário.", nil)
@@ -298,6 +342,10 @@ func (s *Server) agendaDeleteCalendar(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) agendaCalendarVisibility(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	var payload struct {
 		Visible *bool `json:"is_visible"`
@@ -314,6 +362,10 @@ func (s *Server) agendaCalendarVisibility(w http.ResponseWriter, r *http.Request
 }
 
 func (s *Server) agendaCalendarDefault(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	if err := s.Modules.MakeAgendaCalendarDefault(currentUser(r).ID, id); err != nil {
 		writeError(w, http.StatusForbidden, "Não foi possível definir o calendário padrão.", nil)
@@ -323,6 +375,10 @@ func (s *Server) agendaCalendarDefault(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) agendaShareCalendar(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	var payload struct {
 		Email string `json:"email"`
@@ -344,6 +400,10 @@ func (s *Server) agendaShareCalendar(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) agendaUnshareCalendar(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	shareID, _ := parseID(r, "shareId")
 	if err := s.Modules.UnshareAgendaCalendar(currentUser(r).ID, id, shareID); err != nil {
@@ -354,6 +414,10 @@ func (s *Server) agendaUnshareCalendar(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) agendaExportICS(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	user := currentUser(r)
 	from := time.Now().AddDate(-1, 0, 0)
 	to := time.Now().AddDate(2, 0, 0)
@@ -406,6 +470,10 @@ func icsEscape(value string) string {
 }
 
 func (s *Server) agendaImportICS(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	user := currentUser(r)
 	if err := r.ParseMultipartForm(4 << 20); err != nil {
 		writeError(w, http.StatusBadRequest, "Arquivo inválido.", nil)

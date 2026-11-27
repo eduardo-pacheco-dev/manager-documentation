@@ -144,7 +144,7 @@ var CoreModules = []Module{
 func AvailableModules(user User) []Module {
 	result := make([]Module, 0, len(CoreModules))
 	for _, module := range CoreModules {
-		if module.AdminOnly && !user.IsAdmin {
+		if module.AdminOnly && !user.IsAdmin && !user.IsSuperAdmin {
 			continue
 		}
 		result = append(result, module)

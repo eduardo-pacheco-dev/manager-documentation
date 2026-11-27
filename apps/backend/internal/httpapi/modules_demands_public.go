@@ -36,6 +36,15 @@ type demandPublicPageData struct {
 }
 
 func (s *Server) demandPublicInfo(w http.ResponseWriter, r *http.Request, token string, upload bool) {
+	column := "download_token"
+	if upload {
+		column = "upload_token"
+	}
+	var ok bool
+	s, r, ok = s.usePublicTenant(w, r, "demands", column, token)
+	if !ok {
+		return
+	}
 	var demand modules.Demand
 	var err error
 	if upload {
@@ -87,6 +96,11 @@ func (s *Server) demandPublicInfo(w http.ResponseWriter, r *http.Request, token 
 
 func (s *Server) demandPublicUpload(w http.ResponseWriter, r *http.Request) {
 	token := chi.URLParam(r, "token")
+	var ok bool
+	s, r, ok = s.usePublicTenant(w, r, "demands", "upload_token", token)
+	if !ok {
+		return
+	}
 	demand, err := s.Modules.FindDemandByUploadToken(token)
 	if err != nil || demand.Status == "cancelada" {
 		writeError(w, http.StatusGone, "Link indisponível.", nil)
@@ -149,6 +163,11 @@ func (s *Server) demandPublicUpload(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) demandPublicDownloadFile(w http.ResponseWriter, r *http.Request) {
 	token := chi.URLParam(r, "token")
+	var ok bool
+	s, r, ok = s.usePublicTenant(w, r, "demands", "download_token", token)
+	if !ok {
+		return
+	}
 	fileID, ok := parseStringID(chi.URLParam(r, "fileId"))
 	if !ok {
 		http.NotFound(w, r)

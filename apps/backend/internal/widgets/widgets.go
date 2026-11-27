@@ -111,7 +111,7 @@ var registry = []Widget{
 func Available(s *store.Store, m *modules.Store, user models.User) ([]Widget, error) {
 	result := make([]Widget, 0, len(registry))
 	for _, widget := range registry {
-		if widget.AdminOnly && !user.IsAdmin {
+		if widget.AdminOnly && !user.IsAdmin && !user.IsSuperAdmin {
 			continue
 		}
 		switch widget.ID {

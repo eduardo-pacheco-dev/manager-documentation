@@ -63,19 +63,36 @@ func main() {
 		log.Fatalf("crypto: %v", err)
 	}
 
-	moduleStore := modules.New(db)
 	if cfg.SeedDemoData {
-		if admin, findErr := repository.FindUserByEmail(cfg.SeedAdminEmail); findErr == nil {
-			if moduleErr := seed.ModuleData(moduleStore, admin, cipher); moduleErr != nil {
+		if admin, findErr := repository.FindUserByCompanyEmail(1, cfg.SeedAdminEmail); findErr == nil {
+			tenantDB, tenantErr := database.Tenant(cfg, admin.CompanyID)
+			if tenantErr != nil {
+				log.Printf("seed modules tenant: %v", tenantErr)
+			} else if moduleErr := seed.ModuleData(modules.New(tenantDB), admin, cipher); moduleErr != nil {
 				log.Printf("seed modules: %v", moduleErr)
 			}
 		}
 	}
-	if err := moduleStore.SyncAllNokiaSitesToStations(); err != nil {
-		log.Printf("nokia/stations sync: %v", err)
+	companies, err := repository.ListCompanies()
+	if err != nil {
+		log.Fatalf("list companies: %v", err)
 	}
-	if err := moduleStore.SyncDemandShortLinks(); err != nil {
-		log.Printf("demand links sync: %v", err)
+	for _, company := range companies {
+		if !company.IsActive {
+			continue
+		}
+		tenantDB, tenantErr := database.Tenant(cfg, company.ID)
+		if tenantErr != nil {
+			log.Printf("tenant %d: %v", company.ID, tenantErr)
+			continue
+		}
+		tenantModules := modules.New(tenantDB)
+		if err := tenantModules.SyncAllNokiaSitesToStations(); err != nil {
+			log.Printf("nokia/stations sync (%d): %v", company.ID, err)
+		}
+		if err := tenantModules.SyncDemandShortLinks(); err != nil {
+			log.Printf("demand links sync (%d): %v", company.ID, err)
+		}
 	}
 
 	server := httpapi.New(cfg, repository, cipher)

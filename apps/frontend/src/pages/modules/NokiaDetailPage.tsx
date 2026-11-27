@@ -117,7 +117,7 @@ function addDays(value: string | null | undefined, days: number | null | undefin
 export function NokiaDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isCompanyAdmin } = useAuth();
   const toast = useToast();
   const [site, setSite] = useState<NokiaSite | null>(null);
   const [loading, setLoading] = useState(true);
@@ -614,7 +614,7 @@ export function NokiaDetailPage() {
                       <span>{relativeTime(commentItem.created_at)}</span>
                     </div>
                     <p>{commentItem.body}</p>
-                    {(user?.is_admin || commentItem.user_id === user?.id) && (
+                    {(isCompanyAdmin || commentItem.user_id === user?.id) && (
                       <Button kind="danger--ghost" size="xs" hasIconOnly renderIcon={TrashCan} iconDescription="Remover comentário" onClick={() => void deleteComment(commentItem.id)} />
                     )}
                   </div>

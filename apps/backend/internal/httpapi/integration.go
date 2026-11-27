@@ -17,6 +17,10 @@ import (
  * ----------------------------------------------------------------------- */
 
 func (s *Server) workContext(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	resourceType := strings.TrimSpace(r.URL.Query().Get("resource_type"))
 	resourceID, err := strconv.ParseInt(strings.TrimSpace(r.URL.Query().Get("resource_id")), 10, 64)
 	if err != nil || resourceID <= 0 {
@@ -32,6 +36,10 @@ func (s *Server) workContext(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) createWorkLink(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	var payload struct {
 		Module       string `json:"module"`
 		EntityID     int64  `json:"entity_id"`
@@ -55,6 +63,10 @@ func (s *Server) createWorkLink(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) deleteWorkLink(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Vínculo não encontrado.", nil)
@@ -83,6 +95,10 @@ type workItemPayload struct {
 }
 
 func (s *Server) createWorkItem(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	var payload workItemPayload
 	if !decodeJSON(w, r, &payload) {
 		return
@@ -364,6 +380,25 @@ func (s *Server) StartIntegrationWorker(interval time.Duration) func() {
 }
 
 func (s *Server) runWorkReminders() {
+	companies, err := s.Store.ListCompanies()
+	if err != nil {
+		log.Printf("reminders: companies: %v", err)
+		return
+	}
+	for _, company := range companies {
+		if !company.IsActive {
+			continue
+		}
+		tenant, err := s.tenantFor(company.ID)
+		if err != nil {
+			log.Printf("reminders: tenant %d: %v", company.ID, err)
+			continue
+		}
+		tenant.runWorkRemindersForCompany()
+	}
+}
+
+func (s *Server) runWorkRemindersForCompany() {
 	users := []models.User{}
 	if err := s.Modules.DB.Select(&users, `SELECT * FROM users WHERE is_active = 1`); err != nil {
 		log.Printf("reminders: users: %v", err)

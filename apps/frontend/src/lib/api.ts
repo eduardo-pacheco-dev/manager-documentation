@@ -1,7 +1,19 @@
 let csrfToken = '';
+let companyHeader = '';
 
 export function setCSRFToken(token: string | undefined | null) {
   csrfToken = token ?? '';
+}
+
+// Super-admins can work inside another company. The backend reads this header
+// on every authenticated request and returns the active company in /auth/me.
+export function setCompanyHeader(identifier: string | number | null | undefined) {
+  const value = String(identifier ?? '').trim();
+  companyHeader = value;
+}
+
+export function getCompanyHeader(): string {
+  return companyHeader;
 }
 
 export class ApiError extends Error {
@@ -25,6 +37,9 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
   if (method !== 'GET' && method !== 'HEAD' && csrfToken) {
     headers.set('X-CSRF-Token', csrfToken);
+  }
+  if (companyHeader) {
+    headers.set('X-Company-ID', companyHeader);
   }
 
   let payload: BodyInit | undefined;

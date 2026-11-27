@@ -26,11 +26,11 @@ import {
   Tile,
 } from '@carbon/react';
 import { PageHeader } from '../components/PageHeader';
-import { EmptyState, Loading } from '../components/Feedback';
+import { EmptyState, Loading, RoleTag } from '../components/Feedback';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { api } from '../lib/api';
-import { errorMessage, formatNumber, greetingDate, relativeTime, roleLabel } from '../lib/format';
+import { errorMessage, formatNumber, greetingDate, relativeTime } from '../lib/format';
 import type { DashboardResponse, DashboardWidget } from '../lib/types';
 
 function WidgetIcon({ id }: { id: string }) {
@@ -86,7 +86,7 @@ function RecentUsersWidget({ widget, onOpen }: { widget: DashboardWidget; onOpen
                   </TableCell>
                   <TableCell className="hide-sm">{user.email}</TableCell>
                   <TableCell className="hide-md">
-                    <Tag type={user.is_admin ? 'purple' : 'gray'} size="sm">{roleLabel(user.is_admin)}</Tag>
+                    <RoleTag isAdmin={user.is_admin} isSuperAdmin={user.is_super_admin} />
                   </TableCell>
                   <TableCell className="hide-lg">{relativeTime(user.created_at)}</TableCell>
                 </TableRow>
@@ -330,7 +330,7 @@ function NokiaWidget({ widget }: { widget: DashboardWidget }) {
 }
 
 export function DashboardPage() {
-  const { user } = useAuth();
+  const { user, company } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
   const [data, setData] = useState<DashboardResponse | null>(null);
@@ -455,7 +455,7 @@ export function DashboardPage() {
       <PageHeader
         eyebrow="Visão geral"
         title={data.greeting || `Bem-vindo, ${user?.name}!`}
-        description={<>{greetingDate(data.date)} · Acompanhe os indicadores e personalize seu painel.</>}
+        description={<>{greetingDate(data.date)}{company ? ` · Empresa ${company.name}` : ''} · Acompanhe os indicadores e personalize seu painel.</>}
         actions={
           <Button
             kind={editing ? 'primary' : 'tertiary'}

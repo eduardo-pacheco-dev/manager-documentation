@@ -17,6 +17,10 @@ var followUpStatuses = map[string]bool{"pendente": true, "em_andamento": true, "
 var followUpPriorities = map[string]bool{"baixa": true, "media": true, "alta": true, "urgente": true}
 
 func (s *Server) followUpsIndex(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	query := r.URL.Query()
 	settings, _ := s.Modules.FollowUpSettings()
 	page := parsePositiveInt(query.Get("page"), 1)
@@ -51,6 +55,10 @@ func (s *Server) followUpsIndex(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) followUpsShow(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	item, err := s.Modules.FindFollowUp(id)
 	if err != nil {
@@ -96,6 +104,10 @@ func validateFollowUp(payload followUpPayload) validationErrors {
 }
 
 func (s *Server) followUpsCreate(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	var payload followUpPayload
 	if !decodeJSON(w, r, &payload) {
 		return
@@ -126,6 +138,10 @@ func (s *Server) followUpsCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) followUpsUpdate(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	var payload followUpPayload
 	if !decodeJSON(w, r, &payload) {
@@ -162,6 +178,10 @@ func (s *Server) followUpsUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) followUpsDelete(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	if err := s.Modules.DeleteFollowUp(id); err != nil {
 		writeError(w, http.StatusInternalServerError, "Não foi possível excluir o follow-up.", nil)
@@ -172,6 +192,10 @@ func (s *Server) followUpsDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) followUpsAddUpdate(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	var payload struct {
 		Body string `json:"body"`
@@ -195,6 +219,10 @@ func (s *Server) followUpsAddUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) followUpsDeleteUpdate(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	updateID, _ := parseID(r, "updateId")
 	update, err := s.Modules.FindFollowUpUpdate(id, updateID)
@@ -215,6 +243,10 @@ func (s *Server) followUpsDeleteUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) followUpsUpdateSettings(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	var payload modules.FollowUpSettings
 	if !decodeJSON(w, r, &payload) {
 		return
@@ -239,6 +271,10 @@ func (s *Server) followUpsUpdateSettings(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) followUpsCreateAssignee(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	var payload struct {
 		Name  string `json:"name"`
 		Email string `json:"email"`
@@ -259,6 +295,10 @@ func (s *Server) followUpsCreateAssignee(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) followUpsDeleteAssignee(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	if err := s.Modules.DeleteFollowUpAssignee(id); err != nil {
 		writeError(w, http.StatusInternalServerError, "Não foi possível remover o responsável.", nil)
@@ -268,6 +308,10 @@ func (s *Server) followUpsDeleteAssignee(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) followUpsCreateClient(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	var payload struct {
 		ClientID    *int64 `json:"client_id"`
 		ClientName  string `json:"client_name"`
@@ -301,6 +345,10 @@ func (s *Server) followUpsCreateClient(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) followUpsUpdateClient(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	var payload struct {
 		ClientName string `json:"client_name"`
@@ -316,6 +364,10 @@ func (s *Server) followUpsUpdateClient(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) followUpsDeleteClient(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	if err := s.Modules.DeleteFollowUpClient(id); err != nil {
 		writeError(w, http.StatusInternalServerError, "Não foi possível excluir o cliente.", nil)
@@ -325,6 +377,10 @@ func (s *Server) followUpsDeleteClient(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) followUpsCreateProject(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	var payload struct {
 		ClientID    int64  `json:"client_id"`
 		ProjectName string `json:"project_name"`
@@ -344,6 +400,10 @@ func (s *Server) followUpsCreateProject(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *Server) followUpsUpdateProject(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	var payload struct {
 		ClientID    int64  `json:"client_id"`
@@ -360,6 +420,10 @@ func (s *Server) followUpsUpdateProject(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *Server) followUpsDeleteProject(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	if err := s.Modules.DeleteFollowUpProject(id); err != nil {
 		writeError(w, http.StatusInternalServerError, "Não foi possível excluir o projeto.", nil)
@@ -369,6 +433,10 @@ func (s *Server) followUpsDeleteProject(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *Server) followUpsExport(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	query := r.URL.Query()
 	user := currentUser(r)
 	items, _, _, err := s.Modules.ListFollowUps(modules.FollowUpFilter{
@@ -423,6 +491,10 @@ func formatOptionalDate(value *time.Time) string {
 }
 
 func (s *Server) followUpsImport(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	if err := r.ParseMultipartForm(8 << 20); err != nil {
 		writeError(w, http.StatusBadRequest, "Arquivo inválido.", nil)
 		return
@@ -513,6 +585,10 @@ func normalizeImportDate(value string) string {
 }
 
 func (s *Server) followUpsEmailOne(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	var payload struct {
 		Recipients string `json:"recipients"`
@@ -540,6 +616,10 @@ func (s *Server) followUpsEmailOne(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) followUpsEmailTable(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	var payload struct {
 		Recipients string `json:"recipients"`
 		Subject    string `json:"subject"`

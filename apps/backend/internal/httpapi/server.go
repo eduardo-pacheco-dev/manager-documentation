@@ -7,6 +7,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -31,6 +32,7 @@ type Server struct {
 	Uploads  *upload.Service
 	Backups  *backup.Service
 	Limiter  *loginLimiter
+	tenants  *sync.Map
 }
 
 func New(cfg config.Config, s *store.Store, cipher *crypto.Cipher) *Server {
@@ -44,6 +46,7 @@ func New(cfg config.Config, s *store.Store, cipher *crypto.Cipher) *Server {
 		Uploads:  uploads,
 		Backups:  backup.New(cfg),
 		Limiter:  newLoginLimiter(5, time.Minute),
+		tenants:  &sync.Map{},
 	}
 	server.Backups.SetRemote(uploads)
 	server.Backups.SetConfigStore(s)
@@ -60,7 +63,7 @@ func (s *Server) Router() http.Handler {
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   s.Config.AllowedOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "X-Company-ID"},
 		ExposedHeaders:   []string{"Link"},
 		AllowCredentials: true,
 		MaxAge:           300,
@@ -355,14 +358,23 @@ func (s *Server) Router() http.Handler {
 				admin.Delete("/dev-docs/{id}", s.deleteDoc)
 				admin.Put("/settings/system", s.updateTimezone)
 				admin.Put("/settings/storage", s.updateStorage)
-				admin.Get("/backups", s.backupsIndex)
-				admin.Post("/backups", s.backupsCreate)
-				admin.Post("/backups/import", s.backupsImport)
-				admin.Put("/backups/schedule", s.backupsUpdateSchedule)
-				admin.Get("/backups/{name}/download", s.backupsDownload)
-				admin.Post("/backups/{name}/restore", s.backupsRestore)
-				admin.Delete("/backups/{name}", s.backupsDelete)
 			})
+		})
+
+		api.Group(func(superAdmin chi.Router) {
+			superAdmin.Use(s.requireAuth)
+			superAdmin.Use(s.requireCSRF)
+			superAdmin.Use(s.requireSuperAdmin)
+			superAdmin.Get("/companies", s.listCompanies)
+			superAdmin.Post("/companies", s.createCompany)
+			superAdmin.Put("/companies/{id}", s.updateCompany)
+			superAdmin.Get("/backups", s.backupsIndex)
+			superAdmin.Post("/backups", s.backupsCreate)
+			superAdmin.Post("/backups/import", s.backupsImport)
+			superAdmin.Put("/backups/schedule", s.backupsUpdateSchedule)
+			superAdmin.Get("/backups/{name}/download", s.backupsDownload)
+			superAdmin.Post("/backups/{name}/restore", s.backupsRestore)
+			superAdmin.Delete("/backups/{name}", s.backupsDelete)
 		})
 	})
 

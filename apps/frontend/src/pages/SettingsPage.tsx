@@ -33,13 +33,19 @@ import { ApiError, api } from '../lib/api';
 import { errorMessage } from '../lib/format';
 import type { Module, SettingsResponse, StorageSettings, ThemePreference } from '../lib/types';
 
-const SECTION_LINKS = [
+const SECTION_LINKS: {
+  id: string;
+  label: string;
+  admin?: boolean;
+  superAdmin?: boolean;
+  danger?: boolean;
+}[] = [
   { id: 'aparencia', label: 'Aparência' },
   { id: 'modulos', label: 'Módulos' },
   { id: 'notificacoes', label: 'Notificações' },
   { id: 'sistema', label: 'Sistema', admin: true },
   { id: 'armazenamento', label: 'Armazenamento', admin: true },
-  { id: 'backups', label: 'Backups', admin: true },
+  { id: 'backups', label: 'Backups', superAdmin: true },
   { id: 'senha', label: 'Alterar senha' },
   { id: 'conta', label: 'Excluir conta', danger: true },
 ];
@@ -74,7 +80,7 @@ function SettingsSection({
 }
 
 export function SettingsPage() {
-  const { patchUser, refresh, logout } = useAuth();
+  const { patchUser, refresh, logout, canManageUsers, canManageCompanies } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
   const [data, setData] = useState<SettingsResponse | null>(null);
@@ -100,7 +106,12 @@ export function SettingsPage() {
   const load = async () => {
     try {
       const response = await api.get<{ data: SettingsResponse }>('/settings');
-      const settings = response.data;
+      // Versões antigas da API não devolvem is_super_admin no topo; o papel
+      // do usuário na resposta é a fonte de verdade.
+      const settings: SettingsResponse = {
+        ...response.data,
+        is_super_admin: response.data.is_super_admin ?? response.data.user.is_super_admin ?? false,
+      };
       setData(settings);
       setTheme(settings.theme);
       setModules(settings.modules);
@@ -120,8 +131,11 @@ export function SettingsPage() {
   }, []);
 
   const links = useMemo(
-    () => SECTION_LINKS.filter((link) => !link.admin || data?.is_admin),
-    [data?.is_admin],
+    () =>
+      SECTION_LINKS.filter(
+        (link) => (!link.admin || canManageUsers) && (!link.superAdmin || canManageCompanies),
+      ),
+    [canManageUsers, canManageCompanies],
   );
 
   async function saveTheme() {
@@ -409,7 +423,7 @@ export function SettingsPage() {
             </div>
           </SettingsSection>
 
-          {data.is_admin && (
+          {canManageUsers && (
             <SettingsSection
               id="sistema"
               title="Sistema"
@@ -434,7 +448,7 @@ export function SettingsPage() {
             </SettingsSection>
           )}
 
-          {data.is_admin && storage && (
+          {canManageUsers && storage && (
             <SettingsSection
               id="armazenamento"
               title="Armazenamento"
@@ -587,7 +601,7 @@ export function SettingsPage() {
             </SettingsSection>
           )}
 
-          {data.is_admin && (
+          {canManageCompanies && (
             <SettingsSection
               id="backups"
               title="Backups"

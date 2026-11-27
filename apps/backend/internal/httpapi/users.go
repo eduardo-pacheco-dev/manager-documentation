@@ -18,9 +18,48 @@ type userPayload struct {
 	Password             string `json:"password"`
 	PasswordConfirmation string `json:"password_confirmation"`
 	IsAdmin              *bool  `json:"is_admin"`
+	CompanyID            int64  `json:"company_id"`
+	IsSuperAdmin         *bool  `json:"is_super_admin"`
+}
+
+// manageUserTenant lets a super-admin manage users in a company other than the
+// active one. Regular admins are always pinned to their own company and cannot
+// promote anyone to super-admin.
+func (s *Server) manageUserTenant(w http.ResponseWriter, r *http.Request, companyID int64) (*Server, bool) {
+	tenant, ok := s.useTenant(w, r)
+	if !ok {
+		return nil, false
+	}
+	auth := authFrom(r)
+	if !auth.User.IsSuperAdmin || companyID == 0 || companyID == auth.TenantCompanyID {
+		return tenant, true
+	}
+	company, err := s.Store.FindCompanyByID(companyID)
+	if err != nil || !company.IsActive {
+		writeValidation(w, validationErrors{"company_id": "Empresa inválida ou inativa."})
+		return nil, false
+	}
+	target, err := s.tenantFor(companyID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Não foi possível acessar a empresa.", nil)
+		return nil, false
+	}
+	return target, true
+}
+
+func tenantUserCompanyID(r *http.Request, requested int64) int64 {
+	auth := authFrom(r)
+	if auth.User.IsSuperAdmin && requested > 0 {
+		return requested
+	}
+	return auth.TenantCompanyID
 }
 
 func (s *Server) listUsers(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	query := r.URL.Query()
 	page := parsePositiveInt(query.Get("page"), 1)
 	perPage := parsePositiveInt(query.Get("per_page"), 10)
@@ -83,13 +122,22 @@ func (s *Server) createUser(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &payload) {
 		return
 	}
+	tenant, ok := s.manageUserTenant(w, r, payload.CompanyID)
+	if !ok {
+		return
+	}
+	isSuperAdmin := authFrom(r).User.IsSuperAdmin
+	if !isSuperAdmin && payload.IsSuperAdmin != nil && *payload.IsSuperAdmin {
+		writeValidation(w, validationErrors{"is_super_admin": "Somente super-administradores podem promover usuários."})
+		return
+	}
 	email := normalizeEmail(payload.Email)
 	fields := validateUserPayload(payload, email, true, 0)
 	if !fields.empty() {
 		writeValidation(w, fields)
 		return
 	}
-	if existing, err := s.Store.FindUserByEmail(email); err == nil && existing.ID > 0 {
+	if existing, err := tenant.Store.FindUserByCompanyEmail(tenantUserCompanyID(r, payload.CompanyID), email); err == nil && existing.ID > 0 {
 		writeValidation(w, validationErrors{"email": "Este e-mail já está em uso."})
 		return
 	}
@@ -105,15 +153,19 @@ func (s *Server) createUser(w http.ResponseWriter, r *http.Request) {
 		Email:              email,
 		PasswordHash:       string(hash),
 		IsAdmin:            payload.IsAdmin != nil && *payload.IsAdmin,
+		IsSuperAdmin:       isSuperAdmin && payload.IsSuperAdmin != nil && *payload.IsSuperAdmin,
 		IsActive:           true,
 		Theme:              "system",
 		EmailNotifications: true,
 	}
-	if err := s.Store.CreateUser(&user); err != nil {
+	if user.IsSuperAdmin {
+		user.IsAdmin = true
+	}
+	if err := tenant.Store.CreateUser(&user); err != nil {
 		writeError(w, http.StatusInternalServerError, "Não foi possível criar o usuário.", nil)
 		return
 	}
-	_ = s.Notifier.Notify(user, "Sua conta foi criada", "Um administrador criou sua conta no Documentation Center.", "/settings", "success")
+	_ = tenant.Notifier.Notify(user, "Sua conta foi criada", "Um administrador criou sua conta no Documentation Center.", "/settings", "success")
 	writeJSON(w, http.StatusCreated, map[string]any{
 		"message": "Usuário criado com sucesso.",
 		"data":    map[string]any{"user": user.Public()},
@@ -130,9 +182,22 @@ func (s *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &payload) {
 		return
 	}
-	user, err := s.Store.FindUserByID(id)
+	tenant, ok := s.manageUserTenant(w, r, payload.CompanyID)
+	if !ok {
+		return
+	}
+	isSuperAdmin := authFrom(r).User.IsSuperAdmin
+	if !isSuperAdmin && payload.IsSuperAdmin != nil && *payload.IsSuperAdmin {
+		writeValidation(w, validationErrors{"is_super_admin": "Somente super-administradores podem promover usuários."})
+		return
+	}
+	user, err := tenant.Store.FindUserByID(id)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "Usuário não encontrado.", nil)
+		return
+	}
+	if isSuperAdmin && payload.CompanyID > 0 && payload.CompanyID != user.CompanyID {
+		writeValidation(w, validationErrors{"company_id": "Não é possível mover usuários entre empresas."})
 		return
 	}
 	email := normalizeEmail(payload.Email)
@@ -141,7 +206,11 @@ func (s *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 		writeValidation(w, fields)
 		return
 	}
-	if existing, err := s.Store.FindUserByEmail(email); err == nil && existing.ID != id {
+	companyID := tenantUserCompanyID(r, payload.CompanyID)
+	if companyID == 0 {
+		companyID = user.CompanyID
+	}
+	if existing, err := tenant.Store.FindUserByCompanyEmail(companyID, email); err == nil && existing.ID != id {
 		writeValidation(w, validationErrors{"email": "Este e-mail já está em uso."})
 		return
 	}
@@ -160,7 +229,17 @@ func (s *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 	if payload.IsAdmin != nil {
 		user.IsAdmin = *payload.IsAdmin
 	}
-	if err := s.Store.UpdateUser(&user); err != nil {
+	if isSuperAdmin && payload.IsSuperAdmin != nil {
+		if user.ID == authFrom(r).User.ID && !*payload.IsSuperAdmin {
+			writeValidation(w, validationErrors{"is_super_admin": "Você não pode remover o próprio acesso de super-administrador."})
+			return
+		}
+		user.IsSuperAdmin = *payload.IsSuperAdmin
+		if user.IsSuperAdmin {
+			user.IsAdmin = true
+		}
+	}
+	if err := tenant.Store.UpdateUser(&user); err != nil {
 		writeError(w, http.StatusInternalServerError, "Não foi possível atualizar o usuário.", nil)
 		return
 	}
@@ -171,6 +250,10 @@ func (s *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) toggleUser(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Usuário não encontrado.", nil)
@@ -205,6 +288,10 @@ func (s *Server) toggleUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Usuário não encontrado.", nil)

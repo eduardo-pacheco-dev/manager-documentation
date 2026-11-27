@@ -28,10 +28,11 @@ import {
 import { PageHeader } from '../components/PageHeader';
 import { EmptyState, Loading, RoleTag, ActiveTag } from '../components/Feedback';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { ApiError, api } from '../lib/api';
 import { errorMessage, formatNumber, initials, relativeTime } from '../lib/format';
-import type { User, UsersResponse } from '../lib/types';
+import type { Company, User, UsersResponse } from '../lib/types';
 
 type ViewMode = 'table' | 'cards' | 'compact';
 
@@ -42,6 +43,8 @@ interface UserForm {
   password: string;
   password_confirmation: string;
   is_admin: boolean;
+  company_id: number;
+  is_super_admin: boolean;
 }
 
 const emptyForm: UserForm = {
@@ -51,6 +54,8 @@ const emptyForm: UserForm = {
   password: '',
   password_confirmation: '',
   is_admin: false,
+  company_id: 0,
+  is_super_admin: false,
 };
 
 function useIsMobile() {
@@ -76,6 +81,8 @@ function statsCards(stats: UsersResponse['stats']) {
 export function UsersPage() {
   const toast = useToast();
   const isMobile = useIsMobile();
+  const { company, activeCompanyID, isSuperAdmin, setActiveCompany } = useAuth();
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [data, setData] = useState<UsersResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -113,6 +120,25 @@ export function UsersPage() {
     localStorage.setItem('users-view', view);
   }, [view]);
 
+  useEffect(() => {
+    if (!isSuperAdmin) {
+      setCompanies([]);
+      return;
+    }
+    let active = true;
+    void api
+      .get<{ data: Company[] }>('/companies')
+      .then((response) => {
+        if (active) setCompanies(response.data ?? []);
+      })
+      .catch((error) => {
+        if (active) toast.error('Não foi possível carregar as empresas', errorMessage(error));
+      });
+    return () => {
+      active = false;
+    };
+  }, [isSuperAdmin, toast]);
+
   const load = useCallback(async () => {
     const requestId = ++requestRef.current;
     setLoading(true);
@@ -133,7 +159,7 @@ export function UsersPage() {
     } finally {
       if (requestId === requestRef.current) setLoading(false);
     }
-  }, [page, perPage, sort, direction, debouncedSearch, profileFilter, statusFilter, toast]);
+  }, [page, perPage, sort, direction, debouncedSearch, profileFilter, statusFilter, activeCompanyID, toast]);
 
   useEffect(() => {
     void load();
@@ -141,6 +167,18 @@ export function UsersPage() {
 
   const stats = data?.stats;
   const users = data?.data ?? [];
+
+  async function changeCompany(event: React.ChangeEvent<HTMLSelectElement>) {
+    const identifier = event.target.value;
+    if (!identifier || Number(identifier) === activeCompanyID) return;
+    try {
+      await setActiveCompany(Number(identifier));
+      setPage(1);
+      toast.success('Empresa ativa alterada');
+    } catch (error) {
+      toast.error('Não foi possível trocar de empresa', errorMessage(error));
+    }
+  }
 
   function toggleSort(column: string) {
     if (sort === column) {
@@ -154,7 +192,7 @@ export function UsersPage() {
 
   function openCreate() {
     setEditing(null);
-    setForm(emptyForm);
+    setForm({ ...emptyForm, company_id: activeCompanyID });
     setFieldErrors({});
     setFormError('');
     setModalOpen(true);
@@ -169,6 +207,8 @@ export function UsersPage() {
       password: '',
       password_confirmation: '',
       is_admin: user.is_admin,
+      company_id: user.company_id || activeCompanyID,
+      is_super_admin: user.is_super_admin,
     });
     setFieldErrors({});
     setFormError('');
@@ -186,6 +226,9 @@ export function UsersPage() {
       password: form.password,
       password_confirmation: form.password_confirmation,
       is_admin: form.is_admin,
+      ...(isSuperAdmin
+        ? { company_id: form.company_id || activeCompanyID, is_super_admin: form.is_super_admin }
+        : {}),
     };
     try {
       if (editing) {
@@ -268,7 +311,7 @@ export function UsersPage() {
       <PageHeader
         eyebrow="Administração"
         title="Usuários"
-        description="Gerencie contas, permissões e status de acesso."
+        description={<>Gerencie contas, permissões e status de acesso{company ? ` na empresa ${company.name}` : ''}.</>}
         actions={<Button renderIcon={Add} onClick={openCreate}>Novo usuário</Button>}
       />
 
@@ -299,6 +342,20 @@ export function UsersPage() {
           />
         </div>
         <div className="toolbar__filters">
+          {isSuperAdmin && (
+            <Select
+              id="company-filter"
+              labelText="Empresa"
+              value={activeCompanyID ? String(activeCompanyID) : ''}
+              size="sm"
+              onChange={(event) => void changeCompany(event)}
+            >
+              <SelectItem value="" text="Selecione" />
+              {companies.map((item) => (
+                <SelectItem key={item.id} value={String(item.id)} text={item.name} />
+              ))}
+            </Select>
+          )}
           <Select
             id="profile-filter"
             labelText="Perfil"
@@ -423,9 +480,14 @@ export function UsersPage() {
                     <td className="hide-sm">{user.email}</td>
                     <td>
                       <div className="tag-row">
-                        <RoleTag isAdmin={user.is_admin} />
+                        <RoleTag isAdmin={user.is_admin} isSuperAdmin={user.is_super_admin} />
                         {!user.is_active && <Tag type="red" size="sm">Inativo</Tag>}
                       </div>
+                      {isSuperAdmin && (
+                        <span className="cell-secondary">
+                          Empresa: {companies.find((item) => item.id === user.company_id)?.name ?? company?.name ?? '—'}
+                        </span>
+                      )}
                     </td>
                     <td className="hide-md">{relativeTime(user.created_at)}</td>
                     <td className="cell-actions">{rowActions(user)}</td>
@@ -448,9 +510,14 @@ export function UsersPage() {
                   <strong>{user.full_name}</strong>
                   <span>{user.email}</span>
                   <div className="tag-row">
-                    <RoleTag isAdmin={user.is_admin} />
+                    <RoleTag isAdmin={user.is_admin} isSuperAdmin={user.is_super_admin} />
                     <ActiveTag active={user.is_active} />
                   </div>
+                  {isSuperAdmin && (
+                    <span className="cell-secondary">
+                      Empresa: {companies.find((item) => item.id === user.company_id)?.name ?? company?.name ?? '—'}
+                    </span>
+                  )}
                 </div>
               </div>
               <div className="user-card__meta">
@@ -550,6 +617,29 @@ export function UsersPage() {
             checked={form.is_admin}
             onChange={(_event, { checked }) => setForm({ ...form, is_admin: checked })}
           />
+          {isSuperAdmin && (
+            <>
+              <Select
+                id="user-company"
+                labelText="Empresa"
+                value={form.company_id ? String(form.company_id) : ''}
+                onChange={(event) => setForm({ ...form, company_id: Number(event.target.value) })}
+                invalid={Boolean(fieldErrors.company_id)}
+                invalidText={fieldErrors.company_id}
+              >
+                <SelectItem value="" text="Selecione" />
+                {companies.map((item) => (
+                  <SelectItem key={item.id} value={String(item.id)} text={item.name} />
+                ))}
+              </Select>
+              <Checkbox
+                id="user-is-super-admin"
+                labelText="Tornar super-administrador"
+                checked={form.is_super_admin}
+                onChange={(_event, { checked }) => setForm({ ...form, is_super_admin: checked })}
+              />
+            </>
+          )}
         </div>
       </Modal>
 

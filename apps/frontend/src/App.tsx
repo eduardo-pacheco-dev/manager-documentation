@@ -6,6 +6,7 @@ import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { UsersPage } from './pages/UsersPage';
+import { CompaniesPage } from './pages/CompaniesPage';
 import { DevDocsPage } from './pages/DevDocsPage';
 import { DevDocViewPage } from './pages/DevDocViewPage';
 import { DevDocEditPage } from './pages/DevDocEditPage';
@@ -54,8 +55,14 @@ function ProtectedLayout() {
 }
 
 function AdminRoute() {
-  const { user } = useAuth();
-  if (!user?.is_admin) return <ForbiddenPage />;
+  const { canManageUsers } = useAuth();
+  if (!canManageUsers) return <ForbiddenPage />;
+  return <Outlet />;
+}
+
+function SuperAdminRoute() {
+  const { canManageCompanies } = useAuth();
+  if (!canManageCompanies) return <ForbiddenPage />;
   return <Outlet />;
 }
 
@@ -80,7 +87,6 @@ export default function App() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/backups" element={<Navigate to="/settings#backups" replace />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/agenda" element={<AgendaPage />} />
         <Route path="/tasks" element={<TasksPage />} />
@@ -103,6 +109,10 @@ export default function App() {
           <Route path="/dev-docs/new" element={<DevDocEditPage />} />
           <Route path="/dev-docs/:id" element={<DevDocViewPage />} />
           <Route path="/dev-docs/:id/edit" element={<DevDocEditPage />} />
+        </Route>
+        <Route element={<SuperAdminRoute />}>
+          <Route path="/companies" element={<CompaniesPage />} />
+          <Route path="/backups" element={<Navigate to="/settings#backups" replace />} />
         </Route>
         <Route path="*" element={<NotFoundPage />} />
       </Route>

@@ -95,6 +95,10 @@ func (s *Server) canManageShortLink(userID int64, admin bool, link modules.Short
 }
 
 func (s *Server) linksIndex(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	query := r.URL.Query()
 	status := strings.TrimSpace(query.Get("status"))
 	if status != "" && status != "active" && status != "inactive" && status != "expired" {
@@ -127,6 +131,10 @@ func (s *Server) linksIndex(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) linksCreate(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	var payload shortLinkPayload
 	if !decodeJSON(w, r, &payload) {
 		return
@@ -153,6 +161,10 @@ func (s *Server) linksCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) linksShow(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Link não encontrado.", nil)
@@ -178,6 +190,10 @@ func (s *Server) linksShow(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) linksUpdate(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Link não encontrado.", nil)
@@ -218,6 +234,10 @@ func (s *Server) linksUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) linksDelete(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Link não encontrado.", nil)
@@ -245,6 +265,10 @@ func (s *Server) linksDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) linksToggle(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Link não encontrado.", nil)
@@ -274,6 +298,10 @@ func (s *Server) linksToggle(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) linksFiles(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Link não encontrado.", nil)
@@ -296,6 +324,10 @@ func (s *Server) linksFiles(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) linksUploadFiles(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Link não encontrado.", nil)
@@ -356,6 +388,10 @@ func (s *Server) linksUploadFiles(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) linksDeleteFile(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Link não encontrado.", nil)
@@ -388,6 +424,10 @@ func (s *Server) linksDeleteFile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) linksQRCode(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Link não encontrado.", nil)
@@ -410,6 +450,10 @@ func (s *Server) linksQRCode(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) linksExport(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	query := r.URL.Query()
 	items, _, _, err := s.Modules.ListShortLinks(modules.ShortLinkFilter{
 		Search: strings.TrimSpace(query.Get("search")), Status: strings.TrimSpace(query.Get("status")),
@@ -451,6 +495,11 @@ type shortLinkPublicFile struct {
 
 func (s *Server) shortLinkPublic(w http.ResponseWriter, r *http.Request) {
 	code := strings.TrimSpace(chi.URLParam(r, "code"))
+	var ok bool
+	s, r, ok = s.usePublicTenant(w, r, "short_links", "code", code)
+	if !ok {
+		return
+	}
 	link, err := s.Modules.FindShortLinkByCode(code)
 	if err != nil || !link.IsActive || link.Expired {
 		writeError(w, http.StatusGone, "Link indisponível.", nil)
@@ -520,6 +569,11 @@ func shortLinkTargetHost(target string) string {
 
 func (s *Server) shortLinkFileDownload(w http.ResponseWriter, r *http.Request) {
 	code := strings.TrimSpace(chi.URLParam(r, "code"))
+	var ok bool
+	s, r, ok = s.usePublicTenant(w, r, "short_links", "code", code)
+	if !ok {
+		return
+	}
 	fileID, ok := parseStringID(chi.URLParam(r, "fileId"))
 	if !ok {
 		http.NotFound(w, r)

@@ -119,6 +119,10 @@ func (s *Server) demandStationExists(id int64) bool {
 }
 
 func (s *Server) demandsStations(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	limit := parsePositiveInt(r.URL.Query().Get("limit"), 20)
 	items, err := s.Modules.SearchDemandStations(r.URL.Query().Get("search"), limit)
 	if err != nil {
@@ -137,6 +141,10 @@ func canParticipateDemand(admin bool, userID int64, demand modules.Demand) bool 
 }
 
 func (s *Server) demandsIndex(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	query := r.URL.Query()
 	page := parsePositiveInt(query.Get("page"), 1)
 	perPage := parsePositiveInt(query.Get("per_page"), 20)
@@ -168,6 +176,10 @@ func (s *Server) demandsIndex(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) demandsCreate(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	var payload demandPayload
 	if !decodeJSON(w, r, &payload) {
 		return
@@ -203,6 +215,10 @@ func (s *Server) demandsCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) demandsShow(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Demanda não encontrada.", nil)
@@ -218,6 +234,10 @@ func (s *Server) demandsShow(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) demandsUpdate(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Demanda não encontrada.", nil)
@@ -264,6 +284,10 @@ func (s *Server) demandsUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) demandsDelete(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Demanda não encontrada.", nil)
@@ -291,6 +315,10 @@ func (s *Server) demandsDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) demandsStatus(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Demanda não encontrada.", nil)
@@ -328,6 +356,10 @@ func (s *Server) demandsStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) demandsAddUpdate(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Demanda não encontrada.", nil)
@@ -364,6 +396,10 @@ func (s *Server) demandsAddUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) demandsCollaborators(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	items, err := s.Modules.DemandCollaborators()
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Não foi possível carregar os colaboradores.", nil)
@@ -373,6 +409,10 @@ func (s *Server) demandsCollaborators(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) demandsUploadAttachment(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Demanda não encontrada.", nil)
@@ -432,6 +472,10 @@ func (s *Server) demandsUploadAttachment(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) demandsDownloadAttachment(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Demanda não encontrada.", nil)
@@ -465,6 +509,10 @@ func (s *Server) demandsDownloadAttachment(w http.ResponseWriter, r *http.Reques
 }
 
 func (s *Server) demandsDeleteAttachment(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Demanda não encontrada.", nil)
@@ -497,6 +545,10 @@ func (s *Server) demandsDeleteAttachment(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) demandsExport(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	query := r.URL.Query()
 	assigneeID, _ := strconv.ParseInt(strings.TrimSpace(query.Get("assignee_id")), 10, 64)
 	items, _, _, err := s.Modules.ListDemands(modules.DemandFilter{

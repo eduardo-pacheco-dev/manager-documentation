@@ -3,11 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button, InlineNotification, PasswordInput, TextInput, Theme } from '@carbon/react';
 import { useAuth } from '../contexts/AuthContext';
 import { ApiError } from '../lib/api';
+import { DEFAULT_COMPANY_SLUG } from '../lib/constants';
 
 export function RegisterPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ name: '', email: '', password: '', confirmation: '' });
+  const [form, setForm] = useState({ company: '', name: '', email: '', password: '', confirmation: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [generalError, setGeneralError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -18,7 +19,7 @@ export function RegisterPage() {
     setErrors({});
     setGeneralError('');
     try {
-      await register({
+      await register(form.company, {
         name: form.name,
         email: form.email,
         password: form.password,
@@ -62,7 +63,7 @@ export function RegisterPage() {
           <div className="auth-form">
             <p className="auth-form__eyebrow">Nova conta</p>
             <h2>Criar conta</h2>
-            <p className="auth-form__lead">Preencha os dados abaixo para começar.</p>
+            <p className="auth-form__lead">Escolha a empresa e preencha os dados abaixo para começar.</p>
 
             {generalError && (
               <InlineNotification
@@ -84,6 +85,18 @@ export function RegisterPage() {
                 onChange={(event) => setForm({ ...form, name: event.target.value })}
                 invalid={Boolean(errors.name)}
                 invalidText={errors.name}
+                required
+              />
+              <TextInput
+                id="company"
+                labelText="Empresa"
+                placeholder={DEFAULT_COMPANY_SLUG}
+                helperText="Identificador da empresa. Use padrao para a empresa padrão."
+                autoComplete="organization"
+                value={form.company}
+                onChange={(event) => setForm({ ...form, company: event.target.value })}
+                invalid={Boolean(errors.company)}
+                invalidText={errors.company}
                 required
               />
               <TextInput

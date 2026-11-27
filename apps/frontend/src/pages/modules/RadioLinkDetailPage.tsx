@@ -67,7 +67,7 @@ export function RadioLinkDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
-  const { user } = useAuth();
+  const { user, isCompanyAdmin } = useAuth();
   const [link, setLink] = useState<RadioLink | null>(null);
   const [stationA, setStationA] = useState<StationDetails | null>(null);
   const [stationB, setStationB] = useState<StationDetails | null>(null);
@@ -455,7 +455,7 @@ export function RadioLinkDetailPage() {
                       <span>{relativeTime(item.created_at)}</span>
                       <p className="preserve-lines">{item.body}</p>
                     </div>
-                    {(user?.is_admin || (item.user_id != null && item.user_id === user?.id)) && (
+                    {(isCompanyAdmin || (item.user_id != null && item.user_id === user?.id)) && (
                       <Button
                         kind="danger--ghost"
                         size="xs"

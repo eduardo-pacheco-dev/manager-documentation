@@ -24,6 +24,10 @@ type navigationGroup struct {
 }
 
 func (s *Server) listDocs(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	query := r.URL.Query()
 	category := query.Get("category")
 	if category != "" && !models.ValidCategory(category) {
@@ -63,6 +67,10 @@ func (s *Server) listDocs(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) showDoc(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Documento não encontrado.", nil)
@@ -86,6 +94,10 @@ func (s *Server) showDoc(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) createDoc(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	var payload docPayload
 	if !decodeJSON(w, r, &payload) {
 		return
@@ -122,6 +134,10 @@ func (s *Server) createDoc(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) updateDoc(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Documento não encontrado.", nil)
@@ -158,6 +174,10 @@ func (s *Server) updateDoc(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) deleteDoc(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Documento não encontrado.", nil)

@@ -75,6 +75,10 @@ func (p *stationPayload) fromInput(input modules.StationInput) {
 }
 
 func (s *Server) stationsIndex(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	query := r.URL.Query()
 	page := parsePositiveInt(query.Get("page"), 1)
 	perPage := parsePositiveInt(query.Get("per_page"), 15)
@@ -105,6 +109,10 @@ func (s *Server) stationsIndex(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) stationsShow(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	station, err := s.Modules.FindStation(id)
 	if err != nil {
@@ -118,6 +126,10 @@ func (s *Server) stationsShow(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) stationsCreate(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	var payload stationPayload
 	if !decodeJSON(w, r, &payload) {
 		return
@@ -136,6 +148,10 @@ func (s *Server) stationsCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) stationsUpdate(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	var payload stationPayload
 	if !decodeJSON(w, r, &payload) {
@@ -239,6 +255,10 @@ func validateStation(payload stationPayload) validationErrors {
 }
 
 func (s *Server) stationsDelete(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	paths, err := s.Modules.DeleteStation(id)
 	if err != nil {
@@ -252,6 +272,10 @@ func (s *Server) stationsDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) stationsUploadAttachment(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	if _, err := s.Modules.FindStation(id); err != nil {
 		writeError(w, http.StatusNotFound, "EstaÃƒÂ§ÃƒÂ£o nÃƒÂ£o encontrada.", nil)
@@ -300,6 +324,10 @@ func (s *Server) stationsUploadAttachment(w http.ResponseWriter, r *http.Request
 }
 
 func (s *Server) stationsDownloadAttachment(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	attachmentID, _ := parseID(r, "attachmentId")
 	attachment, err := s.Modules.FindStationAttachment(id, attachmentID)
@@ -311,6 +339,10 @@ func (s *Server) stationsDownloadAttachment(w http.ResponseWriter, r *http.Reque
 }
 
 func (s *Server) stationsDeleteAttachment(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	attachmentID, _ := parseID(r, "attachmentId")
 	path, err := s.Modules.DeleteStationAttachment(id, attachmentID)
@@ -323,6 +355,10 @@ func (s *Server) stationsDeleteAttachment(w http.ResponseWriter, r *http.Request
 }
 
 func (s *Server) stationsCreateComment(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	var payload struct {
 		Body string `json:"body"`
@@ -344,6 +380,10 @@ func (s *Server) stationsCreateComment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) stationsDeleteComment(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	commentID, _ := parseID(r, "commentId")
 	comment, err := s.Modules.FindStationComment(id, commentID)

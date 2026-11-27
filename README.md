@@ -18,12 +18,12 @@ Reescrita do **Documentation Center** em **Go + React + IBM Carbon Design System
 
 ## Recursos
 
-- **Autenticação**: cadastro, login, logout, sessão segura, CSRF, limite de tentativas e bloqueio de contas inativas.
+- **Autenticação**: cadastro e login por **empresa + e-mail**, logout, sessão segura, CSRF, limite de tentativas e bloqueio de contas inativas.
 - **API v1**: cadastro/login com token Bearer, usuário atual, logout e upload de imagens.
 - **Dashboard**: widgets de usuários e usuários recentes, modo edição, arrastar para reordenar, redimensionar (1–3 colunas), ocultar e restaurar widgets.
 - **Usuários**: busca, filtros por perfil/status, ordenação, paginação, visualização em tabela/cards/lista compacta, criação, edição, ativação/desativação e exclusão. Administradores não podem desativar nem excluir a própria conta.
 - **Wiki de desenvolvimento**: categorias, busca, rascunhos/publicados, navegação lateral, Markdown sanitizado, CRUD completo e upload de imagens no editor.
-- **Configurações**: tema sistema/claro/escuro, módulos habilitados, ordem e seção de navegação, notificações por e-mail, fuso horário (admin), armazenamento (admin), **backups (admin)**, alteração de senha e exclusão da conta.
+- **Configurações**: tema sistema/claro/escuro, módulos habilitados, ordem e seção de navegação, notificações por e-mail, fuso horário (admin), armazenamento (admin), **backups (super-admin)**, alteração de senha e exclusão da conta.
 - **Notificações**: central com níveis, contador de não lidas, marcar como lida, marcar todas, remover e limpar.
 - **Perfil**: dados básicos, papel e data de entrada.
 - **Agenda**: calendários próprios e compartilhados, eventos, participantes, recorrências, lembretes, visão mensal/lista e importação/exportação ICS.
@@ -35,11 +35,11 @@ Reescrita do **Documentation Center** em **Go + React + IBM Carbon Design System
 - **Links curtos**: encurtador com código personalizado, expiração, ativação/desativação, QR Code, anexos para download, exportação CSV, contagem de cliques, visitantes únicos, origens e histórico de acessos. Redirecionamento público em `/s/{código}`; quando há anexos, o link abre uma página pública de downloads.
 - **Demandas**: acionamento de colaboradores com responsável, prioridade, prazo, status, histórico de atualizações, anexos, cliente/e-mail do cliente, estação vinculada (busca), operadora, tipo de demanda, OC TIM, OS do cliente, chave, escopo da atividade, **links públicos de upload (colaborador) e download (cliente) integrados ao módulo Links curtos**, exportação CSV, notificações, deep link e widget “Minhas demandas” no dashboard.
 - **Usuários iEPMS**: cadastro dos usuários do aplicativo iEPMS (Resource ID, dados pessoais, documento, contato, conta de outsourcing e status), com busca, filtros, estatísticas, CRUD e **importação/exportação XLSX e CSV**. Cada usuário possui um status próprio (**Ativo** ou **Inativado**). A importação cria novos registros e atualiza os existentes pelo **número da conta** (único) ou, quando não houver conta, pelo **Resource ID**. Cada usuário pode ter uma **senha criptografada com AES-256-GCM**; para visualizá-la é obrigatório confirmar a senha da própria conta, e ela nunca aparece em listagens ou exportações.
-- **Backups**: em Configurações → Backups, geração manual e automática de arquivos `.zip` com dump do MySQL, uploads locais e anexos remotos (S3/R2), **agendamento configurável (ativar/desativar, dias da semana e horário)**, retenção ajustável, download, exclusão, importação de `.zip` externo e restauração com confirmação. Restrito a administradores.
+- **Backups**: em Configurações → Backups, geração manual e automática de arquivos `.zip` com dump do MySQL, uploads locais e anexos remotos (S3/R2), **agendamento configurável (ativar/desativar, dias da semana e horário)**, retenção ajustável, download, exclusão, importação de `.zip` externo e restauração com confirmação. Restrito a super-administradores.
 - **Projetos**: portfólio com planejamento no estilo Microsoft Project — EAP hierárquica com tarefas resumo e marcos, dependências FS/SS/FF/SF com lag, calendário de dias úteis e feriados, recursos com custo/hora e alocações, custos consolidados, caminho crítico, linha de base com variações de prazo/custo, gráfico de Gantt e exportação CSV.
 - **Integração entre módulos**: tarefas, follow-ups e eventos da agenda podem ser vinculados a estações e sites Nokia direto das páginas de detalhes, com criação rápida e desvinculação. A **Central de trabalho** no dashboard reúne prazos, follow-ups e compromissos, e as notificações cruzam os módulos com links diretos (follow-up atribuído/atualizado, convites da agenda, rejeições Nokia e lembretes de prazos).
 - **Responsividade**: sidebar em gaveta no mobile, grids adaptáveis, tabelas com rolagem e ações empilhadas.
-- **Administração inicial**: seed idempotente com administrador e wiki de exemplo.
+- **Administração inicial**: seed idempotente com super-administrador global, empresa padrão e wiki de exemplo.
 
 Todos os plugins (`Agenda`, `FollowUp`, `Nokia`, `Stations` e `Tasks`) foram portados como módulos nativos. O sistema de instalação dinâmica de plugins não existe mais; os módulos fazem parte do binário e podem ser habilitados, ordenados e movidos entre sidebar e menu Módulos nas configurações.
 
@@ -140,6 +140,7 @@ O servidor inicia em `http://localhost:8080`. Na primeira execução:
 Credenciais padrão do administrador:
 
 ```
+Empresa: padrao
 E-mail: admin@example.com
 Senha:  password
 ```
@@ -187,23 +188,36 @@ Ou use Docker (sobe a aplicação e o MySQL):
 docker compose up --build
 ```
 
+
+## Separação por empresa
+
+Cada registro pertence a uma empresa e todos os módulos são isolados no servidor. Membros da mesma empresa compartilham os dados do módulo; usuários de outras empresas não os veem. A empresa padrão é `padrao` (id 1) e recebe todos os dados existentes.
+
+- O login exige **empresa + e-mail**. O mesmo e-mail pode existir em empresas diferentes.
+- O seed cria o administrador configurado por `SEED_ADMIN_EMAIL` como **super-administrador global** na empresa padrão.
+- Administradores comuns gerenciam apenas a própria empresa, inclusive usuários, configurações e módulos.
+- O super-administrador gerencia empresas em `GET/POST/PUT /api/v1/companies` e pode operar em outra empresa enviando o header `X-Company-ID`. Backups globais também são exclusivos dele.
+- A criação de empresa pode provisionar diretamente um administrador inicial com `admin_name`, `admin_email` e `admin_password`.
+
 ## Administração inicial
 
 O seed cria um administrador automaticamente. Para criar ou promover outro administrador localmente:
 
 ```bash
 cd apps/backend
-go run ./cmd/createadmin -name "Admin" -email admin2@example.com -password "senha-forte"
+go run ./cmd/createadmin -company padrao -name "Admin" -email admin2@example.com -password "senha-forte"
+# para promover a super-administrador global:
+go run ./cmd/createadmin -company padrao -name "Admin Global" -email admin2@example.com -password "senha-forte" -super
 ```
 
 Na VPS, use o binário `createadmin` incluído no pacote de deploy:
 
 ```bash
 cd ~/app/manager-documentation
-sudo bash deploy.sh admin --email admin2@exemplo.com --password "senha-forte" --name "Admin"
+sudo bash deploy.sh admin --email admin2@exemplo.com --password "senha-forte" --name "Admin" --company padrao
 ```
 
-- Se o e-mail já existir, a conta é promovida a administradora e ativada (a senha só é alterada se `--password` for informado).
+- Se o e-mail já existir na empresa informada, a conta é promovida a administradora e ativada (a senha só é alterada se `--password` for informado).
 - Se `--password` for omitido, uma senha aleatória é gerada e exibida ao final.
 - O comando usa o `.env` de `shared/.env` e exige uma release já instalada; a senha precisa ter ao menos 8 caracteres.
 
@@ -252,7 +266,7 @@ Exemplo de login com token:
 ```bash
 curl -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@example.com","password":"password","device_name":"cli"}'
+  -d '{"company":"padrao","email":"admin@example.com","password":"password","device_name":"cli"}'
 ```
 
 Use o token retornado em `Authorization: Bearer <token>`.

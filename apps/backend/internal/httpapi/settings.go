@@ -13,6 +13,10 @@ import (
 )
 
 func (s *Server) showSettings(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	user := currentUser(r)
 	allModules, enabledModules := modulesForUser(user)
 	allModules = settingsModules(allModules)
@@ -34,11 +38,12 @@ func (s *Server) showSettings(w http.ResponseWriter, r *http.Request) {
 			"email_notifications": user.EmailNotifications,
 			"timezone":            timezone,
 			"timezones":           timezones(),
-			"is_admin":            user.IsAdmin,
+			"is_admin":            user.IsAdmin || user.IsSuperAdmin,
+			"is_super_admin":      user.IsSuperAdmin,
 		},
 	}
 
-	if user.IsAdmin {
+	if user.IsAdmin || user.IsSuperAdmin {
 		storage, err := s.Store.GetStorageSettings()
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "Não foi possível carregar as configurações de armazenamento.", nil)
@@ -51,6 +56,10 @@ func (s *Server) showSettings(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) updateTheme(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	var payload struct {
 		Theme string `json:"theme"`
 	}
@@ -75,6 +84,10 @@ func (s *Server) updateTheme(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) updateModules(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	var payload struct {
 		Modules  []string          `json:"modules"`
 		Order    []string          `json:"order"`
@@ -165,6 +178,10 @@ func (s *Server) updateModules(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) updateNotificationSettings(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	var payload struct {
 		EmailNotifications *bool `json:"email_notifications"`
 	}
@@ -188,6 +205,10 @@ func (s *Server) updateNotificationSettings(w http.ResponseWriter, r *http.Reque
 }
 
 func (s *Server) updateTimezone(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	var payload struct {
 		Timezone string `json:"timezone"`
 	}
@@ -233,6 +254,10 @@ type storagePayload struct {
 }
 
 func (s *Server) updateStorage(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	var payload storagePayload
 	if !decodeJSON(w, r, &payload) {
 		return
@@ -354,6 +379,10 @@ func (s *Server) updateStorage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) updatePassword(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	var payload struct {
 		CurrentPassword      string `json:"current_password"`
 		Password             string `json:"password"`
@@ -396,6 +425,10 @@ func (s *Server) updatePassword(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) deleteAccount(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	var payload struct {
 		DeletePassword string `json:"delete_password"`
 	}

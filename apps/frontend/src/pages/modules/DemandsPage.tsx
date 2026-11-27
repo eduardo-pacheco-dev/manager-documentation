@@ -63,7 +63,7 @@ const EMPTY_FORM = {
 };
 
 export function DemandsPage() {
-  const { user } = useAuth();
+  const { user, isCompanyAdmin } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -185,7 +185,7 @@ export function DemandsPage() {
   const items = data?.data ?? [];
   const collaborators = data?.collaborators ?? [];
   const stats = data?.stats;
-  const isAdmin = Boolean(user?.is_admin);
+  const isAdmin = isCompanyAdmin;
   const canManage = (demand: Demand) => isAdmin || demand.requester_id === user?.id;
 
   return (

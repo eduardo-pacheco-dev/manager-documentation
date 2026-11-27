@@ -32,8 +32,12 @@ export function Loading({ description = 'Carregando…' }: { description?: strin
   );
 }
 
-export function RoleTag({ isAdmin }: { isAdmin: boolean }) {
-  return <Tag type={isAdmin ? 'purple' : 'gray'} size="sm">{roleLabel(isAdmin)}</Tag>;
+export function RoleTag({ isAdmin, isSuperAdmin }: { isAdmin?: boolean; isSuperAdmin?: boolean }) {
+  return (
+    <Tag type={isSuperAdmin ? 'blue' : isAdmin ? 'purple' : 'gray'} size="sm">
+      {roleLabel({ isAdmin, isSuperAdmin })}
+    </Tag>
+  );
 }
 
 export function ActiveTag({ active }: { active: boolean }) {

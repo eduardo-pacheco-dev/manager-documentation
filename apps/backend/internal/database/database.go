@@ -117,6 +117,24 @@ func DropDatabase(cfg config.Config, databaseName string) error {
 	return err
 }
 
+// isResumeSafeMigrationError reports DDL errors that mean "already applied"
+// for the append-only tenant migrations. Earlier migrations stay strict.
+func isResumeSafeMigrationError(version int, err error) bool {
+	if version < 26 {
+		return false
+	}
+	var mysqlErr *mysql.MySQLError
+	if !errors.As(err, &mysqlErr) {
+		return false
+	}
+	switch mysqlErr.Number {
+	case 1022, 1050, 1060, 1061, 1068, 1091, 1826, 1830:
+		return true
+	default:
+		return false
+	}
+}
+
 func migrate(db *sqlx.DB) error {
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
 		version INT NOT NULL,
@@ -138,7 +156,12 @@ func migrate(db *sqlx.DB) error {
 
 		for _, statement := range statements {
 			if _, err := db.Exec(statement); err != nil {
-				return fmt.Errorf("migration %d: %w", version, err)
+				// Migrations 26+ contain many DDL statements. A previous run can
+				// stop halfway, so tolerate already-applied schema objects and
+				// resume from the first statement that is still pending.
+				if !isResumeSafeMigrationError(version, err) {
+					return fmt.Errorf("migration %d: %w", version, err)
+				}
 			}
 		}
 		if _, err := db.Exec(`INSERT INTO schema_migrations (version) VALUES (?)`, version); err != nil {
@@ -1176,6 +1199,166 @@ var migrations = [][]string{
 	},
 	{
 		`CREATE UNIQUE INDEX uq_iepms_users_account ON iepms_users (outsourcing_account)`,
+	},
+	{
+		"CREATE TABLE companies (\n\tid BIGINT NOT NULL AUTO_INCREMENT,\n\tname VARCHAR(255) NOT NULL,\n\tslug VARCHAR(64) NOT NULL,\n\tis_active TINYINT(1) NOT NULL DEFAULT 1,\n\tcreated_at DATETIME NOT NULL,\n\tupdated_at DATETIME NOT NULL,\n\tPRIMARY KEY (id),\n\tUNIQUE KEY uq_companies_slug (slug),\n\tKEY idx_companies_active (is_active)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+		"INSERT IGNORE INTO companies (id, name, slug, is_active, created_at, updated_at)\n\tVALUES (1, 'Padrão', 'padrao', 1, NOW(), NOW())",
+		"ALTER TABLE users ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_users_company ON users (company_id)",
+		"ALTER TABLE sessions ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_sessions_company ON sessions (company_id)",
+		"ALTER TABLE api_tokens ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_api_tokens_company ON api_tokens (company_id)",
+		"ALTER TABLE settings ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1",
+		"CREATE INDEX idx_settings_company ON settings (company_id)",
+		"ALTER TABLE storage_settings ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_storage_settings_company ON storage_settings (company_id)",
+		"ALTER TABLE notifications ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_notifications_company ON notifications (company_id)",
+		"ALTER TABLE dev_docs ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_dev_docs_company ON dev_docs (company_id)",
+		"ALTER TABLE collaborators ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_collaborators_company ON collaborators (company_id)",
+		"ALTER TABLE demands ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_demands_company ON demands (company_id)",
+		"ALTER TABLE demand_attachments ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_demand_attachments_company ON demand_attachments (company_id)",
+		"ALTER TABLE demand_updates ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_demand_updates_company ON demand_updates (company_id)",
+		"ALTER TABLE short_links ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_short_links_company ON short_links (company_id)",
+		"ALTER TABLE short_link_clicks ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_short_link_clicks_company ON short_link_clicks (company_id)",
+		"ALTER TABLE short_link_files ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_short_link_files_company ON short_link_files (company_id)",
+		"ALTER TABLE todo_lists ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_todo_lists_company ON todo_lists (company_id)",
+		"ALTER TABLE todo_steps ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_todo_steps_company ON todo_steps (company_id)",
+		"ALTER TABLE todo_tasks ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_todo_tasks_company ON todo_tasks (company_id)",
+		"ALTER TABLE follow_ups ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_follow_ups_company ON follow_ups (company_id)",
+		"ALTER TABLE follow_up_assignees ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_follow_up_assignees_company ON follow_up_assignees (company_id)",
+		"ALTER TABLE follow_up_clients ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_follow_up_clients_company ON follow_up_clients (company_id)",
+		"ALTER TABLE follow_up_projects ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_follow_up_projects_company ON follow_up_projects (company_id)",
+		"ALTER TABLE follow_up_settings ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_follow_up_settings_company ON follow_up_settings (company_id)",
+		"ALTER TABLE follow_up_updates ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_follow_up_updates_company ON follow_up_updates (company_id)",
+		"ALTER TABLE stations ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_stations_company ON stations (company_id)",
+		"ALTER TABLE station_attachments ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_station_attachments_company ON station_attachments (company_id)",
+		"ALTER TABLE station_comments ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_station_comments_company ON station_comments (company_id)",
+		"ALTER TABLE nokia_sites ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_nokia_sites_company ON nokia_sites (company_id)",
+		"ALTER TABLE nokia_roms ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_nokia_roms_company ON nokia_roms (company_id)",
+		"ALTER TABLE nokia_tasks ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_nokia_tasks_company ON nokia_tasks (company_id)",
+		"ALTER TABLE nokia_site_task ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_nokia_site_task_company ON nokia_site_task (company_id)",
+		"ALTER TABLE nokia_site_agenda_events ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_nokia_site_agenda_events_company ON nokia_site_agenda_events (company_id)",
+		"ALTER TABLE nokia_site_attachments ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_nokia_site_attachments_company ON nokia_site_attachments (company_id)",
+		"ALTER TABLE nokia_site_comments ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_nokia_site_comments_company ON nokia_site_comments (company_id)",
+		"ALTER TABLE nokia_site_rejections ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_nokia_site_rejections_company ON nokia_site_rejections (company_id)",
+		"ALTER TABLE radio_links ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_radio_links_company ON radio_links (company_id)",
+		"ALTER TABLE radio_link_attachments ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_radio_link_attachments_company ON radio_link_attachments (company_id)",
+		"ALTER TABLE radio_link_comments ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_radio_link_comments_company ON radio_link_comments (company_id)",
+		"ALTER TABLE projects ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_projects_company ON projects (company_id)",
+		"ALTER TABLE project_assignments ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_project_assignments_company ON project_assignments (company_id)",
+		"ALTER TABLE project_baseline_tasks ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_project_baseline_tasks_company ON project_baseline_tasks (company_id)",
+		"ALTER TABLE project_baselines ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_project_baselines_company ON project_baselines (company_id)",
+		"ALTER TABLE project_dependencies ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_project_dependencies_company ON project_dependencies (company_id)",
+		"ALTER TABLE project_holidays ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_project_holidays_company ON project_holidays (company_id)",
+		"ALTER TABLE project_pipeline_stages ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_project_pipeline_stages_company ON project_pipeline_stages (company_id)",
+		"ALTER TABLE project_resources ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_project_resources_company ON project_resources (company_id)",
+		"ALTER TABLE project_tasks ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_project_tasks_company ON project_tasks (company_id)",
+		"ALTER TABLE agenda_calendars ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_agenda_calendars_company ON agenda_calendars (company_id)",
+		"ALTER TABLE agenda_calendar_shares ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_agenda_calendar_shares_company ON agenda_calendar_shares (company_id)",
+		"ALTER TABLE agenda_events ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_agenda_events_company ON agenda_events (company_id)",
+		"ALTER TABLE agenda_event_attendees ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_agenda_event_attendees_company ON agenda_event_attendees (company_id)",
+		"ALTER TABLE agenda_event_exceptions ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_agenda_event_exceptions_company ON agenda_event_exceptions (company_id)",
+		"ALTER TABLE agenda_event_reminders ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_agenda_event_reminders_company ON agenda_event_reminders (company_id)",
+		"ALTER TABLE iepms_users ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_iepms_users_company ON iepms_users (company_id)",
+		"ALTER TABLE entity_links ADD COLUMN company_id BIGINT NOT NULL DEFAULT 1 AFTER id",
+		"CREATE INDEX idx_entity_links_company ON entity_links (company_id)",
+		"ALTER TABLE users ADD COLUMN is_super_admin TINYINT(1) NOT NULL DEFAULT 0 AFTER is_admin",
+		"ALTER TABLE users ADD CONSTRAINT fk_users_company FOREIGN KEY (company_id) REFERENCES companies(id)",
+		"ALTER TABLE sessions ADD CONSTRAINT fk_sessions_company FOREIGN KEY (company_id) REFERENCES companies(id)",
+		"ALTER TABLE api_tokens ADD CONSTRAINT fk_api_tokens_company FOREIGN KEY (company_id) REFERENCES companies(id)",
+		// Keep an index for every existing FK column before its supporting
+		// unique index is replaced by a company-scoped one.
+		"ALTER TABLE follow_up_projects ADD INDEX idx_migrate26_follow_up_projects_client (client_id)",
+		"ALTER TABLE agenda_calendar_shares ADD INDEX idx_migrate26_calendar_shares_calendar (agenda_calendar_id), ADD INDEX idx_migrate26_calendar_shares_user (user_id)",
+		"ALTER TABLE agenda_event_attendees ADD INDEX idx_migrate26_attendees_event (agenda_event_id), ADD INDEX idx_migrate26_attendees_user (user_id)",
+		"ALTER TABLE agenda_event_exceptions ADD INDEX idx_migrate26_exceptions_event (agenda_event_id)",
+		"ALTER TABLE project_assignments ADD INDEX idx_migrate26_assignments_project (project_id), ADD INDEX idx_migrate26_assignments_task (task_id), ADD INDEX idx_migrate26_assignments_resource (resource_id)",
+		"ALTER TABLE project_baseline_tasks ADD INDEX idx_migrate26_baseline_tasks_baseline (baseline_id), ADD INDEX idx_migrate26_baseline_tasks_task (task_id)",
+		"ALTER TABLE project_dependencies ADD INDEX idx_migrate26_dependencies_project (project_id), ADD INDEX idx_migrate26_dependencies_pred (predecessor_id), ADD INDEX idx_migrate26_dependencies_succ (successor_id)",
+		"ALTER TABLE project_holidays ADD INDEX idx_migrate26_holidays_project (project_id)",
+		"ALTER TABLE project_resources ADD INDEX idx_migrate26_resources_project (project_id)",
+		"ALTER TABLE nokia_site_task ADD INDEX idx_migrate26_nokia_site_task_site (nokia_site_id), ADD INDEX idx_migrate26_nokia_site_task_task (nokia_task_id)",
+		"ALTER TABLE nokia_site_agenda_events ADD INDEX idx_migrate26_nokia_agenda_site (nokia_site_id), ADD INDEX idx_migrate26_nokia_agenda_event (agenda_event_id)",
+		"ALTER TABLE notifications ADD INDEX idx_migrate26_notifications_user (user_id)",
+		"ALTER TABLE users DROP INDEX uq_users_email, ADD UNIQUE KEY uq_users_company_email (company_id, email)",
+		"ALTER TABLE collaborators DROP INDEX uq_collaborators_cpf, DROP INDEX uq_collaborators_email, ADD UNIQUE KEY uq_collaborators_company_cpf (company_id, cpf), ADD UNIQUE KEY uq_collaborators_company_email (company_id, email)",
+		"ALTER TABLE dev_docs DROP INDEX uq_dev_docs_slug, ADD UNIQUE KEY uq_dev_docs_company_slug (company_id, slug)",
+		"ALTER TABLE demands DROP INDEX uq_demands_download_token, DROP INDEX uq_demands_upload_token, ADD UNIQUE KEY uq_demands_company_download_token (company_id, download_token), ADD UNIQUE KEY uq_demands_company_upload_token (company_id, upload_token)",
+		"ALTER TABLE short_links ADD INDEX idx_short_links_demand (demand_id)",
+		"ALTER TABLE short_links DROP INDEX uq_short_links_code, DROP INDEX uq_short_links_demand_kind, ADD UNIQUE KEY uq_short_links_company_code (company_id, code), ADD UNIQUE KEY uq_short_links_company_demand_kind (company_id, demand_id, demand_kind)",
+		"ALTER TABLE follow_up_clients DROP INDEX uq_follow_up_clients_name, ADD UNIQUE KEY uq_follow_up_clients_company_name (company_id, name)",
+		"ALTER TABLE follow_up_projects DROP INDEX uq_follow_up_projects, ADD UNIQUE KEY uq_follow_up_projects_company (company_id, client_id, name)",
+		"ALTER TABLE iepms_users DROP INDEX uq_iepms_users_resource, DROP INDEX uq_iepms_users_account, ADD UNIQUE KEY uq_iepms_users_company_resource (company_id, resource_id), ADD UNIQUE KEY uq_iepms_users_company_account (company_id, outsourcing_account)",
+		"ALTER TABLE nokia_roms DROP INDEX uq_nokia_roms_email, ADD UNIQUE KEY uq_nokia_roms_company_email (company_id, email)",
+		"ALTER TABLE nokia_sites DROP INDEX uq_nokia_sites_oc, ADD UNIQUE KEY uq_nokia_sites_company_oc (company_id, oc)",
+		"ALTER TABLE radio_links DROP INDEX uq_radio_links_code, ADD UNIQUE KEY uq_radio_links_company_code (company_id, code)",
+		"ALTER TABLE agenda_calendar_shares DROP INDEX uq_agenda_calendar_shares, ADD UNIQUE KEY uq_agenda_calendar_shares_company (company_id, agenda_calendar_id, user_id)",
+		"ALTER TABLE agenda_event_attendees DROP INDEX uq_agenda_attendee_email, ADD UNIQUE KEY uq_agenda_attendee_company_email (company_id, agenda_event_id, email)",
+		"ALTER TABLE agenda_event_exceptions DROP INDEX uq_agenda_exception, ADD UNIQUE KEY uq_agenda_exception_company (company_id, agenda_event_id, recurrence_id)",
+		"ALTER TABLE project_assignments DROP INDEX uq_project_assignments, ADD UNIQUE KEY uq_project_assignments_company (company_id, task_id, resource_id)",
+		"ALTER TABLE project_baseline_tasks DROP INDEX uq_project_baseline_tasks, ADD UNIQUE KEY uq_project_baseline_tasks_company (company_id, baseline_id, task_id)",
+		"ALTER TABLE project_dependencies DROP INDEX uq_project_dependencies, ADD UNIQUE KEY uq_project_dependencies_company (company_id, predecessor_id, successor_id)",
+		"ALTER TABLE project_holidays DROP INDEX uq_project_holidays, ADD UNIQUE KEY uq_project_holidays_company (company_id, project_id, holiday_date)",
+		"ALTER TABLE project_resources DROP INDEX uq_project_resources_collaborator, ADD UNIQUE KEY uq_project_resources_company_collaborator (company_id, project_id, collaborator_id)",
+		"ALTER TABLE nokia_site_task DROP INDEX uq_nokia_site_task, ADD UNIQUE KEY uq_nokia_site_task_company (company_id, nokia_site_id, nokia_task_id)",
+		"ALTER TABLE nokia_site_agenda_events DROP INDEX uq_nokia_agenda_field, ADD UNIQUE KEY uq_nokia_agenda_company_field (company_id, nokia_site_id, date_field)",
+		"ALTER TABLE stations DROP INDEX idx_stations_nokia_site, ADD UNIQUE KEY uq_stations_company_nokia_site (company_id, nokia_site_id)",
+		"ALTER TABLE entity_links DROP INDEX uq_entity_links, ADD UNIQUE KEY uq_entity_links_company (company_id, module, entity_id, resource_type, resource_id)",
+		"ALTER TABLE notifications DROP INDEX idx_notifications_dedupe, ADD UNIQUE KEY idx_notifications_dedupe (company_id, user_id, dedupe_key)",
+		"ALTER TABLE settings DROP PRIMARY KEY, ADD PRIMARY KEY (company_id, `key`)",
+	},
+	{
+		"ALTER TABLE storage_settings DROP PRIMARY KEY, ADD PRIMARY KEY (company_id, id)",
+		"ALTER TABLE follow_up_settings DROP PRIMARY KEY, ADD PRIMARY KEY (company_id, id)",
 	},
 }
 

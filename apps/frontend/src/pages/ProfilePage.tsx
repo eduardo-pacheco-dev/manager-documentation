@@ -10,7 +10,7 @@ import { errorMessage, initials, longDate } from '../lib/format';
 import type { User } from '../lib/types';
 
 export function ProfilePage() {
-  const { user, patchUser } = useAuth();
+  const { user, company, patchUser } = useAuth();
   const toast = useToast();
   const [name, setName] = useState(user?.name ?? '');
   const [email, setEmail] = useState(user?.email ?? '');
@@ -53,8 +53,12 @@ export function ProfilePage() {
           <div className="profile-avatar">{initials(user.full_name)}</div>
           <h2>{user.full_name}</h2>
           <p>{user.email}</p>
-          <RoleTag isAdmin={user.is_admin} />
+          <RoleTag isAdmin={user.is_admin} isSuperAdmin={user.is_super_admin} />
           <dl>
+            <div>
+              <dt>Empresa ativa</dt>
+              <dd>{company?.name ?? '—'}</dd>
+            </div>
             <div>
               <dt>Membro desde</dt>
               <dd>{longDate(user.created_at)}</dd>

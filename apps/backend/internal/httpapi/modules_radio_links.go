@@ -45,6 +45,10 @@ func (p radioLinkPayload) input() modules.RadioLinkInput {
 }
 
 func (s *Server) radioLinksIndex(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	query := r.URL.Query()
 	page := parsePositiveInt(query.Get("page"), 1)
 	perPage := parsePositiveInt(query.Get("per_page"), 20)
@@ -72,6 +76,10 @@ func (s *Server) radioLinksIndex(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) radioLinksShow(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Rádio link não encontrado.", nil)
@@ -86,6 +94,10 @@ func (s *Server) radioLinksShow(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) radioLinksCreate(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	var payload radioLinkPayload
 	if !decodeJSON(w, r, &payload) {
 		return
@@ -108,6 +120,10 @@ func (s *Server) radioLinksCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) radioLinksUpdate(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Rádio link não encontrado.", nil)
@@ -139,6 +155,10 @@ func (s *Server) radioLinksUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) radioLinksDelete(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Rádio link não encontrado.", nil)
@@ -160,6 +180,10 @@ func (s *Server) radioLinksDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) radioLinksUploadAttachment(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Rádio link não encontrado.", nil)
@@ -207,6 +231,10 @@ func (s *Server) radioLinksUploadAttachment(w http.ResponseWriter, r *http.Reque
 }
 
 func (s *Server) radioLinksDownloadAttachment(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	attachmentID, _ := parseID(r, "attachmentId")
 	attachment, err := s.Modules.FindRadioLinkAttachment(id, attachmentID)
@@ -218,6 +246,10 @@ func (s *Server) radioLinksDownloadAttachment(w http.ResponseWriter, r *http.Req
 }
 
 func (s *Server) radioLinksDeleteAttachment(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	attachmentID, _ := parseID(r, "attachmentId")
 	path, err := s.Modules.DeleteRadioLinkAttachment(id, attachmentID)
@@ -230,6 +262,10 @@ func (s *Server) radioLinksDeleteAttachment(w http.ResponseWriter, r *http.Reque
 }
 
 func (s *Server) radioLinksCreateComment(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Rádio link não encontrado.", nil)
@@ -255,6 +291,10 @@ func (s *Server) radioLinksCreateComment(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) radioLinksDeleteComment(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, _ := parseID(r, "id")
 	commentID, _ := parseID(r, "commentId")
 	comment, err := s.Modules.FindRadioLinkComment(id, commentID)
@@ -276,6 +316,10 @@ func (s *Server) radioLinksDeleteComment(w http.ResponseWriter, r *http.Request)
 
 // radioLinkStations feeds the station pickers used for the A and B endpoints.
 func (s *Server) radioLinkStations(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	limit := parsePositiveInt(r.URL.Query().Get("limit"), 30)
 	items, err := s.Modules.SearchDemandStations(r.URL.Query().Get("search"), limit)
 	if err != nil {

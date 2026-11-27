@@ -37,32 +37,60 @@ func (s *Store) FindUserByID(id int64) (models.User, error) {
 
 func (s *Store) FindUserByEmail(email string) (models.User, error) {
 	var user models.User
-	err := s.DB.Get(&user, `SELECT * FROM users WHERE email = ?`, strings.ToLower(strings.TrimSpace(email)))
+	err := s.DB.Get(&user, `SELECT * FROM users WHERE email = ? ORDER BY id ASC LIMIT 1`, strings.ToLower(strings.TrimSpace(email)))
 	if errors.Is(err, sql.ErrNoRows) {
 		return user, ErrNotFound
 	}
 	return user, err
 }
 
+// FindUserByCompanyEmail is used by the global auth layer, where the company
+// identifier is part of the credentials. Tenant-scoped stores can keep using
+// FindUserByEmail because their SQL is rewritten with company_id.
+func (s *Store) FindUserByCompanyEmail(companyID int64, email string) (models.User, error) {
+	var user models.User
+	err := s.DB.Get(&user, `SELECT * FROM users WHERE company_id = ? AND email = ?`, companyID, strings.ToLower(strings.TrimSpace(email)))
+	if errors.Is(err, sql.ErrNoRows) {
+		return user, ErrNotFound
+	}
+	return user, err
+}
+
+// sqlExecer is implemented by both *sqlx.DB and *sqlx.Tx, allowing services to
+// run the same insert inside or outside a transaction.
+type sqlExecer interface {
+	Exec(query string, args ...any) (sql.Result, error)
+}
+
 func (s *Store) CreateUser(user *models.User) error {
+	return createUser(s.DB, user)
+}
+
+func createUser(exec sqlExecer, user *models.User) error {
 	now := time.Now().UTC()
 	user.CreatedAt = now
 	user.UpdatedAt = now
 	if user.Theme == "" {
 		user.Theme = "system"
 	}
-	result, err := s.DB.Exec(`
-		INSERT INTO users (
-			name, surname, email, password_hash, is_admin, is_active, theme,
-			enabled_modules, module_order, module_sections,
-			dashboard_hidden_widgets, dashboard_widget_order, dashboard_widget_spans,
-			email_notifications, created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		user.Name, user.Surname, user.Email, user.PasswordHash, user.IsAdmin, user.IsActive, user.Theme,
+	columns := "name, surname, email, password_hash, is_admin, is_super_admin, is_active, theme, " +
+		"enabled_modules, module_order, module_sections, dashboard_hidden_widgets, " +
+		"dashboard_widget_order, dashboard_widget_spans, email_notifications, created_at, updated_at"
+	placeholders := "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?"
+	args := []any{
+		user.Name, user.Surname, user.Email, user.PasswordHash, user.IsAdmin, user.IsSuperAdmin, user.IsActive, user.Theme,
 		user.EnabledModules, user.ModuleOrder, user.ModuleSections,
 		user.DashboardHidden, user.DashboardOrder, user.DashboardSpans,
 		user.EmailNotifications, user.CreatedAt, user.UpdatedAt,
-	)
+	}
+	// Tenant stores leave CompanyID at zero so the SQL rewriter injects the
+	// active company. Global callers (seed/CLI) set it explicitly.
+	if user.CompanyID != 0 {
+		columns = "company_id, " + columns
+		placeholders = "?, " + placeholders
+		args = append([]any{user.CompanyID}, args...)
+	}
+	result, err := exec.Exec(`INSERT INTO users (`+columns+`) VALUES (`+placeholders+`)`, args...)
 	if err != nil {
 		return err
 	}
@@ -74,12 +102,12 @@ func (s *Store) UpdateUser(user *models.User) error {
 	user.UpdatedAt = time.Now().UTC()
 	_, err := s.DB.Exec(`
 		UPDATE users SET
-			name = ?, surname = ?, email = ?, password_hash = ?, is_admin = ?, is_active = ?,
+			name = ?, surname = ?, email = ?, password_hash = ?, is_admin = ?, is_super_admin = ?, is_active = ?,
 			theme = ?, enabled_modules = ?, module_order = ?, module_sections = ?,
 			dashboard_hidden_widgets = ?, dashboard_widget_order = ?, dashboard_widget_spans = ?,
 			email_notifications = ?, updated_at = ?
 		WHERE id = ?`,
-		user.Name, user.Surname, user.Email, user.PasswordHash, user.IsAdmin, user.IsActive,
+		user.Name, user.Surname, user.Email, user.PasswordHash, user.IsAdmin, user.IsSuperAdmin, user.IsActive,
 		user.Theme, user.EnabledModules, user.ModuleOrder, user.ModuleSections,
 		user.DashboardHidden, user.DashboardOrder, user.DashboardSpans,
 		user.EmailNotifications, user.UpdatedAt, user.ID,
@@ -127,7 +155,7 @@ func (s *Store) CountUserStats() (UserStats, error) {
 	var stats UserStats
 	err := s.DB.Get(&stats, `SELECT
 		COUNT(*) AS total,
-		COALESCE(SUM(CASE WHEN is_admin = 1 THEN 1 ELSE 0 END), 0) AS admins,
+		COALESCE(SUM(CASE WHEN is_admin = 1 OR is_super_admin = 1 THEN 1 ELSE 0 END), 0) AS admins,
 		COALESCE(SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END), 0) AS active,
 		COALESCE(SUM(CASE WHEN is_active = 0 THEN 1 ELSE 0 END), 0) AS inactive
 		FROM users`)
@@ -145,9 +173,9 @@ func (s *Store) ListUsers(filter UserFilter) ([]models.User, int, error) {
 	}
 	switch filter.Profile {
 	case "admin":
-		conditions = append(conditions, "is_admin = 1")
+		conditions = append(conditions, "(is_admin = 1 OR is_super_admin = 1)")
 	case "user":
-		conditions = append(conditions, "is_admin = 0")
+		conditions = append(conditions, "is_admin = 0 AND is_super_admin = 0")
 	}
 	switch filter.Status {
 	case "active":

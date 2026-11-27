@@ -79,7 +79,7 @@ function formatBytes(size: number): string {
 export function DemandDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isCompanyAdmin } = useAuth();
   const toast = useToast();
   const [demand, setDemand] = useState<Demand | null>(null);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
@@ -330,7 +330,7 @@ export function DemandDetailPage() {
     );
   }
 
-  const isAdmin = Boolean(user?.is_admin);
+  const isAdmin = isCompanyAdmin;
   const canManage = isAdmin || demand.requester_id === user?.id;
   const canParticipate = canManage || demand.assignee_id === user?.id;
 

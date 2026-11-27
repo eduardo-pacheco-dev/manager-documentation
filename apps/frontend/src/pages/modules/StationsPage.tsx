@@ -44,7 +44,7 @@ function statusTagType(value: string): 'green' | 'gray' {
 }
 
 export function StationsPage() {
-  const { user } = useAuth();
+  const { user, isCompanyAdmin } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
   const [data, setData] = useState<Data | null>(null);
@@ -341,7 +341,7 @@ export function StationsPage() {
               <div key={item.id} className="comment-row">
                 <div><strong>{item.author_name ?? 'Usuário removido'}</strong><span>{relativeTime(item.created_at)}</span></div>
                 <p>{item.body}</p>
-                {(user?.is_admin || item.user_id === user?.id) && <Button kind="danger--ghost" size="xs" hasIconOnly renderIcon={TrashCan} iconDescription="Remover" onClick={async () => { await api.delete(`/stations/${detail.id}/comments/${item.id}`); await openDetail(detail); }} />}
+                {(isCompanyAdmin || item.user_id === user?.id) && <Button kind="danger--ghost" size="xs" hasIconOnly renderIcon={TrashCan} iconDescription="Remover" onClick={async () => { await api.delete(`/stations/${detail.id}/comments/${item.id}`); await openDetail(detail); }} />}
               </div>
             ))}
           </div>

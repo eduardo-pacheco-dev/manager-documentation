@@ -86,6 +86,10 @@ func (s *Server) iepmsUserInput(payload iepmsUserPayload) (modules.IepmsUserInpu
 }
 
 func (s *Server) iepmsUsersIndex(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	query := r.URL.Query()
 	page := parsePositiveInt(query.Get("page"), 1)
 	perPage := parsePositiveInt(query.Get("per_page"), 20)
@@ -114,6 +118,10 @@ func (s *Server) iepmsUsersIndex(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) iepmsUsersShow(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Usuário do iEPMS não encontrado.", nil)
@@ -128,6 +136,10 @@ func (s *Server) iepmsUsersShow(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) iepmsUsersCreate(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	var payload iepmsUserPayload
 	if !decodeJSON(w, r, &payload) {
 		return
@@ -167,6 +179,10 @@ func (s *Server) iepmsUsersCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) iepmsUsersUpdate(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Usuário do iEPMS não encontrado.", nil)
@@ -211,6 +227,10 @@ func (s *Server) iepmsUsersUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) iepmsUsersDelete(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Usuário do iEPMS não encontrado.", nil)
@@ -226,6 +246,10 @@ func (s *Server) iepmsUsersDelete(w http.ResponseWriter, r *http.Request) {
 // iepmsUsersRevealPassword decrypts and returns the stored password only after
 // the signed-in user confirms their own account password.
 func (s *Server) iepmsUsersRevealPassword(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Usuário do iEPMS não encontrado.", nil)
@@ -309,6 +333,10 @@ func iepmsUserFieldValue(user modules.IepmsUser, key string) string {
 }
 
 func (s *Server) iepmsUsersExport(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	items, _, _, _, err := s.Modules.ListIepmsUsers(modules.IepmsUserFilter{Page: 1, PerPage: 100000})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Não foi possível exportar os usuários do iEPMS.", nil)
@@ -339,6 +367,10 @@ func (s *Server) iepmsUsersExport(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) iepmsUsersTemplate(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	f := excelize.NewFile()
 	defer func() { _ = f.Close() }()
 	sheet := "iEPMS"
@@ -382,6 +414,10 @@ func (s *Server) iepmsUsersTemplate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) iepmsUsersImport(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	if err := r.ParseMultipartForm(20 << 20); err != nil {
 		writeError(w, http.StatusBadRequest, "Arquivo inválido.", nil)
 		return

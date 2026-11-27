@@ -9,11 +9,13 @@ import (
 // directly to clients.
 type User struct {
 	ID                 int64              `db:"id" json:"id"`
+	CompanyID          int64              `db:"company_id" json:"company_id"`
 	Name               string             `db:"name" json:"name"`
 	Surname            *string            `db:"surname" json:"surname"`
 	Email              string             `db:"email" json:"email"`
 	PasswordHash       string             `db:"password_hash" json:"-"`
 	IsAdmin            bool               `db:"is_admin" json:"is_admin"`
+	IsSuperAdmin       bool               `db:"is_super_admin" json:"is_super_admin"`
 	IsActive           bool               `db:"is_active" json:"is_active"`
 	Theme              string             `db:"theme" json:"theme"`
 	EnabledModules     NullableStringList `db:"enabled_modules" json:"-"`
@@ -45,27 +47,31 @@ func (u User) FirstName() string {
 // PublicUser is the shape returned by the API. It intentionally omits secrets
 // and internal preference fields.
 type PublicUser struct {
-	ID        int64     `json:"id"`
-	Name      string    `json:"name"`
-	Surname   *string   `json:"surname,omitempty"`
-	FullName  string    `json:"full_name"`
-	Email     string    `json:"email"`
-	IsAdmin   bool      `json:"is_admin"`
-	IsActive  bool      `json:"is_active"`
-	Theme     string    `json:"theme"`
-	CreatedAt time.Time `json:"created_at"`
+	ID           int64     `json:"id"`
+	CompanyID    int64     `json:"company_id"`
+	Name         string    `json:"name"`
+	Surname      *string   `json:"surname,omitempty"`
+	FullName     string    `json:"full_name"`
+	Email        string    `json:"email"`
+	IsAdmin      bool      `json:"is_admin"`
+	IsSuperAdmin bool      `json:"is_super_admin"`
+	IsActive     bool      `json:"is_active"`
+	Theme        string    `json:"theme"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 func (u User) Public() PublicUser {
 	return PublicUser{
-		ID:        u.ID,
-		Name:      u.Name,
-		Surname:   u.Surname,
-		FullName:  u.FullName(),
-		Email:     u.Email,
-		IsAdmin:   u.IsAdmin,
-		IsActive:  u.IsActive,
-		Theme:     u.Theme,
-		CreatedAt: u.CreatedAt,
+		ID:           u.ID,
+		CompanyID:    u.CompanyID,
+		Name:         u.Name,
+		Surname:      u.Surname,
+		FullName:     u.FullName(),
+		Email:        u.Email,
+		IsAdmin:      u.IsAdmin || u.IsSuperAdmin,
+		IsSuperAdmin: u.IsSuperAdmin,
+		IsActive:     u.IsActive,
+		Theme:        u.Theme,
+		CreatedAt:    u.CreatedAt,
 	}
 }

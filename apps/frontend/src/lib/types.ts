@@ -2,14 +2,25 @@ export type ThemePreference = 'system' | 'light' | 'dark';
 
 export interface User {
   id: number;
+  company_id: number;
   name: string;
   surname?: string | null;
   full_name: string;
   email: string;
   is_admin: boolean;
+  is_super_admin: boolean;
   is_active: boolean;
   theme: ThemePreference;
   created_at: string;
+}
+
+export interface Company {
+  id: number;
+  name: string;
+  slug: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Module {
@@ -37,9 +48,11 @@ export interface PageMeta {
 
 export interface RecentUser {
   id: number;
+  company_id: number;
   full_name: string;
   email: string;
   is_admin: boolean;
+  is_super_admin: boolean;
   is_active: boolean;
   created_at: string;
 }
@@ -210,6 +223,7 @@ export interface SettingsResponse {
   timezone: string;
   timezones: string[];
   is_admin: boolean;
+  is_super_admin: boolean;
   storage?: StorageSettings;
 }
 

@@ -10,6 +10,10 @@ import (
 )
 
 func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	user := currentUser(r)
 	available, err := widgets.Available(s.Store, s.Modules, user)
 	if err != nil {
@@ -44,6 +48,10 @@ func widgetIDs(items []widgets.Widget) []string {
 }
 
 func (s *Server) updateWidgetVisibility(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	var payload struct {
 		Hidden *bool `json:"hidden"`
 	}
@@ -93,6 +101,10 @@ func (s *Server) updateWidgetVisibility(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *Server) updateWidgetOrder(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	var payload struct {
 		Order []string `json:"order"`
 	}
@@ -118,6 +130,10 @@ func (s *Server) updateWidgetOrder(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) updateWidgetLayout(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	var payload struct {
 		Span *int `json:"span"`
 	}

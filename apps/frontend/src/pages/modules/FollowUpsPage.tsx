@@ -41,7 +41,7 @@ const PRIORITY: Record<string, string> = { baixa: 'Baixa', media: 'Média', alta
 const statusType = (value: string) => value === 'concluido' ? 'green' : value === 'cancelado' ? 'red' : value === 'em_andamento' ? 'blue' : 'magenta';
 
 export function FollowUpsPage() {
-  const { user } = useAuth();
+  const { user, isCompanyAdmin } = useAuth();
   const toast = useToast();
   const [searchParams] = useSearchParams();
   const [data, setData] = useState<Data | null>(null);
@@ -241,7 +241,7 @@ export function FollowUpsPage() {
             >
               <OverflowMenuItem itemText="Exportar" onClick={() => window.open('/api/v1/follow-ups/export', '_blank')} />
               <OverflowMenuItem itemText="Importar" onClick={importFollowUps} />
-              {user?.is_admin && (
+              {isCompanyAdmin && (
                 <OverflowMenuItem
                   itemText="Configurações"
                   hasDivider
@@ -406,7 +406,7 @@ export function FollowUpsPage() {
                   <div><strong>{update.author_name ?? 'Usuário removido'}</strong> <span>{relativeTime(update.created_at)}</span></div>
                   {update.status_from && update.status_to && <p className="muted small">{STATUS[update.status_from]} → {STATUS[update.status_to]}</p>}
                   <p>{update.body}</p>
-                  {(user?.is_admin || update.user_id === user?.id) && <Button kind="danger--ghost" size="xs" hasIconOnly renderIcon={TrashCan} iconDescription="Remover" onClick={async () => { await api.delete(`/follow-ups/${detail.id}/updates/${update.id}`); await openDetail(detail); }} />}
+                  {(isCompanyAdmin || update.user_id === user?.id) && <Button kind="danger--ghost" size="xs" hasIconOnly renderIcon={TrashCan} iconDescription="Remover" onClick={async () => { await api.delete(`/follow-ups/${detail.id}/updates/${update.id}`); await openDetail(detail); }} />}
                 </div>
               ))}
             </div>

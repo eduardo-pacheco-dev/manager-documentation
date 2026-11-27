@@ -17,17 +17,33 @@ type contextKey string
 const authContextKey contextKey = "auth"
 
 type AuthInfo struct {
-	User      models.User
-	CSRFToken string
-	Method    string // "session" or "token"
-	RawToken  string
-	SessionID string
+	User            models.User
+	TenantCompanyID int64
+	CSRFToken       string
+	Method          string // "session" or "token"
+	RawToken        string
+	SessionID       string
 }
 
 var (
 	errUnauthorized = errors.New("unauthorized")
 	errInactive     = errors.New("inactive")
 )
+
+// requestedCompanyID lets a super-admin work inside another company without
+// changing the account that owns the session. Regular users always stay in
+// their own company.
+func (s *Server) requestedCompanyID(r *http.Request, user models.User) (int64, error) {
+	identifier := strings.TrimSpace(r.Header.Get("X-Company-ID"))
+	if !user.IsSuperAdmin || identifier == "" {
+		return user.CompanyID, nil
+	}
+	company, err := s.Store.FindCompanyByIdentifier(identifier)
+	if err != nil || !company.IsActive {
+		return 0, errUnauthorized
+	}
+	return company.ID, nil
+}
 
 func (s *Server) resolveAuth(r *http.Request) (*AuthInfo, error) {
 	header := r.Header.Get("Authorization")
@@ -38,13 +54,17 @@ func (s *Server) resolveAuth(r *http.Request) (*AuthInfo, error) {
 			return nil, errUnauthorized
 		}
 		user, err := s.Store.FindUserByID(token.UserID)
-		if err != nil {
+		if err != nil || token.CompanyID != user.CompanyID {
 			return nil, errUnauthorized
 		}
 		if !user.IsActive {
 			return nil, errInactive
 		}
-		return &AuthInfo{User: user, Method: "token", RawToken: raw}, nil
+		companyID, err := s.requestedCompanyID(r, user)
+		if err != nil {
+			return nil, err
+		}
+		return &AuthInfo{User: user, TenantCompanyID: companyID, Method: "token", RawToken: raw}, nil
 	}
 
 	cookie, err := r.Cookie(sessionCookie)
@@ -56,19 +76,24 @@ func (s *Server) resolveAuth(r *http.Request) (*AuthInfo, error) {
 		return nil, errUnauthorized
 	}
 	user, err := s.Store.FindUserByID(session.UserID)
-	if err != nil {
+	if err != nil || session.CompanyID != user.CompanyID {
 		return nil, errUnauthorized
 	}
 	if !user.IsActive {
 		_ = s.Store.DeleteSession(cookie.Value)
 		return nil, errInactive
 	}
+	companyID, err := s.requestedCompanyID(r, user)
+	if err != nil {
+		return nil, err
+	}
 	return &AuthInfo{
-		User:      user,
-		CSRFToken: session.CSRFToken,
-		Method:    "session",
-		RawToken:  cookie.Value,
-		SessionID: session.ID,
+		User:            user,
+		TenantCompanyID: companyID,
+		CSRFToken:       session.CSRFToken,
+		Method:          "session",
+		RawToken:        cookie.Value,
+		SessionID:       session.ID,
 	}, nil
 }
 
@@ -84,8 +109,13 @@ func (s *Server) requireAuth(next http.Handler) http.Handler {
 			writeError(w, http.StatusUnauthorized, "Não autenticado.", nil)
 			return
 		}
+		tenant, err := s.tenantFor(auth.TenantCompanyID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "Não foi possível acessar os dados da empresa.", nil)
+			return
+		}
 		ctx := context.WithValue(r.Context(), authContextKey, auth)
-		next.ServeHTTP(w, r.WithContext(ctx))
+		next.ServeHTTP(w, withTenant(r.WithContext(ctx), tenant))
 	})
 }
 
@@ -112,8 +142,19 @@ func (s *Server) requireCSRF(next http.Handler) http.Handler {
 func (s *Server) requireAdmin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		auth := authFrom(r)
-		if auth == nil || !auth.User.IsAdmin {
+		if auth == nil || (!auth.User.IsAdmin && !auth.User.IsSuperAdmin) {
 			writeError(w, http.StatusForbidden, "Acesso restrito a administradores.", nil)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (s *Server) requireSuperAdmin(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		auth := authFrom(r)
+		if auth == nil || !auth.User.IsSuperAdmin {
+			writeError(w, http.StatusForbidden, "Acesso restrito ao super-administrador.", nil)
 			return
 		}
 		next.ServeHTTP(w, r)

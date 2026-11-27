@@ -92,7 +92,7 @@ function statusTag(link: ShortLink) {
 
 export function LinksPage() {
   const toast = useToast();
-  const { user } = useAuth();
+  const { user, isCompanyAdmin } = useAuth();
   const [data, setData] = useState<ListData | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -280,7 +280,7 @@ export function LinksPage() {
 
   const items = data?.data ?? [];
   const stats = data?.stats;
-  const canManage = (link: ShortLink) => Boolean(user?.is_admin || user?.id === link.user_id);
+  const canManage = (link: ShortLink) => Boolean(isCompanyAdmin || user?.id === link.user_id);
   const maxDaily = Math.max(1, ...(detail?.daily ?? []).map((item) => item.count));
 
   return (

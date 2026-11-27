@@ -97,6 +97,10 @@ func stationFieldValue(station modules.Station, key string) string {
 }
 
 func (s *Server) stationsExport(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	items, _, _, _, _, err := s.Modules.ListStations(modules.StationFilter{Page: 1, PerPage: 10000})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Não foi possível exportar as estações.", nil)
@@ -165,6 +169,10 @@ func writeStationSitesSheet(f *excelize.File, stations []modules.Station) {
 }
 
 func (s *Server) stationExportOne(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Estação não encontrada.", nil)
@@ -272,6 +280,10 @@ func humanFileSize(size int64) string {
 }
 
 func (s *Server) stationsTemplate(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	headers := make([]string, 0, len(stationColumns))
 	for index, column := range stationColumns {
 		label := column.Label
@@ -314,6 +326,10 @@ func (s *Server) stationsTemplate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) stationsImport(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	if err := r.ParseMultipartForm(12 << 20); err != nil {
 		writeError(w, http.StatusBadRequest, "Arquivo inválido.", nil)
 		return

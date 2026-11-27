@@ -86,7 +86,7 @@ function fullAddress(station: Station): string {
 export function StationDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isCompanyAdmin } = useAuth();
   const toast = useToast();
   const [station, setStation] = useState<Station | null>(null);
   const [loading, setLoading] = useState(true);
@@ -360,7 +360,7 @@ export function StationDetailPage() {
                   <div key={item.id} className="comment-row">
                     <div><strong>{item.author_name ?? 'Usuário removido'}</strong><span>{relativeTime(item.created_at)}</span></div>
                     <p>{item.body}</p>
-                    {(user?.is_admin || item.user_id === user?.id) && (
+                    {(isCompanyAdmin || item.user_id === user?.id) && (
                       <Button kind="danger--ghost" size="xs" hasIconOnly renderIcon={TrashCan} iconDescription="Remover comentário" onClick={() => void deleteComment(item.id)} />
                     )}
                   </div>

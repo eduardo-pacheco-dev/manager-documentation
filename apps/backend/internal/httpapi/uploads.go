@@ -8,6 +8,10 @@ import (
 )
 
 func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	maxBytes := s.Uploads.MaxUploadMB() << 20
 	r.Body = http.MaxBytesReader(w, r.Body, maxBytes+(1<<20))
 	if err := r.ParseMultipartForm(maxBytes); err != nil {

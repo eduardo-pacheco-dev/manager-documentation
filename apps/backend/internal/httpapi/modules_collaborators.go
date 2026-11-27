@@ -25,6 +25,10 @@ func collaboratorError(w http.ResponseWriter, err error, fallback string) {
 }
 
 func (s *Server) collaboratorsIndex(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	query := r.URL.Query()
 	page := parsePositiveInt(query.Get("page"), 1)
 	perPage := parsePositiveInt(query.Get("per_page"), 15)
@@ -53,6 +57,10 @@ func (s *Server) collaboratorsIndex(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) collaboratorsShow(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Colaborador não encontrado.", nil)
@@ -194,6 +202,10 @@ func digits(value string) string {
 }
 
 func (s *Server) collaboratorsCreate(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	var payload collaboratorPayload
 	if !decodeJSON(w, r, &payload) {
 		return
@@ -218,6 +230,10 @@ func (s *Server) collaboratorsCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) collaboratorsUpdate(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Colaborador não encontrado.", nil)
@@ -249,6 +265,10 @@ func (s *Server) collaboratorsUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) collaboratorsToggle(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Colaborador não encontrado.", nil)
@@ -270,6 +290,10 @@ func (s *Server) collaboratorsToggle(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) collaboratorsDelete(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Colaborador não encontrado.", nil)

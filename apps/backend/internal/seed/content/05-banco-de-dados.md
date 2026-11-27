@@ -38,3 +38,13 @@ mysqldump --single-transaction -u root -p documentation_center_go > backup.sql
 ```
 
 Guarde também `BACKUP_DIR` e `UPLOAD_DIR`. Em instalações via PM2, esses caminhos ficam em `shared/data/` para sobreviver aos deploys.
+
+## Isolamento por empresa
+
+Todas as tabelas de domínio possuem `company_id`. A empresa padrão é `id = 1`, slug `padrao`. Chaves únicas que antes eram globais passaram a ser compostas por `(company_id, ...)`, permitindo, por exemplo, o mesmo e-mail em empresas distintas.
+
+Cada empresa ativa possui um pool lógico que define a variável MySQL `@dc_company_id` e reescreve automaticamente as consultas das tabelas tenant-owned. Assim, serviços, módulos, notificações, uploads e configurações são compartilhados apenas entre membros da mesma empresa.
+
+Sessões, tokens de API e notificações também são gravados com `company_id`. Um token emitido na empresa A não autentica na empresa B.
+
+Backups são globais e, por isso, estão restritos a super-administradores.

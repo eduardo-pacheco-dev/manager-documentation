@@ -28,6 +28,10 @@ func projectError(w http.ResponseWriter, err error, fallback string) {
 }
 
 func (s *Server) projectsIndex(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	includeArchived := r.URL.Query().Get("archived") == "1"
 	projects, err := s.Modules.ListProjects(includeArchived)
 	if err != nil {
@@ -59,6 +63,10 @@ func (p projectPayload) input() modules.ProjectInput {
 }
 
 func (s *Server) projectsCreate(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	var payload projectPayload
 	if !decodeJSON(w, r, &payload) {
 		return
@@ -72,6 +80,10 @@ func (s *Server) projectsCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) projectsShow(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Projeto não encontrado.", nil)
@@ -86,6 +98,10 @@ func (s *Server) projectsShow(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) projectsUpdate(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Projeto não encontrado.", nil)
@@ -104,6 +120,10 @@ func (s *Server) projectsUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) projectsDelete(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Projeto não encontrado.", nil)
@@ -117,6 +137,10 @@ func (s *Server) projectsDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) projectsToggleArchive(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Projeto não encontrado.", nil)
@@ -161,6 +185,10 @@ func (p projectTaskPayload) input() modules.ProjectTaskInput {
 }
 
 func (s *Server) projectTaskCreate(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	projectID, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Projeto não encontrado.", nil)
@@ -179,6 +207,10 @@ func (s *Server) projectTaskCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) projectTaskUpdate(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	projectID, _ := parseID(r, "id")
 	taskID, ok := parseID(r, "taskId")
 	if !ok {
@@ -198,6 +230,10 @@ func (s *Server) projectTaskUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) projectTaskDelete(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	projectID, _ := parseID(r, "id")
 	taskID, ok := parseID(r, "taskId")
 	if !ok {
@@ -212,6 +248,10 @@ func (s *Server) projectTaskDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) projectTaskMove(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	projectID, _ := parseID(r, "id")
 	taskID, ok := parseID(r, "taskId")
 	if !ok {
@@ -232,6 +272,10 @@ func (s *Server) projectTaskMove(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) projectTaskMoveStage(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	projectID, _ := parseID(r, "id")
 	taskID, ok := parseID(r, "taskId")
 	if !ok {
@@ -266,6 +310,10 @@ func (p projectStagePayload) input() modules.ProjectPipelineStageInput {
 }
 
 func (s *Server) projectStageCreate(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	projectID, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Projeto não encontrado.", nil)
@@ -284,6 +332,10 @@ func (s *Server) projectStageCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) projectStageUpdate(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	projectID, _ := parseID(r, "id")
 	stageID, ok := parseID(r, "stageId")
 	if !ok {
@@ -303,6 +355,10 @@ func (s *Server) projectStageUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) projectStageMove(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	projectID, _ := parseID(r, "id")
 	stageID, ok := parseID(r, "stageId")
 	if !ok {
@@ -323,6 +379,10 @@ func (s *Server) projectStageMove(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) projectStageDelete(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	projectID, _ := parseID(r, "id")
 	stageID, ok := parseID(r, "stageId")
 	if !ok {
@@ -337,6 +397,10 @@ func (s *Server) projectStageDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) projectDependencyCreate(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	projectID, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Projeto não encontrado.", nil)
@@ -360,6 +424,10 @@ func (s *Server) projectDependencyCreate(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) projectDependencyDelete(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	projectID, _ := parseID(r, "id")
 	dependencyID, ok := parseID(r, "dependencyId")
 	if !ok {
@@ -391,6 +459,10 @@ func (p projectResourcePayload) input() modules.ProjectResourceInput {
 }
 
 func (s *Server) projectResourceCreate(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	projectID, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Projeto não encontrado.", nil)
@@ -409,6 +481,10 @@ func (s *Server) projectResourceCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) projectResourceUpdate(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	projectID, _ := parseID(r, "id")
 	resourceID, ok := parseID(r, "resourceId")
 	if !ok {
@@ -428,6 +504,10 @@ func (s *Server) projectResourceUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) projectResourceDelete(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	projectID, _ := parseID(r, "id")
 	resourceID, ok := parseID(r, "resourceId")
 	if !ok {
@@ -442,6 +522,10 @@ func (s *Server) projectResourceDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) projectAssignmentCreate(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	projectID, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Projeto não encontrado.", nil)
@@ -467,6 +551,10 @@ func (s *Server) projectAssignmentCreate(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) projectAssignmentDelete(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	projectID, _ := parseID(r, "id")
 	assignmentID, ok := parseID(r, "assignmentId")
 	if !ok {
@@ -481,6 +569,10 @@ func (s *Server) projectAssignmentDelete(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) projectHolidayCreate(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	projectID, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Projeto não encontrado.", nil)
@@ -502,6 +594,10 @@ func (s *Server) projectHolidayCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) projectHolidayDelete(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	projectID, _ := parseID(r, "id")
 	holidayID, ok := parseID(r, "holidayId")
 	if !ok {
@@ -516,6 +612,10 @@ func (s *Server) projectHolidayDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) projectBaselineCreate(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	projectID, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Projeto não encontrado.", nil)
@@ -536,6 +636,10 @@ func (s *Server) projectBaselineCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) projectBaselineDelete(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	projectID, _ := parseID(r, "id")
 	baselineID, ok := parseID(r, "baselineId")
 	if !ok {
@@ -550,6 +654,10 @@ func (s *Server) projectBaselineDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) projectsExport(w http.ResponseWriter, r *http.Request) {
+	s, ok := s.useTenant(w, r)
+	if !ok {
+		return
+	}
 	id, ok := parseID(r, "id")
 	if !ok {
 		writeError(w, http.StatusNotFound, "Projeto não encontrado.", nil)

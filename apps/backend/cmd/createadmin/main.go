@@ -22,6 +22,8 @@ func main() {
 	name := flag.String("name", "", "nome do administrador")
 	email := flag.String("email", "", "e-mail do administrador")
 	password := flag.String("password", "", "senha (obrigatória ao criar uma conta)")
+	company := flag.String("company", "padrao", "identificador da empresa")
+	superAdmin := flag.Bool("super", false, "promover a super-administrador global")
 	flag.Parse()
 
 	normalizedEmail := strings.ToLower(strings.TrimSpace(*email))
@@ -41,9 +43,14 @@ func main() {
 	defer db.Close()
 	repo := store.New(db)
 
-	existing, err := repo.FindUserByEmail(normalizedEmail)
+	tenant, err := repo.FindCompanyByIdentifier(*company)
+	if err != nil {
+		log.Fatalf("empresa %q não encontrada", *company)
+	}
+	existing, err := repo.FindUserByCompanyEmail(tenant.ID, normalizedEmail)
 	if err == nil {
 		existing.IsAdmin = true
+		existing.IsSuperAdmin = *superAdmin
 		existing.IsActive = true
 		if trimmed := strings.TrimSpace(*name); trimmed != "" {
 			existing.Name = trimmed
@@ -75,6 +82,7 @@ func main() {
 		log.Fatalf("hash: %v", err)
 	}
 	user := models.User{
+		CompanyID:          tenant.ID,
 		Name:               userName,
 		Email:              normalizedEmail,
 		PasswordHash:       string(hash),

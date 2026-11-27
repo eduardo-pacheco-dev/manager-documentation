@@ -28,6 +28,8 @@ PUBLIC_URL_INPUT="${PUBLIC_URL:-}"
 ADMIN_EMAIL="${ADMIN_EMAIL:-admin@example.com}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-}"
 ADMIN_NAME="${ADMIN_NAME:-Administrador}"
+ADMIN_COMPANY="${ADMIN_COMPANY:-padrao}"
+ADMIN_SUPER="${ADMIN_SUPER:-0}"
 ADMIN_EMAIL_SET=0
 DB_NAME="${DB_NAME:-documentation_center_go}"
 DB_USER="${DB_USER:-documentation}"
@@ -50,6 +52,7 @@ Modo setup (uma vez, como root/sudo):
   --admin-email EMAIL       E-mail do administrador inicial
   --admin-password SENHA    Senha do administrador (gerada se omitida)
   --admin-name NOME         Nome do administrador (padrão: Administrador)
+  --admin-company SLUG      Empresa do administrador (padrão: padrao)
   --dir DIR                 Diretório da aplicação (padrão: /opt/documentation-center)
   --user USER               Usuário Linux que executará o PM2 (padrão: SUDO_USER)
   --port PORTA              Porta HTTP (padrão: 8080)
@@ -65,6 +68,8 @@ Criar ou promover um administrador (requer uma release já instalada):
   --email EMAIL             E-mail do administrador (também aceita --admin-email)
   --password SENHA          Senha do administrador; se omitida, uma senha é gerada
   --name NOME               Nome do administrador (também aceita --admin-name)
+  --company SLUG            Empresa do administrador (padrão: padrao)
+  --super                   Promove também a super-administrador global
   --dir DIR                 Diretório da aplicação (padrão: /opt/documentation-center)
 
 Deploy de um artefato gerado pelo GitHub Actions:
@@ -100,6 +105,8 @@ while [[ $# -gt 0 ]]; do
 		--admin-email) ADMIN_EMAIL="${2:?Informe o e-mail}"; ADMIN_EMAIL_SET=1; shift 2 ;;
 		--admin-password) ADMIN_PASSWORD="${2:?Informe a senha}"; shift 2 ;;
 		--admin-name) ADMIN_NAME="${2:?Informe o nome}"; shift 2 ;;
+		--company|--admin-company) ADMIN_COMPANY="${2:?Informe a empresa}"; shift 2 ;;
+		--super) ADMIN_SUPER=1; shift ;;
 		--no-health) SKIP_HEALTH=1; shift ;;
 		--keep-artifact) KEEP_ARTIFACT=1; shift ;;
 		-h|--help) usage; exit 0 ;;
@@ -609,12 +616,15 @@ create_admin() {
 		die "A senha deve ter pelo menos 8 caracteres."
 	fi
 
-	local args=(-email "$ADMIN_EMAIL" -password "$ADMIN_PASSWORD")
+	local args=(-email "$ADMIN_EMAIL" -password "$ADMIN_PASSWORD" -company "$ADMIN_COMPANY")
 	if [[ -n "${ADMIN_NAME// /}" ]]; then
 		args+=(-name "$ADMIN_NAME")
 	fi
+	if [[ "$ADMIN_SUPER" == "1" ]]; then
+		args+=(-super)
+	fi
 
-	log "Criando/promovendo administrador ${ADMIN_EMAIL}..."
+	log "Criando/promovendo administrador ${ADMIN_EMAIL} na empresa ${ADMIN_COMPANY}..."
 	if ! run_as_app bash -c 'cd "$1" || exit 1; shift; exec "$@"' bash "$APP_DIR/current" "$bin" "${args[@]}"; then
 		die "Falha ao criar o administrador. Verifique o .env em $APP_DIR/shared/.env e os logs."
 	fi

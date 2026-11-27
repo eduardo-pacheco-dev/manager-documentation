@@ -22,9 +22,11 @@ var contentFS embed.FS
 // It is idempotent and safe to call on every boot.
 func Run(s *store.Store, cfg config.Config) error {
 	admin, err := ensureUser(s, models.User{
+		CompanyID:          1,
 		Name:               "Administrador",
 		Email:              strings.ToLower(cfg.SeedAdminEmail),
 		IsAdmin:            true,
+		IsSuperAdmin:       true,
 		IsActive:           true,
 		Theme:              "system",
 		EmailNotifications: true,
@@ -38,6 +40,7 @@ func Run(s *store.Store, cfg config.Config) error {
 	}
 
 	if _, err := ensureUser(s, models.User{
+		CompanyID:          1,
 		Name:               "Usuário",
 		Surname:            strPtr("Demo"),
 		Email:              "demo@example.com",
@@ -71,8 +74,17 @@ func Run(s *store.Store, cfg config.Config) error {
 }
 
 func ensureUser(s *store.Store, user models.User, password string) (models.User, error) {
-	existing, err := s.FindUserByEmail(user.Email)
+	if user.CompanyID == 0 {
+		user.CompanyID = 1
+	}
+	existing, err := s.FindUserByCompanyEmail(user.CompanyID, user.Email)
 	if err == nil {
+		if user.IsSuperAdmin && !existing.IsSuperAdmin {
+			existing.IsSuperAdmin = true
+			if updateErr := s.UpdateUser(&existing); updateErr != nil {
+				return existing, updateErr
+			}
+		}
 		return existing, nil
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
