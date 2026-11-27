@@ -34,17 +34,17 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.26'
-          cache-dependency-path: backend/go.sum
+          cache-dependency-path: apps/backend/go.sum
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: apps/frontend/package-lock.json
       - name: Build frontend
-        working-directory: frontend
+        working-directory: apps/frontend
         run: npm ci --no-audit --no-fund && npm run build
       - name: Build backend
-        working-directory: backend
+        working-directory: apps/backend
         run: |
           mkdir -p ../package
           CGO_ENABLED=0 GOOS=linux GOARCH=${{ matrix.arch }} \
@@ -53,7 +53,7 @@ jobs:
             go build -trimpath -ldflags="-s -w" -o ../package/createadmin ./cmd/createadmin
       - name: Package release
         run: |
-          cp -r frontend/dist package/static
+          cp -r apps/frontend/dist package/static
           tar -czf "documentation-center-linux-${{ matrix.arch }}.tar.gz" -C package server createadmin static
           ls -lh "documentation-center-linux-${{ matrix.arch }}.tar.gz"
       - uses: actions/upload-artifact@v4

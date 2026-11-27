@@ -2,16 +2,16 @@
 
 FROM node:22-alpine AS frontend
 WORKDIR /app/frontend
-COPY frontend/package.json frontend/package-lock.json ./
+COPY apps/frontend/package.json apps/frontend/package-lock.json ./
 RUN npm ci --no-audit --no-fund
-COPY frontend/ ./
+COPY apps/frontend/ ./
 RUN npm run build
 
 FROM golang:1.26-alpine AS backend
 WORKDIR /src
-COPY backend/go.mod backend/go.sum ./
+COPY apps/backend/go.mod apps/backend/go.sum ./
 RUN go mod download
-COPY backend/ ./
+COPY apps/backend/ ./
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/server ./cmd/server
 
 FROM alpine:3.20
