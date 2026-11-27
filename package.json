@@ -4,10 +4,11 @@
   "version": "1.0.0",
   "description": "Atalhos de desenvolvimento para o monorepo Documentation Center",
   "scripts": {
-    "dev": "npm --prefix frontend run dev",
-    "build": "npm --prefix frontend run build",
-    "typecheck": "npm --prefix frontend run typecheck",
-    "install:frontend": "npm --prefix frontend install",
+    "dev": "node scripts/dev-all.mjs",
+    "dev:frontend": "npm --prefix apps/frontend run dev",
+    "build": "npm --prefix apps/frontend run build",
+    "typecheck": "npm --prefix apps/frontend run typecheck",
+    "install:frontend": "npm --prefix apps/frontend install",
     "backend": "air -c .air.toml"
   }
 }

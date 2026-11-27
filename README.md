@@ -47,32 +47,35 @@ Todos os plugins (`Agenda`, `FollowUp`, `Nokia`, `Stations` e `Tasks`) foram por
 
 ```
 .
-├── backend/
-│   ├── cmd/server/            # entrada do servidor
-│   ├── internal/
-│   │   ├── config/            # variáveis de ambiente
-│   │   ├── crypto/            # AES-GCM para credenciais
-│   │   ├── database/          # conexão e migrações
-│   │   ├── httpapi/           # rotas, handlers e OpenAPI
-│   │   ├── markdown/          # renderização segura
-│   │   ├── models/            # entidades e catálogo
-│   │   ├── modules/           # agenda, tarefas, follow-ups, estações, nokia e projetos
-│   │   ├── notifier/          # notificações + SMTP
-│   │   ├── seed/              # admin, usuários e wiki inicial
-│   │   ├── store/             # consultas SQL
-│   │   ├── upload/            # local e S3/R2
-│   │   └── widgets/           # widgets do dashboard
-│   ├── .env.example
-│   └── go.mod
-├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   ├── contexts/
-│   │   ├── lib/
-│   │   ├── pages/
-│   │   └── styles.css
-│   ├── package.json
-│   └── vite.config.ts
+├── apps/
+│   ├── backend/
+│   │   ├── cmd/server/        # entrada do servidor
+│   │   ├── internal/
+│   │   │   ├── config/        # variáveis de ambiente
+│   │   │   ├── crypto/        # AES-GCM para credenciais
+│   │   │   ├── database/      # conexão e migrações
+│   │   │   ├── httpapi/       # rotas, handlers e OpenAPI
+│   │   │   ├── markdown/      # renderização segura
+│   │   │   ├── models/        # entidades e catálogo
+│   │   │   ├── modules/       # agenda, tarefas, follow-ups, estações, nokia e projetos
+│   │   │   ├── notifier/      # notificações + SMTP
+│   │   │   ├── seed/          # admin, usuários e wiki inicial
+│   │   │   ├── store/         # consultas SQL
+│   │   │   ├── upload/        # local e S3/R2
+│   │   │   └── widgets/       # widgets do dashboard
+│   │   ├── .env.example
+│   │   └── go.mod
+│   └── frontend/
+│       ├── src/
+│       │   ├── components/
+│       │   ├── contexts/
+│       │   ├── lib/
+│       │   ├── pages/
+│       │   └── styles.css
+│       ├── package.json
+│       └── vite.config.ts
+├── scripts/
+│   └── dev-all.mjs            # sobe backend e frontend juntos
 ├── docker-compose.yml
 └── Dockerfile
 ```
@@ -95,12 +98,12 @@ CREATE DATABASE documentation_center_go
   CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-O padrão de desenvolvimento é `DB_USER=root` e `DB_PASSWORD=admin` em `127.0.0.1:3306`. Ajuste em `backend/.env` conforme seu ambiente.
+O padrão de desenvolvimento é `DB_USER=root` e `DB_PASSWORD=admin` em `127.0.0.1:3306`. Ajuste em `apps/backend/.env` conforme seu ambiente.
 
 ### Backend
 
 ```bash
-cd backend
+cd apps/backend
 cp .env.example .env
 go run ./cmd/server
 ```
@@ -117,14 +120,14 @@ Depois rode a partir da raiz:
 air -c .air.toml
 ```
 
-Ou de dentro de `backend/`:
+Ou de dentro de `apps/backend/`:
 
 ```bash
-cd backend
+cd apps/backend
 air -c .air.toml
 ```
 
-O Air recompila e reinicia o servidor automaticamente ao alterar arquivos em `backend/` (Go e Markdown dos seeds). Na raiz, o script `run-backend.cmd` garante que o binário rode com working directory em `backend/`, carregando `.env`, banco, uploads e seeds corretamente.
+O Air recompila e reinicia o servidor automaticamente ao alterar arquivos em `apps/backend/` (Go e Markdown dos seeds). Na raiz, o script `run-backend.cmd` garante que o binário rode com working directory em `apps/backend/`, carregando `.env`, banco, uploads e seeds corretamente.
 
 O servidor inicia em `http://localhost:8080`. Na primeira execução:
 
@@ -144,31 +147,36 @@ Senha:  password
 ### Frontend
 
 ```bash
-cd frontend
+cd apps/frontend
 npm install
-npm run dev
-```
-
-Ou, a partir da raiz do repositório (atalho para o frontend):
-
-```bash
 npm run dev
 ```
 
 Acesse `http://localhost:5173`. O Vite encaminha `/api` e `/uploads` para o backend em `:8080`.
 
+### Desenvolvimento (backend + frontend juntos)
+
+A partir da raiz do repositório:
+
+```bash
+npm run dev
+```
+
+O comando inicia o backend com hot reload (Air) e o Vite no mesmo terminal, com saída prefixada por `[backend]` e `[frontend]`. Pressione `Ctrl+C` para encerrar os dois.
+
 Outros atalhos na raiz:
 
 ```bash
-npm run backend    # Air com hot reload
-npm run build      # build do frontend
-npm run typecheck  # TypeScript
+npm run dev:frontend  # somente o Vite
+npm run backend       # somente o backend (Air com hot reload)
+npm run build         # build do frontend
+npm run typecheck     # TypeScript
 ```
 
 ### Build de produção
 
 ```bash
-cd frontend && npm ci && npm run build
+cd apps/frontend && npm ci && npm run build
 cd ../backend
 STATIC_DIR=../frontend/dist go run ./cmd/server
 ```
@@ -184,7 +192,7 @@ docker compose up --build
 O seed cria um administrador automaticamente. Para criar ou promover outro administrador localmente:
 
 ```bash
-cd backend
+cd apps/backend
 go run ./cmd/createadmin -name "Admin" -email admin2@example.com -password "senha-forte"
 ```
 
@@ -203,7 +211,7 @@ sudo bash deploy.sh admin --email admin2@exemplo.com --password "senha-forte" --
 
 ## Variáveis de ambiente
 
-Consulte [`backend/.env.example`](backend/.env.example). As principais:
+Consulte [`apps/backend/.env.example`](apps/backend/.env.example). As principais:
 
 | Variável | Padrão | Descrição |
 | --- | --- | --- |
@@ -234,8 +242,9 @@ Consulte [`backend/.env.example`](backend/.env.example). As principais:
 
 ## API
 
-- Swagger UI: `GET /api/documentation`
+- Swagger UI: `/api-docs` (frontend)
 - Especificação OpenAPI: `GET /docs`
+- Endpoints públicos: `/api/v1/public/links/{code}`, `/api/v1/public/demands/upload/{token}`, `/api/v1/public/demands/download/{token}`
 - Health check: `GET /healthz`
 
 Exemplo de login com token:
@@ -265,7 +274,7 @@ Use o token retornado em `Authorization: Bearer <token>`.
 ## Testes
 
 ```bash
-cd backend
+cd apps/backend
 go test ./...
 go vet ./...
 

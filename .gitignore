@@ -1,11 +1,12 @@
 # Dependencies and build artifacts
 node_modules/
 frontend/dist/
-backend/data/
-backend/tmp/
+apps/frontend/dist/
+apps/backend/data/
+apps/backend/tmp/
 /tmp/
-backend/documentation-center
-backend/documentation-center.exe
+apps/backend/documentation-center
+apps/backend/documentation-center.exe
 *.exe
 *.test
 *.out

@@ -1,0 +1,727 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Documentation Center API",
+    "version": "1.0.0",
+    "description": "API do Documentation Center (Go + React + IBM Carbon). Autentique com sessão de navegador ou token Bearer."
+  },
+  "servers": [{ "url": "/api/v1" }],
+  "tags": [
+    { "name": "Auth", "description": "Cadastro, login e sessão" },
+    { "name": "Public", "description": "Links curtos e links públicos de demandas" },
+    { "name": "Users", "description": "Gestão de usuários (admin)" },
+    { "name": "Dev docs", "description": "Wiki de desenvolvimento (admin)" },
+    { "name": "Dashboard", "description": "Widgets do painel" },
+    { "name": "Settings", "description": "Preferências e configurações" },
+    { "name": "Backups", "description": "Cópias de segurança do banco de dados e dos uploads (admin)" },
+    { "name": "Notifications", "description": "Central de notificações" },
+    { "name": "Projetos", "description": "Portfólio, EAP, dependências, recursos, custos e linha de base" },
+    { "name": "Colaboradores", "description": "Cadastro central de pessoas usadas como recursos nos projetos" },
+    { "name": "iEPMS", "description": "Usuários do aplicativo iEPMS com importação e exportação Excel" },
+    { "name": "Radio links", "description": "Enlaces ponto a ponto entre estações (ponta A e ponta B)" },
+    { "name": "Uploads", "description": "Envio de imagens" }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer" }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "message": { "type": "string" },
+          "errors": { "type": "object", "additionalProperties": { "type": "string" } }
+        }
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string" },
+          "surname": { "type": ["string", "null"] },
+          "full_name": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "is_admin": { "type": "boolean" },
+          "is_active": { "type": "boolean" },
+          "theme": { "type": "string", "enum": ["system", "light", "dark"] },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "DevDoc": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "title": { "type": "string" },
+          "slug": { "type": "string" },
+          "category": { "type": "string" },
+          "summary": { "type": ["string", "null"] },
+          "content": { "type": "string" },
+          "is_published": { "type": "boolean" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Notification": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "body": { "type": "string" },
+          "url": { "type": ["string", "null"] },
+          "level": { "type": "string", "enum": ["info", "success", "warning", "danger"] },
+          "read_at": { "type": ["string", "null"], "format": "date-time" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/public/links/{code}": {
+      "get": {
+        "tags": ["Public"],
+        "summary": "Retorna os dados públicos de um link curto",
+        "security": [],
+        "parameters": [
+          { "name": "code", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Dados do link ou redirect_url quando não há anexos" },
+          "410": { "description": "Link indisponível", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/public/demands/upload/{token}": {
+      "get": {
+        "tags": ["Public"],
+        "summary": "Retorna os dados da página pública de upload",
+        "security": [],
+        "parameters": [
+          { "name": "token", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Dados da demanda" },
+          "410": { "description": "Link indisponível", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "post": {
+        "tags": ["Public"],
+        "summary": "Envia arquivos pelo link público",
+        "security": [],
+        "parameters": [
+          { "name": "token", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "files": { "type": "array", "items": { "type": "string", "format": "binary" } }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Arquivos enviados" },
+          "400": { "description": "Validação", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "410": { "description": "Link indisponível", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/public/demands/download/{token}": {
+      "get": {
+        "tags": ["Public"],
+        "summary": "Retorna os dados da página pública de download",
+        "security": [],
+        "parameters": [
+          { "name": "token", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Dados da demanda" },
+          "410": { "description": "Link indisponível", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/auth/signup": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Cria uma conta",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "email", "password", "password_confirmation"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string", "minLength": 8 },
+                  "password_confirmation": { "type": "string" },
+                  "device_name": { "type": "string", "description": "Quando informado, retorna um token Bearer." }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Conta criada" },
+          "422": { "description": "Validação", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Autentica e cria sessão",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string" },
+                  "device_name": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Autenticado" },
+          "401": { "description": "Credenciais inválidas" },
+          "429": { "description": "Muitas tentativas" }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": { "tags": ["Auth"], "summary": "Encerra a sessão ou revoga o token atual", "responses": { "200": { "description": "Sessão encerrada" } } }
+    },
+    "/auth/me": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "Retorna o usuário autenticado",
+        "responses": { "200": { "description": "Usuário atual" }, "401": { "description": "Não autenticado" } }
+      }
+    },
+    "/profile": {
+      "get": { "tags": ["Settings"], "summary": "Perfil do usuário", "responses": { "200": { "description": "Perfil" } } },
+      "put": { "tags": ["Settings"], "summary": "Atualiza nome e e-mail", "responses": { "200": { "description": "Perfil atualizado" }, "422": { "description": "Validação" } } }
+    },
+    "/users": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Lista usuários com busca, filtros e paginação",
+        "parameters": [
+          { "name": "search", "in": "query", "schema": { "type": "string" } },
+          { "name": "profile", "in": "query", "schema": { "type": "string", "enum": ["admin", "user"] } },
+          { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["active", "inactive"] } },
+          { "name": "sort", "in": "query", "schema": { "type": "string", "enum": ["name", "email", "is_admin", "created_at"] } },
+          { "name": "direction", "in": "query", "schema": { "type": "string", "enum": ["asc", "desc"] } },
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer", "enum": [10, 25, 50] } }
+        ],
+        "responses": { "200": { "description": "Lista paginada" }, "403": { "description": "Acesso restrito" } }
+      },
+      "post": { "tags": ["Users"], "summary": "Cria usuário (admin)", "responses": { "201": { "description": "Usuário criado" }, "422": { "description": "Validação" } } }
+    },
+    "/users/{id}": {
+      "put": { "tags": ["Users"], "summary": "Atualiza usuário (admin)", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Atualizado" } } },
+      "delete": { "tags": ["Users"], "summary": "Exclui usuário (admin)", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Excluído" } } }
+    },
+    "/users/{id}/toggle": {
+      "patch": { "tags": ["Users"], "summary": "Ativa ou desativa usuário (admin)", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Status alterado" } } }
+    },
+    "/dev-docs": {
+      "get": {
+        "tags": ["Dev docs"],
+        "summary": "Lista documentos da wiki",
+        "parameters": [
+          { "name": "search", "in": "query", "schema": { "type": "string" } },
+          { "name": "category", "in": "query", "schema": { "type": "string" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Lista paginada com navegação" } }
+      },
+      "post": { "tags": ["Dev docs"], "summary": "Cria documento", "responses": { "201": { "description": "Criado" }, "422": { "description": "Validação" } } }
+    },
+    "/dev-docs/{id}": {
+      "get": { "tags": ["Dev docs"], "summary": "Retorna documento com Markdown renderizado", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Documento" }, "404": { "description": "Não encontrado" } } },
+      "put": { "tags": ["Dev docs"], "summary": "Atualiza documento", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Atualizado" } } },
+      "delete": { "tags": ["Dev docs"], "summary": "Exclui documento", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Excluído" } } }
+    },
+    "/dashboard": {
+      "get": { "tags": ["Dashboard"], "summary": "Widgets disponíveis, ordem, larguras e ocultos", "responses": { "200": { "description": "Dashboard" } } }
+    },
+    "/dashboard/widgets/order": {
+      "put": { "tags": ["Dashboard"], "summary": "Salva a ordem dos widgets", "responses": { "200": { "description": "Ordem salva" } } }
+    },
+    "/dashboard/widgets/{id}": {
+      "put": { "tags": ["Dashboard"], "summary": "Oculta ou mostra um widget", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Widget atualizado" } } }
+    },
+    "/dashboard/widgets/{id}/layout": {
+      "put": { "tags": ["Dashboard"], "summary": "Redimensiona um widget (1 a 3 colunas)", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Largura salva" } } }
+    },
+    "/work-context": {
+      "get": {
+        "tags": ["Integrações"],
+        "summary": "Trabalho relacionado a uma estação ou site Nokia",
+        "parameters": [
+          { "name": "resource_type", "in": "query", "required": true, "schema": { "type": "string", "enum": ["station", "nokia_site"] } },
+          { "name": "resource_id", "in": "query", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Tarefas, follow-ups, eventos e vínculo cruzado" }, "404": { "description": "Recurso não encontrado" } }
+      }
+    },
+    "/work-links": {
+      "post": { "tags": ["Integrações"], "summary": "Vincula uma tarefa, follow-up ou evento a uma estação/site Nokia", "responses": { "201": { "description": "Vínculo criado" }, "404": { "description": "Item ou recurso não encontrado" } } }
+    },
+    "/work-links/{id}": {
+      "delete": { "tags": ["Integrações"], "summary": "Remove um vínculo", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Vínculo removido" } } }
+    },
+    "/work-items": {
+      "post": { "tags": ["Integrações"], "summary": "Cria e vincula tarefa, follow-up ou evento em uma única chamada", "responses": { "201": { "description": "Item criado e vinculado" }, "422": { "description": "Validação" } } }
+    },
+    "/radio-links": {
+      "get": {
+        "tags": ["Radio links"],
+        "summary": "Lista os rádio links",
+        "parameters": [
+          { "name": "search", "in": "query", "schema": { "type": "string" } },
+          { "name": "status", "in": "query", "schema": { "type": "string" } },
+          { "name": "technology", "in": "query", "schema": { "type": "string" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Rádio links" } }
+      },
+      "post": {
+        "tags": ["Radio links"],
+        "summary": "Cria um rádio link entre duas estações",
+        "responses": { "201": { "description": "Criado" }, "422": { "description": "Validação" } }
+      }
+    },
+    "/radio-links/stations": {
+      "get": {
+        "tags": ["Radio links"],
+        "summary": "Busca estações para as pontas A e B",
+        "parameters": [
+          { "name": "search", "in": "query", "schema": { "type": "string" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Estações" } }
+      }
+    },
+    "/radio-links/{id}": {
+      "get": {
+        "tags": ["Radio links"],
+        "summary": "Detalha um rádio link",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Rádio link" }, "404": { "description": "Não encontrado" } }
+      },
+      "put": {
+        "tags": ["Radio links"],
+        "summary": "Atualiza um rádio link",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Atualizado" }, "422": { "description": "Validação" } }
+      },
+      "delete": {
+        "tags": ["Radio links"],
+        "summary": "Exclui um rádio link",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Removido" }, "404": { "description": "Não encontrado" } }
+      }
+    },
+    "/radio-links/{id}/attachments": {
+      "post": {
+        "tags": ["Radio links"],
+        "summary": "Envia anexos para o rádio link",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "201": { "description": "Anexos enviados" }, "422": { "description": "Arquivo inválido" } }
+      }
+    },
+    "/radio-links/{id}/attachments/{attachmentId}": {
+      "get": {
+        "tags": ["Radio links"],
+        "summary": "Baixa um anexo do rádio link",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } },
+          { "name": "attachmentId", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": { "307": { "description": "Redireciona para o arquivo" }, "404": { "description": "Não encontrado" } }
+      },
+      "delete": {
+        "tags": ["Radio links"],
+        "summary": "Remove um anexo do rádio link",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } },
+          { "name": "attachmentId", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Removido" }, "404": { "description": "Não encontrado" } }
+      }
+    },
+    "/radio-links/{id}/comments": {
+      "post": {
+        "tags": ["Radio links"],
+        "summary": "Publica um comentário no rádio link",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "201": { "description": "Comentário publicado" }, "422": { "description": "Validação" } }
+      }
+    },
+    "/radio-links/{id}/comments/{commentId}": {
+      "delete": {
+        "tags": ["Radio links"],
+        "summary": "Remove um comentário do rádio link",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } },
+          { "name": "commentId", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Removido" }, "403": { "description": "Sem permissão" } }
+      }
+    },
+    "/links": {
+      "get": {
+        "tags": ["Links curtos"],
+        "summary": "Lista links curtos com estatísticas",
+        "parameters": [
+          { "name": "search", "in": "query", "schema": { "type": "string" } },
+          { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["active", "inactive", "expired"] } },
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Links e estatísticas" } }
+      },
+      "post": { "tags": ["Links curtos"], "summary": "Cria um link curto", "responses": { "201": { "description": "Link criado" }, "422": { "description": "Validação" } } }
+    },
+    "/links/export": {
+      "get": { "tags": ["Links curtos"], "summary": "Exporta os links em CSV", "responses": { "200": { "description": "Arquivo CSV" } } }
+    },
+    "/links/{id}": {
+      "get": { "tags": ["Links curtos"], "summary": "Detalhes, acessos, origens e série diária", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Detalhes do link" }, "404": { "description": "Não encontrado" } } },
+      "put": { "tags": ["Links curtos"], "summary": "Atualiza um link curto", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Link atualizado" }, "422": { "description": "Validação" } } },
+      "delete": { "tags": ["Links curtos"], "summary": "Exclui um link curto", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Link excluído" } } }
+    },
+    "/links/{id}/toggle": {
+      "patch": { "tags": ["Links curtos"], "summary": "Ativa ou desativa um link curto", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Link atualizado" } } }
+    },
+    "/links/{id}/qr": {
+      "get": { "tags": ["Links curtos"], "summary": "Gera o QR Code PNG do link curto", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Imagem PNG" } } }
+    },
+    "/links/{id}/files": {
+      "get": { "tags": ["Links curtos"], "summary": "Lista os arquivos anexados ao link", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Arquivos" } } },
+      "post": { "tags": ["Links curtos"], "summary": "Anexa arquivos ao link (multipart, 50 MB cada)", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "201": { "description": "Arquivos anexados" }, "422": { "description": "Validação" } } }
+    },
+    "/links/{id}/files/{fileId}": {
+      "delete": { "tags": ["Links curtos"], "summary": "Remove um arquivo do link", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "fileId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Arquivo removido" } } }
+    },
+    "/demands": {
+      "get": {
+        "tags": ["Demandas"],
+        "summary": "Lista demandas com estatísticas e colaboradores",
+        "parameters": [
+          { "name": "search", "in": "query", "schema": { "type": "string" } },
+          { "name": "status", "in": "query", "schema": { "type": "string" } },
+          { "name": "priority", "in": "query", "schema": { "type": "string" } },
+          { "name": "assignee_id", "in": "query", "schema": { "type": "integer" } },
+          { "name": "scope", "in": "query", "schema": { "type": "string", "enum": ["mine", "created"] } },
+          { "name": "page", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Demandas" } }
+      },
+      "post": { "tags": ["Demandas"], "summary": "Cria e encaminha uma demanda", "responses": { "201": { "description": "Demanda criada" }, "422": { "description": "Validação" } } }
+    },
+    "/demands/export": {
+      "get": { "tags": ["Demandas"], "summary": "Exporta demandas em CSV", "responses": { "200": { "description": "Arquivo CSV" } } }
+    },
+    "/demands/collaborators": {
+      "get": { "tags": ["Demandas"], "summary": "Lista colaboradores ativos", "responses": { "200": { "description": "Colaboradores" } } }
+    },
+    "/demands/{id}": {
+      "get": { "tags": ["Demandas"], "summary": "Detalhes, histórico e anexos da demanda", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Demanda" }, "404": { "description": "Não encontrada" } } },
+      "put": { "tags": ["Demandas"], "summary": "Atualiza uma demanda", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Demanda atualizada" }, "422": { "description": "Validação" } } },
+      "delete": { "tags": ["Demandas"], "summary": "Exclui uma demanda", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Demanda excluída" } } }
+    },
+    "/demands/{id}/status": {
+      "patch": { "tags": ["Demandas"], "summary": "Altera o status da demanda", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Status atualizado" } } }
+    },
+    "/demands/{id}/updates": {
+      "post": { "tags": ["Demandas"], "summary": "Adiciona comentário ao histórico", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "201": { "description": "Comentário criado" } } }
+    },
+    "/demands/{id}/attachments": {
+      "post": { "tags": ["Demandas"], "summary": "Anexa arquivos à demanda", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "201": { "description": "Arquivos anexados" }, "422": { "description": "Validação" } } }
+    },
+    "/demands/{id}/attachments/{attachmentId}": {
+      "get": { "tags": ["Demandas"], "summary": "Baixa um anexo da demanda", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "attachmentId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Arquivo" } } },
+      "delete": { "tags": ["Demandas"], "summary": "Remove um anexo da demanda", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "attachmentId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Anexo removido" } } }
+    },
+    "/collaborators": {
+      "get": { "tags": ["Colaboradores"], "summary": "Lista colaboradores com busca, status e paginação", "parameters": [{ "name": "search", "in": "query", "schema": { "type": "string" } }, { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["active", "inactive"] } }, { "name": "page", "in": "query", "schema": { "type": "integer" } }, { "name": "per_page", "in": "query", "schema": { "type": "integer" } }], "responses": { "200": { "description": "Colaboradores, estatísticas e paginação" } } },
+      "post": { "tags": ["Colaboradores"], "summary": "Cria um colaborador", "responses": { "201": { "description": "Colaborador criado" }, "422": { "description": "Validação" } } }
+    },
+    "/collaborators/{id}": {
+      "get": { "tags": ["Colaboradores"], "summary": "Retorna um colaborador", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Colaborador" }, "404": { "description": "Não encontrado" } } },
+      "put": { "tags": ["Colaboradores"], "summary": "Atualiza um colaborador", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Colaborador atualizado" }, "422": { "description": "Validação" } } },
+      "delete": { "tags": ["Colaboradores"], "summary": "Exclui o colaborador e desvincula os recursos dos projetos", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Colaborador excluído" } } }
+    },
+    "/collaborators/{id}/toggle": {
+      "patch": { "tags": ["Colaboradores"], "summary": "Ativa ou desativa o colaborador", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Status atualizado" } } }
+    },
+    "/iepms-users": {
+      "get": { "tags": ["iEPMS"], "summary": "Lista usuários do iEPMS com busca, status e paginação", "parameters": [{ "name": "search", "in": "query", "schema": { "type": "string" } }, { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["ativo", "inativado"] } }, { "name": "page", "in": "query", "schema": { "type": "integer" } }, { "name": "per_page", "in": "query", "schema": { "type": "integer" } }], "responses": { "200": { "description": "Usuários, estatísticas e paginação" } } },
+      "post": { "tags": ["iEPMS"], "summary": "Cria um usuário do iEPMS", "responses": { "201": { "description": "Usuário criado" }, "422": { "description": "Validação" } } }
+    },
+    "/iepms-users/export": {
+      "get": { "tags": ["iEPMS"], "summary": "Exporta todos os usuários do iEPMS em XLSX", "responses": { "200": { "description": "Arquivo XLSX" } } }
+    },
+    "/iepms-users/template": {
+      "get": { "tags": ["iEPMS"], "summary": "Baixa o modelo XLSX de importação", "responses": { "200": { "description": "Arquivo XLSX" } } }
+    },
+    "/iepms-users/import": {
+      "post": { "tags": ["iEPMS"], "summary": "Importa usuários de XLSX ou CSV, criando e atualizando pelo Resource ID", "responses": { "200": { "description": "Resumo da importação" }, "422": { "description": "Validação" } } }
+    },
+    "/iepms-users/{id}": {
+      "get": { "tags": ["iEPMS"], "summary": "Retorna um usuário do iEPMS", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Usuário" }, "404": { "description": "Não encontrado" } } },
+      "put": { "tags": ["iEPMS"], "summary": "Atualiza um usuário do iEPMS", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Usuário atualizado" }, "422": { "description": "Validação" } } },
+      "delete": { "tags": ["iEPMS"], "summary": "Exclui um usuário do iEPMS", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Usuário excluído" } } }
+    },
+    "/iepms-users/{id}/password": {
+      "post": { "tags": ["iEPMS"], "summary": "Descriptografa a senha do usuário após confirmar a senha do usuário autenticado", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Senha em texto puro" }, "422": { "description": "Senha incorreta ou não cadastrada" } } }
+    },
+    "/projects": {
+      "get": { "tags": ["Projetos"], "summary": "Lista o portfólio de projetos", "parameters": [{ "name": "archived", "in": "query", "schema": { "type": "string", "enum": ["0", "1"] } }], "responses": { "200": { "description": "Projetos" } } },
+      "post": { "tags": ["Projetos"], "summary": "Cria um projeto", "responses": { "201": { "description": "Projeto criado" }, "422": { "description": "Validação" } } }
+    },
+    "/projects/{id}": {
+      "get": { "tags": ["Projetos"], "summary": "Retorna o projeto com cronograma calculado, recursos, custos e linha de base", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Projeto completo" }, "404": { "description": "Não encontrado" } } },
+      "put": { "tags": ["Projetos"], "summary": "Atualiza os dados do projeto", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Projeto atualizado" }, "422": { "description": "Validação" } } },
+      "delete": { "tags": ["Projetos"], "summary": "Exclui o projeto e seus dados", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Projeto excluído" } } }
+    },
+    "/projects/{id}/archive": {
+      "patch": { "tags": ["Projetos"], "summary": "Arquiva ou restaura o projeto", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Projeto atualizado" } } }
+    },
+    "/projects/{id}/export": {
+      "get": { "tags": ["Projetos"], "summary": "Exporta a EAP e o cronograma em CSV", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Arquivo CSV" } } }
+    },
+    "/projects/{id}/tasks": {
+      "post": { "tags": ["Projetos"], "summary": "Cria uma tarefa, resumo ou marco da EAP", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "201": { "description": "Tarefa criada" }, "422": { "description": "Validação" } } }
+    },
+    "/projects/{id}/tasks/{taskId}": {
+      "put": { "tags": ["Projetos"], "summary": "Atualiza uma tarefa da EAP", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "taskId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Tarefa atualizada" }, "422": { "description": "Validação" } } },
+      "delete": { "tags": ["Projetos"], "summary": "Exclui uma tarefa da EAP", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "taskId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Tarefa excluída" } } }
+    },
+    "/projects/{id}/tasks/{taskId}/move": {
+      "patch": { "tags": ["Projetos"], "summary": "Move a tarefa para cima ou para baixo", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "taskId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Tarefa movida" } } }
+    },
+    "/projects/{id}/tasks/{taskId}/stage": {
+      "patch": { "tags": ["Projetos"], "summary": "Move o card para outra etapa do pipeline", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "taskId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Card movido" }, "422": { "description": "Etapa inválida" } } }
+    },
+    "/projects/{id}/stages": {
+      "post": { "tags": ["Projetos"], "summary": "Cria uma etapa do pipeline", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "201": { "description": "Etapa criada" }, "422": { "description": "Validação" } } }
+    },
+    "/projects/{id}/stages/{stageId}": {
+      "put": { "tags": ["Projetos"], "summary": "Atualiza uma etapa do pipeline", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "stageId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Etapa atualizada" }, "422": { "description": "Validação" } } },
+      "delete": { "tags": ["Projetos"], "summary": "Exclui uma etapa e move os cards para a primeira etapa restante", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "stageId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Etapa excluída" } } }
+    },
+    "/projects/{id}/stages/{stageId}/move": {
+      "patch": { "tags": ["Projetos"], "summary": "Reordena a etapa para cima ou para baixo", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "stageId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Etapa movida" } } }
+    },
+    "/projects/{id}/dependencies": {
+      "post": { "tags": ["Projetos"], "summary": "Cria dependência FS, SS, FF ou SF com lag", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "201": { "description": "Dependência criada" }, "422": { "description": "Validação ou ciclo" } } }
+    },
+    "/projects/{id}/dependencies/{dependencyId}": {
+      "delete": { "tags": ["Projetos"], "summary": "Remove uma dependência", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "dependencyId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Dependência removida" } } }
+    },
+    "/projects/{id}/resources": {
+      "post": { "tags": ["Projetos"], "summary": "Cadastra um recurso com custo/hora e capacidade, opcionalmente vinculado a um colaborador", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "201": { "description": "Recurso criado" }, "422": { "description": "Validação" } } }
+    },
+    "/projects/{id}/resources/{resourceId}": {
+      "put": { "tags": ["Projetos"], "summary": "Atualiza um recurso", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "resourceId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Recurso atualizado" } } },
+      "delete": { "tags": ["Projetos"], "summary": "Remove um recurso", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "resourceId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Recurso removido" } } }
+    },
+    "/projects/{id}/assignments": {
+      "post": { "tags": ["Projetos"], "summary": "Aloca um recurso em uma tarefa", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "201": { "description": "Alocação criada" }, "422": { "description": "Validação" } } }
+    },
+    "/projects/{id}/assignments/{assignmentId}": {
+      "delete": { "tags": ["Projetos"], "summary": "Remove uma alocação", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "assignmentId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Alocação removida" } } }
+    },
+    "/projects/{id}/holidays": {
+      "post": { "tags": ["Projetos"], "summary": "Cadastra um feriado no calendário do projeto", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "201": { "description": "Feriado criado" }, "422": { "description": "Validação" } } }
+    },
+    "/projects/{id}/holidays/{holidayId}": {
+      "delete": { "tags": ["Projetos"], "summary": "Remove um feriado", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "holidayId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Feriado removido" } } }
+    },
+    "/projects/{id}/baselines": {
+      "post": { "tags": ["Projetos"], "summary": "Captura uma linha de base do cronograma e custos", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "201": { "description": "Linha de base criada" } } }
+    },
+    "/projects/{id}/baselines/{baselineId}": {
+      "delete": { "tags": ["Projetos"], "summary": "Remove uma linha de base", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }, { "name": "baselineId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Linha de base removida" } } }
+    },
+    "/settings": {
+      "get": { "tags": ["Settings"], "summary": "Configurações do usuário, módulos, fuso e armazenamento", "responses": { "200": { "description": "Configurações" } } }
+    },
+    "/settings/theme": {
+      "put": { "tags": ["Settings"], "summary": "Salva o tema (system, light, dark)", "responses": { "200": { "description": "Tema salvo" } } }
+    },
+    "/settings/modules": {
+      "put": { "tags": ["Settings"], "summary": "Salva módulos habilitados, ordem e seção", "responses": { "200": { "description": "Módulos salvos" } } }
+    },
+    "/settings/notifications": {
+      "put": { "tags": ["Settings"], "summary": "Salva preferência de e-mail", "responses": { "200": { "description": "Preferência salva" } } }
+    },
+    "/settings/system": {
+      "put": { "tags": ["Settings"], "summary": "Salva o fuso horário do sistema (admin)", "responses": { "200": { "description": "Fuso salvo" } } }
+    },
+    "/settings/storage": {
+      "put": { "tags": ["Settings"], "summary": "Salva o provedor de upload (admin)", "responses": { "200": { "description": "Armazenamento salvo" } } }
+    },
+    "/settings/password": {
+      "put": { "tags": ["Settings"], "summary": "Altera a senha", "responses": { "200": { "description": "Senha alterada" }, "422": { "description": "Validação" } } }
+    },
+    "/settings/account": {
+      "delete": { "tags": ["Settings"], "summary": "Exclui a própria conta", "responses": { "200": { "description": "Conta excluída" } } }
+    },
+    "/notifications": {
+      "get": {
+        "tags": ["Notifications"],
+        "summary": "Lista notificações do usuário",
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Notificações" } }
+      },
+      "delete": { "tags": ["Notifications"], "summary": "Remove todas as notificações", "responses": { "200": { "description": "Notificações removidas" } } }
+    },
+    "/notifications/read-all": {
+      "patch": { "tags": ["Notifications"], "summary": "Marca todas como lidas", "responses": { "200": { "description": "Atualizadas" } } }
+    },
+    "/notifications/{id}/read": {
+      "patch": { "tags": ["Notifications"], "summary": "Marca uma notificação como lida", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Atualizada" } } }
+    },
+    "/notifications/{id}": {
+      "delete": { "tags": ["Notifications"], "summary": "Remove uma notificação", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Removida" } } }
+    },
+    "/backups": {
+      "get": {
+        "tags": ["Backups"],
+        "summary": "Lista os backups disponíveis e a configuração (admin)",
+        "responses": { "200": { "description": "Backups e configuração" }, "403": { "description": "Acesso restrito" } }
+      },
+      "post": {
+        "tags": ["Backups"],
+        "summary": "Cria um backup do banco de dados e dos uploads (admin)",
+        "responses": { "201": { "description": "Backup criado" }, "500": { "description": "Falha ao gerar o backup" } }
+      }
+    },
+    "/backups/schedule": {
+      "put": {
+        "tags": ["Backups"],
+        "summary": "Salva o agendamento do backup automático (admin)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["enabled", "hour", "minute", "weekdays"],
+                "properties": {
+                  "enabled": { "type": "boolean" },
+                  "hour": { "type": "integer", "minimum": 0, "maximum": 23 },
+                  "minute": { "type": "integer", "minimum": 0, "maximum": 59 },
+                  "weekdays": { "type": "array", "items": { "type": "integer", "minimum": 1, "maximum": 7 }, "description": "1=segunda ... 7=domingo" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Agendamento salvo" }, "422": { "description": "Validação" } }
+      }
+    },
+    "/backups/import": {
+      "post": {
+        "tags": ["Backups"],
+        "summary": "Importa um arquivo .zip de backup (admin)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["file"],
+                "properties": {
+                  "file": { "type": "string", "format": "binary" },
+                  "restore": { "type": "string", "enum": ["true", "false"], "description": "Restaura o backup após importar" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Backup importado" }, "422": { "description": "Arquivo inválido" } }
+      }
+    },
+    "/backups/{name}/download": {
+      "get": {
+        "tags": ["Backups"],
+        "summary": "Baixa um backup em zip (admin)",
+        "parameters": [{ "name": "name", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Arquivo zip" }, "404": { "description": "Backup não encontrado" } }
+      }
+    },
+    "/backups/{name}/restore": {
+      "post": {
+        "tags": ["Backups"],
+        "summary": "Restaura o banco e os uploads a partir de um backup (admin)",
+        "parameters": [{ "name": "name", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["confirm"],
+                "properties": { "confirm": { "type": "string", "description": "Nome exato do backup" } }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Backup restaurado" }, "422": { "description": "Confirmação inválida" } }
+      }
+    },
+    "/backups/{name}": {
+      "delete": {
+        "tags": ["Backups"],
+        "summary": "Remove um backup (admin)",
+        "parameters": [{ "name": "name", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Backup removido" }, "404": { "description": "Backup não encontrado" } }
+      }
+    },
+    "/uploads": {
+      "post": {
+        "tags": ["Uploads"],
+        "summary": "Envia uma imagem",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["file"],
+                "properties": { "file": { "type": "string", "format": "binary" } }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Imagem armazenada" }, "422": { "description": "Arquivo inválido" } }
+      }
+    }
+  }
+}
