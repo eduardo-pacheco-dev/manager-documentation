@@ -8,6 +8,7 @@
   "servers": [{ "url": "/api/v1" }],
   "tags": [
     { "name": "Auth", "description": "Cadastro, login e sessão" },
+    { "name": "Public", "description": "Links curtos e links públicos de demandas" },
     { "name": "Users", "description": "Gestão de usuários (admin)" },
     { "name": "Dev docs", "description": "Wiki de desenvolvimento (admin)" },
     { "name": "Dashboard", "description": "Widgets do painel" },
@@ -76,6 +77,75 @@
   },
   "security": [{ "bearerAuth": [] }],
   "paths": {
+    "/public/links/{code}": {
+      "get": {
+        "tags": ["Public"],
+        "summary": "Retorna os dados públicos de um link curto",
+        "security": [],
+        "parameters": [
+          { "name": "code", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Dados do link ou redirect_url quando não há anexos" },
+          "410": { "description": "Link indisponível", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/public/demands/upload/{token}": {
+      "get": {
+        "tags": ["Public"],
+        "summary": "Retorna os dados da página pública de upload",
+        "security": [],
+        "parameters": [
+          { "name": "token", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Dados da demanda" },
+          "410": { "description": "Link indisponível", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "post": {
+        "tags": ["Public"],
+        "summary": "Envia arquivos pelo link público",
+        "security": [],
+        "parameters": [
+          { "name": "token", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "files": { "type": "array", "items": { "type": "string", "format": "binary" } }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Arquivos enviados" },
+          "400": { "description": "Validação", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "410": { "description": "Link indisponível", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/public/demands/download/{token}": {
+      "get": {
+        "tags": ["Public"],
+        "summary": "Retorna os dados da página pública de download",
+        "security": [],
+        "parameters": [
+          { "name": "token", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Dados da demanda" },
+          "410": { "description": "Link indisponível", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
     "/auth/signup": {
       "post": {
         "tags": ["Auth"],

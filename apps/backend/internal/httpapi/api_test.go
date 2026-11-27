@@ -612,19 +612,9 @@ func TestShortLinks(t *testing.T) {
 		t.Fatalf("short links list failed: %d %v", res.StatusCode, payload)
 	}
 
-	noRedirect := &http.Client{
-		Jar: app.client.Jar,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
-	publicRes, err := noRedirect.Get(app.server.URL + "/s/teste-link")
-	if err != nil {
-		t.Fatalf("public short link request: %v", err)
-	}
-	publicRes.Body.Close()
-	if publicRes.StatusCode != http.StatusFound || publicRes.Header.Get("Location") != "https://example.com/docs" {
-		t.Fatalf("public redirect status = %d location = %q", publicRes.StatusCode, publicRes.Header.Get("Location"))
+	publicRes, publicPayload := app.request(http.MethodGet, "/api/v1/public/links/teste-link", nil, "", nil)
+	if publicRes.StatusCode != http.StatusOK || publicPayload["redirect_url"] != "https://example.com/docs" {
+		t.Fatalf("public short link status = %d payload=%v", publicRes.StatusCode, publicPayload)
 	}
 
 	res, payload = app.request(http.MethodGet, fmt.Sprintf("/api/v1/links/%d", linkID), nil, "", nil)
@@ -667,16 +657,13 @@ func TestShortLinks(t *testing.T) {
 	}
 	file := files[0].(map[string]any)
 	fileID := int64(file["id"].(float64))
-	landing, err := noRedirect.Get(app.server.URL + "/s/teste-link")
-	if err != nil {
-		t.Fatalf("short link landing request: %v", err)
+	landingRes, landingPayload := app.request(http.MethodGet, "/api/v1/public/links/teste-link", nil, "", nil)
+	landingFiles, _ := landingPayload["files"].([]any)
+	if landingRes.StatusCode != http.StatusOK || len(landingFiles) != 1 ||
+		landingFiles[0].(map[string]any)["name"] != "documento.txt" {
+		t.Fatalf("short link landing status = %d payload=%v", landingRes.StatusCode, landingPayload)
 	}
-	landingBody, _ := io.ReadAll(landing.Body)
-	landing.Body.Close()
-	if landing.StatusCode != http.StatusOK || !strings.Contains(string(landingBody), "documento.txt") {
-		t.Fatalf("short link landing status = %d body=%s", landing.StatusCode, landingBody)
-	}
-	download, err := noRedirect.Get(app.server.URL + fmt.Sprintf("/s/teste-link/files/%d", fileID))
+	download, err := app.client.Get(app.server.URL + fmt.Sprintf("/s/teste-link/files/%d", fileID))
 	if err != nil {
 		t.Fatalf("short link file download: %v", err)
 	}
@@ -690,11 +677,7 @@ func TestShortLinks(t *testing.T) {
 	if res.StatusCode != http.StatusOK || payload["data"].(map[string]any)["link"].(map[string]any)["is_active"] != false {
 		t.Fatalf("short link toggle failed: %d %v", res.StatusCode, payload)
 	}
-	publicRes, err = noRedirect.Get(app.server.URL + "/s/teste-link")
-	if err != nil {
-		t.Fatalf("disabled short link request: %v", err)
-	}
-	publicRes.Body.Close()
+	publicRes, _ = app.request(http.MethodGet, "/api/v1/public/links/teste-link", nil, "", nil)
 	if publicRes.StatusCode != http.StatusGone {
 		t.Fatalf("disabled short link status = %d", publicRes.StatusCode)
 	}
@@ -802,23 +785,16 @@ func TestDemands(t *testing.T) {
 		t.Fatalf("demand attachment download status = %d body=%q", download.StatusCode, downloadBody)
 	}
 
-	publicClient := &http.Client{
-		Jar: app.client.Jar,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
-	uploadPath := strings.TrimPrefix(demand["upload_url"].(string), "http://example.test")
-	downloadPath := strings.TrimPrefix(demand["download_url"].(string), "http://example.test")
-	uploadPage, err := app.client.Get(app.server.URL + uploadPath)
-	if err != nil {
-		t.Fatalf("demand public upload page: %v", err)
-	}
-	finalUploadPath := uploadPage.Request.URL.Path
-	uploadPageBody, _ := io.ReadAll(uploadPage.Body)
-	uploadPage.Body.Close()
-	if uploadPage.StatusCode != http.StatusOK || !strings.Contains(string(uploadPageBody), "Enviar arquivos") {
-		t.Fatalf("demand public upload page status = %d body=%s", uploadPage.StatusCode, uploadPageBody)
+	uploadShortPath := strings.TrimPrefix(demand["upload_url"].(string), "http://example.test")
+	downloadShortPath := strings.TrimPrefix(demand["download_url"].(string), "http://example.test")
+	_, uploadRedirect := app.request(http.MethodGet, "/api/v1/public/links/"+strings.TrimPrefix(uploadShortPath, "/s/"), nil, "", nil)
+	_, downloadRedirect := app.request(http.MethodGet, "/api/v1/public/links/"+strings.TrimPrefix(downloadShortPath, "/s/"), nil, "", nil)
+	uploadToken := strings.TrimPrefix(uploadRedirect["redirect_url"].(string), "/u/")
+	downloadToken := strings.TrimPrefix(downloadRedirect["redirect_url"].(string), "/d/")
+
+	uploadInfoRes, uploadInfo := app.request(http.MethodGet, "/api/v1/public/demands/upload/"+uploadToken, nil, "", nil)
+	if uploadInfoRes.StatusCode != http.StatusOK || uploadInfo["is_upload"] != true {
+		t.Fatalf("demand public upload info status = %d payload=%v", uploadInfoRes.StatusCode, uploadInfo)
 	}
 
 	var publicUpload bytes.Buffer
@@ -827,23 +803,25 @@ func TestDemands(t *testing.T) {
 	publicPart, _ := publicWriter.CreateFormFile("files", "evidencia-publica.txt")
 	_, _ = publicPart.Write([]byte("arquivo enviado pelo link publico"))
 	_ = publicWriter.Close()
-	publicReq, _ := http.NewRequest(http.MethodPost, app.server.URL+finalUploadPath, &publicUpload)
+	publicReq, _ := http.NewRequest(http.MethodPost, app.server.URL+"/api/v1/public/demands/upload/"+uploadToken, &publicUpload)
 	publicReq.Header.Set("Content-Type", publicWriter.FormDataContentType())
-	publicRes, err := publicClient.Do(publicReq)
-	if err != nil || publicRes.StatusCode != http.StatusSeeOther {
-		t.Fatalf("demand public upload failed: %v %d", err, publicRes.StatusCode)
-	}
-	_ = publicRes.Body.Close()
-
-	downloadPage, err := app.client.Get(app.server.URL + downloadPath)
+	publicRes, err := app.client.Do(publicReq)
 	if err != nil {
-		t.Fatalf("demand public download page: %v", err)
+		t.Fatalf("demand public upload failed: %v", err)
 	}
-	finalDownloadPath := downloadPage.Request.URL.Path
-	downloadPageBody, _ := io.ReadAll(downloadPage.Body)
-	downloadPage.Body.Close()
-	if downloadPage.StatusCode != http.StatusOK || !strings.Contains(string(downloadPageBody), "evidencia-publica.txt") {
-		t.Fatalf("demand public download page status = %d body=%s", downloadPage.StatusCode, downloadPageBody)
+	publicRaw, _ := io.ReadAll(publicRes.Body)
+	publicRes.Body.Close()
+	publicPayload := map[string]any{}
+	_ = json.Unmarshal(publicRaw, &publicPayload)
+	if publicRes.StatusCode != http.StatusOK || publicPayload["uploaded"] != float64(1) {
+		t.Fatalf("demand public upload status = %d payload=%v", publicRes.StatusCode, publicPayload)
+	}
+
+	downloadInfoRes, downloadInfo := app.request(http.MethodGet, "/api/v1/public/demands/download/"+downloadToken, nil, "", nil)
+	downloadFiles, _ := downloadInfo["files"].([]any)
+	if downloadInfoRes.StatusCode != http.StatusOK || len(downloadFiles) == 0 ||
+		downloadFiles[0].(map[string]any)["name"] != "evidencia-publica.txt" {
+		t.Fatalf("demand public download info status = %d payload=%v", downloadInfoRes.StatusCode, downloadInfo)
 	}
 
 	res, payload = app.request(http.MethodGet, fmt.Sprintf("/api/v1/demands/%d", demandID), nil, "", nil)
@@ -861,7 +839,7 @@ func TestDemands(t *testing.T) {
 	if publicFileID == 0 {
 		t.Fatalf("public attachment missing: %v", attachments)
 	}
-	publicDownload, err := app.client.Get(app.server.URL + fmt.Sprintf("%s/files/%d", finalDownloadPath, publicFileID))
+	publicDownload, err := app.client.Get(app.server.URL + fmt.Sprintf("/d/%s/files/%d", downloadToken, publicFileID))
 	if err != nil {
 		t.Fatalf("demand public file download: %v", err)
 	}

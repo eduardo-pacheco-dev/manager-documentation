@@ -28,6 +28,9 @@ import { IepmsUsersPage } from './pages/modules/IepmsUsersPage';
 import { RadioLinksPage } from './pages/modules/RadioLinksPage';
 import { RadioLinkDetailPage } from './pages/modules/RadioLinkDetailPage';
 import { NotFoundPage, ForbiddenPage } from './pages/StatusPages';
+import { ShortLinkPage } from './pages/public/ShortLinkPage';
+import { DemandPublicPage } from './pages/public/DemandPublicPage';
+import { ApiDocsPage } from './pages/ApiDocsPage';
 
 function Splash() {
   return (
@@ -68,6 +71,10 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<PublicOnly><LoginPage /></PublicOnly>} />
       <Route path="/register" element={<PublicOnly><RegisterPage /></PublicOnly>} />
+      <Route path="/s/:code" element={<ShortLinkPage />} />
+      <Route path="/u/:token" element={<DemandPublicPage mode="upload" />} />
+      <Route path="/d/:token" element={<DemandPublicPage mode="download" />} />
+      <Route path="/api-docs" element={<ApiDocsPage />} />
       <Route element={<ProtectedLayout />}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<DashboardPage />} />

@@ -45,5 +45,8 @@ Os antigos plugins foram convertidos em módulos nativos:
 | /dev-docs | Wiki de desenvolvimento (admin) |
 | /settings | Configurações |
 | /notifications | Central de notificações |
-| /api/documentation | Swagger UI |
+| /s/{código} | Página pública de link curto |
+| /u/{token} | Envio público de arquivos de demanda |
+| /d/{token} | Download público de arquivos de demanda |
+| /api-docs | Swagger UI (frontend) |
 | /docs | Especificação OpenAPI em JSON |

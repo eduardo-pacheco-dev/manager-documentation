@@ -5,7 +5,6 @@ import (
 	"encoding/csv"
 	"encoding/hex"
 	"fmt"
-	"html/template"
 	"log"
 	"mime"
 	"net"
@@ -27,7 +26,7 @@ import (
 var shortCodePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{2,31}$`)
 
 var reservedShortCodes = map[string]bool{
-	"api": true, "s": true, "login": true, "register": true, "dashboard": true,
+	"api": true, "api-docs": true, "s": true, "login": true, "register": true, "dashboard": true,
 	"links": true, "uploads": true, "healthz": true, "docs": true, "settings": true,
 	"users": true, "profile": true, "stations": true, "nokia": true, "agenda": true,
 	"tasks": true, "follow-ups": true, "notifications": true, "dev-docs": true, "assets": true,
@@ -443,263 +442,40 @@ func (s *Server) linksExport(w http.ResponseWriter, r *http.Request) {
 	writer.Flush()
 }
 
-type shortLinkPageFile struct {
-	Name string
-	Size string
-	Type string
-	URL  string
+type shortLinkPublicFile struct {
+	Name string `json:"name"`
+	Size string `json:"size"`
+	Type string `json:"type"`
+	URL  string `json:"url"`
 }
 
-var shortLinkPublicTemplate = template.Must(template.New("short-link").Parse(`<!doctype html>
-<html lang="pt-BR">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#161616">
-<meta name="robots" content="noindex">
-<title>{{.Title}}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-<style>
-:root{
-  --cds-background:#f4f4f4;
-  --cds-layer:#ffffff;
-  --cds-layer-hover:#f4f4f4;
-  --cds-text-primary:#161616;
-  --cds-text-secondary:#525252;
-  --cds-text-helper:#6f6f6f;
-  --cds-border-subtle:#e0e0e0;
-  --cds-border-strong:#8d8d8d;
-  --cds-interactive:#0f62fe;
-  --cds-interactive-hover:#0043ce;
-  --cds-support-info:#0043ce;
-  --cds-header:#161616;
-  --cds-focus:#0f62fe;
-  --cds-spacing-03:.5rem;
-  --cds-spacing-05:1rem;
-  --cds-spacing-07:2rem;
-  --cds-spacing-09:3rem;
-}
-*{box-sizing:border-box}
-html{background:var(--cds-background)}
-body{
-  margin:0;
-  background:var(--cds-background);
-  color:var(--cds-text-primary);
-  font-family:"IBM Plex Sans","Segoe UI",system-ui,-apple-system,sans-serif;
-  font-size:1rem;
-  line-height:1.5;
-  -webkit-font-smoothing:antialiased;
-}
-a{color:var(--cds-interactive)}
-.cds-header{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:1rem;
-  height:3rem;
-  padding:0 var(--cds-spacing-05);
-  background:var(--cds-header);
-  color:#fff;
-}
-.cds-header__brand{display:flex;align-items:center;gap:.75rem;font-size:.875rem;font-weight:600;letter-spacing:.01em}
-.cds-header__mark{
-  display:flex;align-items:center;justify-content:center;width:1.5rem;height:1.5rem;
-  background:#fff;color:#161616;font-size:.75rem;font-weight:600;
-}
-.cds-header__meta{color:#c6c6c6;font-size:.75rem}
-.shell{max-width:66rem;margin:0 auto;padding:var(--cds-spacing-07) var(--cds-spacing-05) var(--cds-spacing-09)}
-.eyebrow{
-  margin:0 0 .35rem;color:var(--cds-text-secondary);
-  font-size:.75rem;font-weight:500;letter-spacing:.08em;text-transform:uppercase;
-}
-h1{
-  margin:0 0 .5rem;
-  font-size:clamp(1.75rem,4vw,2.625rem);
-  font-weight:400;
-  letter-spacing:0;
-  line-height:1.15;
-}
-.lead{max-width:48rem;margin:0 0 1.25rem;color:var(--cds-text-secondary);font-size:1rem}
-.tag-row{display:flex;flex-wrap:wrap;gap:.5rem;margin:0 0 2rem}
-.cds-tag{
-  display:inline-flex;align-items:center;gap:.35rem;
-  min-height:1.5rem;padding:.15rem .55rem;
-  border-radius:999px;background:#e0e0e0;color:#161616;
-  font-size:.75rem;line-height:1.3;white-space:nowrap;
-}
-.cds-tag--blue{background:#d0e2ff;color:#002d9c}
-.cds-tag--green{background:#defbe6;color:#0e6027}
-.cds-tag--gray{background:#e0e0e0;color:#393939}
-.panel{
-  background:var(--cds-layer);
-  border:1px solid var(--cds-border-subtle);
-  padding:var(--cds-spacing-07);
-  margin-bottom:var(--cds-spacing-05);
-}
-.panel:last-of-type{margin-bottom:0}
-.panel h2{margin:0;font-size:1.25rem;font-weight:400;line-height:1.3}
-.panel .panel__hint{margin:.25rem 0 1.25rem;color:var(--cds-text-helper);font-size:.8rem}
-.target-row{display:flex;flex-wrap:wrap;align-items:center;gap:.75rem 1rem}
-.cds-btn{
-  display:inline-flex;align-items:center;justify-content:space-between;gap:2rem;
-  min-height:3rem;padding:0 1rem;border:1px solid transparent;
-  background:var(--cds-interactive);color:#fff;
-  font-family:inherit;font-size:.875rem;font-weight:400;
-  text-decoration:none;cursor:pointer;transition:background .12s ease;
-}
-.cds-btn:hover{background:var(--cds-interactive-hover);color:#fff}
-.cds-btn:focus-visible{outline:2px solid var(--cds-focus);outline-offset:2px}
-.cds-btn svg{flex-shrink:0}
-.target-url{
-  max-width:36rem;overflow:hidden;color:var(--cds-text-helper);
-  font-size:.75rem;text-overflow:ellipsis;white-space:nowrap;
-}
-.file-list{list-style:none;margin:0;padding:0;border-top:1px solid var(--cds-border-subtle)}
-.file-row{
-  display:flex;align-items:center;gap:1rem;
-  padding:1rem 0;border-bottom:1px solid var(--cds-border-subtle);
-  transition:background .12s ease;
-}
-.file-row:hover{background:var(--cds-layer-hover)}
-.file-icon{
-  display:flex;align-items:center;justify-content:center;
-  width:2.5rem;height:2.5rem;flex-shrink:0;background:#edf5ff;color:var(--cds-support-info);
-}
-.file-info{display:flex;flex-direction:column;gap:.15rem;min-width:0;flex:1}
-.file-info strong{font-size:.875rem;font-weight:500;overflow-wrap:anywhere}
-.file-info span{color:var(--cds-text-helper);font-size:.75rem}
-.file-download{
-  display:inline-flex;align-items:center;gap:.5rem;flex-shrink:0;
-  min-height:2.5rem;padding:0 .9rem;border:1px solid var(--cds-interactive);
-  color:var(--cds-interactive);font-size:.8rem;text-decoration:none;
-  transition:background .12s ease,color .12s ease;
-}
-.file-download:hover{background:var(--cds-interactive);color:#fff}
-.file-download:focus-visible{outline:2px solid var(--cds-focus);outline-offset:2px}
-.empty-note{color:var(--cds-text-secondary);margin:.5rem 0 0;font-size:.875rem}
-.notice{
-  display:flex;gap:.75rem;margin-top:var(--cds-spacing-05);
-  padding:1rem;border-left:3px solid var(--cds-interactive);background:#edf5ff;
-  color:#0043ce;font-size:.8rem;
-}
-.footer{
-  max-width:66rem;margin:0 auto;padding:0 var(--cds-spacing-05) var(--cds-spacing-07);
-  color:var(--cds-text-helper);font-size:.72rem;
-  display:flex;flex-wrap:wrap;gap:.5rem;justify-content:space-between;
-}
-.footer a{color:inherit}
-@media (max-width:42rem){
-  .shell{padding-top:var(--cds-spacing-05)}
-  .panel{padding:1.25rem}
-  .file-row{flex-wrap:wrap}
-  .file-download{margin-left:3.5rem}
-  .cds-header__meta{display:none}
-}
-</style>
-</head>
-<body>
-<header class="cds-header">
-  <div class="cds-header__brand"><span class="cds-header__mark">DC</span> Documentation Center</div>
-  <span class="cds-header__meta">Compartilhamento de arquivos</span>
-</header>
-
-<main class="shell">
-  <p class="eyebrow">Link compartilhado</p>
-  <h1>{{.Title}}</h1>
-  {{if .Description}}<p class="lead">{{.Description}}</p>{{end}}
-  <div class="tag-row">
-    <span class="cds-tag cds-tag--blue">{{.FileCount}} arquivo(s)</span>
-    <span class="cds-tag cds-tag--gray">{{.TotalSize}}</span>
-    {{if .Expires}}<span class="cds-tag cds-tag--green">Expira em {{.Expires}}</span>{{end}}
-  </div>
-
-  {{if .Target}}
-  <section class="panel">
-    <h2>Destino do link</h2>
-    <p class="panel__hint">Este link também aponta para uma página externa.</p>
-    <div class="target-row">
-      <a class="cds-btn" href="{{.Target}}" target="_blank" rel="noopener noreferrer">
-        Abrir destino
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 13 13 3M6 3h7v7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </a>
-      <span class="target-url">{{.TargetHost}}</span>
-    </div>
-  </section>
-  {{end}}
-
-  <section class="panel">
-    <h2>Arquivos para download</h2>
-    <p class="panel__hint">Baixe os arquivos disponibilizados neste link.</p>
-    {{if .Files}}
-    <ul class="file-list">
-      {{range .Files}}
-      <li class="file-row">
-        <span class="file-icon" aria-hidden="true">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M5 2.5h6l4 4v11H5v-15Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M11 2.5v4h4" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M7.5 12h5M7.5 14.5h3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-        </span>
-        <div class="file-info">
-          <strong>{{.Name}}</strong>
-          <span>{{.Type}} · {{.Size}}</span>
-        </div>
-        <a class="file-download" href="{{.URL}}" download>
-          Baixar
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2v8m0 0 3-3m-3 3L5 7M3 13h10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </a>
-      </li>
-      {{end}}
-    </ul>
-    {{else}}
-    <p class="empty-note">Nenhum arquivo anexado a este link.</p>
-    {{end}}
-  </section>
-
-  <div class="notice">
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.2"/><path d="M8 7v4M8 4.8v.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
-    <span>Os arquivos são disponibilizados pelo proprietário do link. Em caso de dúvida, entre em contato com quem compartilhou.</span>
-  </div>
-</main>
-
-<footer class="footer">
-  <span>Documentation Center · Link /s/{{.Code}}</span>
-  <span>Powered by IBM Carbon Design System</span>
-</footer>
-</body>
-</html>`))
-
-func shortLinkUnavailable(w http.ResponseWriter) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(http.StatusGone)
-	_, _ = w.Write([]byte(`<!doctype html><html lang="pt-BR"><meta charset="utf-8">
-<title>Link indisponível</title><body style="font-family:sans-serif;padding:2rem">
-<h1>Link indisponível</h1><p>Este link está desativado, expirou ou não existe.</p></body></html>`))
-}
-
-func (s *Server) shortLinkRedirect(w http.ResponseWriter, r *http.Request) {
+func (s *Server) shortLinkPublic(w http.ResponseWriter, r *http.Request) {
 	code := strings.TrimSpace(chi.URLParam(r, "code"))
 	link, err := s.Modules.FindShortLinkByCode(code)
 	if err != nil || !link.IsActive || link.Expired {
-		shortLinkUnavailable(w)
+		writeError(w, http.StatusGone, "Link indisponível.", nil)
 		return
 	}
 	files, _ := s.Modules.ShortLinkFiles(link.ID)
 	if strings.TrimSpace(link.TargetURL) == "" && len(files) == 0 {
-		shortLinkUnavailable(w)
+		writeError(w, http.StatusGone, "Link indisponível.", nil)
 		return
 	}
+
 	visitorHash := shortLinkVisitorHash(r, s.Config.AppKey)
 	referrer := truncateString(r.Referer(), 1024)
 	userAgent := truncateString(r.UserAgent(), 512)
 	if err := s.Modules.RecordShortLinkClick(link.ID, visitorHash, referrer, userAgent); err != nil {
 		log.Printf("short link click %d: %v", link.ID, err)
 	}
+
+	w.Header().Set("Cache-Control", "no-store")
 	if len(files) == 0 {
-		w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
-		http.Redirect(w, r, link.TargetURL, http.StatusFound)
+		writeJSON(w, http.StatusOK, map[string]any{"redirect_url": link.TargetURL})
 		return
 	}
-	pageFiles := make([]shortLinkPageFile, 0, len(files))
+
+	pageFiles := make([]shortLinkPublicFile, 0, len(files))
 	var totalSize int64
 	for _, file := range files {
 		totalSize += file.Size
@@ -707,11 +483,11 @@ func (s *Server) shortLinkRedirect(w http.ResponseWriter, r *http.Request) {
 		if extension == "" {
 			extension = "ARQUIVO"
 		}
-		pageFiles = append(pageFiles, shortLinkPageFile{
+		pageFiles = append(pageFiles, shortLinkPublicFile{
 			Name: file.OriginalName,
 			Size: humanFileSize(file.Size),
 			Type: extension,
-			URL:  fmt.Sprintf("%s/files/%d", s.shortLinkURL(link.Code), file.ID),
+			URL:  fmt.Sprintf("/s/%s/files/%d", link.Code, file.ID),
 		})
 	}
 	title := link.Code
@@ -722,13 +498,11 @@ func (s *Server) shortLinkRedirect(w http.ResponseWriter, r *http.Request) {
 	if link.ExpiresAt != nil {
 		expires = link.ExpiresAt.Local().Format("02/01/2006 15:04")
 	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Header().Set("Cache-Control", "no-store")
-	_ = shortLinkPublicTemplate.Execute(w, map[string]any{
-		"Title": title, "Code": link.Code, "Description": derefString(link.Description),
-		"Target": link.TargetURL, "TargetHost": shortLinkTargetHost(link.TargetURL),
-		"Files": pageFiles, "FileCount": len(pageFiles), "TotalSize": humanFileSize(totalSize),
-		"Expires": expires,
+	writeJSON(w, http.StatusOK, map[string]any{
+		"code": link.Code, "title": title, "description": derefString(link.Description),
+		"target_url": link.TargetURL, "target_host": shortLinkTargetHost(link.TargetURL),
+		"files": pageFiles, "file_count": len(pageFiles), "total_size": humanFileSize(totalSize),
+		"expires": expires,
 	})
 }
 
@@ -753,7 +527,7 @@ func (s *Server) shortLinkFileDownload(w http.ResponseWriter, r *http.Request) {
 	}
 	link, err := s.Modules.FindShortLinkByCode(code)
 	if err != nil || !link.IsActive || link.Expired {
-		shortLinkUnavailable(w)
+		writeError(w, http.StatusGone, "Link indisponível.", nil)
 		return
 	}
 	file, err := s.Modules.FindShortLinkFile(link.ID, fileID)

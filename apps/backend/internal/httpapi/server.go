@@ -68,13 +68,11 @@ func (s *Server) Router() http.Handler {
 
 	r.Get("/healthz", s.health)
 	r.Get("/up", s.health)
-	r.Get("/s/{code}", s.shortLinkRedirect)
 	r.Get("/s/{code}/files/{fileId}", s.shortLinkFileDownload)
-	r.Get("/u/{token}", s.demandPublicUploadPage)
-	r.Post("/u/{token}", s.demandPublicUpload)
-	r.Get("/d/{token}", s.demandPublicDownloadPage)
 	r.Get("/d/{token}/files/{fileId}", s.demandPublicDownloadFile)
-	r.Get("/api/documentation", s.openAPIDocs)
+	r.Get("/api/documentation", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/api-docs", http.StatusMovedPermanently)
+	})
 	r.Get("/docs", s.openAPISpec)
 	r.Handle("/uploads/*", s.uploadFileServer())
 
@@ -82,6 +80,17 @@ func (s *Server) Router() http.Handler {
 		api.Use(middleware.Throttle(180))
 		api.Post("/auth/signup", s.signup)
 		api.Post("/auth/login", s.login)
+
+		api.Group(func(public chi.Router) {
+			public.Get("/public/links/{code}", s.shortLinkPublic)
+			public.Get("/public/demands/upload/{token}", func(w http.ResponseWriter, r *http.Request) {
+				s.demandPublicInfo(w, r, chi.URLParam(r, "token"), true)
+			})
+			public.Get("/public/demands/download/{token}", func(w http.ResponseWriter, r *http.Request) {
+				s.demandPublicInfo(w, r, chi.URLParam(r, "token"), false)
+			})
+			public.Post("/public/demands/upload/{token}", s.demandPublicUpload)
+		})
 
 		api.Group(func(auth chi.Router) {
 			auth.Use(s.requireAuth)

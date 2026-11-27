@@ -6,7 +6,7 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/api': {
+      '^/api/': {
         target: 'http://localhost:8080',
         changeOrigin: false,
       },
@@ -14,7 +14,11 @@ export default defineConfig({
         target: 'http://localhost:8080',
         changeOrigin: false,
       },
-      '^/s/': {
+      '^/s/[^/]+/files/': {
+        target: 'http://localhost:8080',
+        changeOrigin: false,
+      },
+      '^/d/[^/]+/files/': {
         target: 'http://localhost:8080',
         changeOrigin: false,
       },

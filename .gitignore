@@ -1,6 +1,7 @@
 # Dependencies and build artifacts
 node_modules/
 frontend/dist/
+apps/frontend/dist/
 apps/backend/data/
 apps/backend/tmp/
 /tmp/

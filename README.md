@@ -242,8 +242,9 @@ Consulte [`apps/backend/.env.example`](apps/backend/.env.example). As principais
 
 ## API
 
-- Swagger UI: `GET /api/documentation`
+- Swagger UI: `/api-docs` (frontend)
 - Especificação OpenAPI: `GET /docs`
+- Endpoints públicos: `/api/v1/public/links/{code}`, `/api/v1/public/demands/upload/{token}`, `/api/v1/public/demands/download/{token}`
 - Health check: `GET /healthz`
 
 Exemplo de login com token:
